@@ -5,6 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Closet App</title>
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/app-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/app-icon.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -243,6 +245,7 @@
     <article class="dialog-card">
       <div class="detail-top-actions">
         <button id="editOutfitDetail" class="secondary-btn" type="button">編輯</button>
+        <button id="deleteOutfitDetail" class="danger-btn" type="button">刪除</button>
         <button id="closeDetail" class="close-btn" type="button">關閉</button>
       </div>
       <h2 id="detailDate"></h2>
@@ -277,6 +280,7 @@
     <article class="dialog-card">
       <div class="detail-top-actions">
         <button id="editItemDetail" class="secondary-btn" type="button">編輯</button>
+        <button id="deleteItemDetail" class="danger-btn" type="button">刪除</button>
         <button id="closeItemDetail" class="close-btn" type="button">關閉</button>
       </div>
       <h2 id="itemDetailTitle"></h2>
@@ -305,6 +309,28 @@
         <button type="submit">儲存設定</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="confirmDeleteItemDialog">
+    <article class="dialog-card">
+      <h2>確認刪除單品</h2>
+      <p id="confirmDeleteItemText">確定要刪除這件單品嗎？</p>
+      <div class="actions">
+        <button id="cancelDeleteItem" type="button">取消</button>
+        <button id="confirmDeleteItem" class="danger-btn" type="button">確認</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="confirmDeleteOutfitDialog">
+    <article class="dialog-card">
+      <h2>確認刪除穿搭</h2>
+      <p id="confirmDeleteOutfitText">確定要刪除這筆穿搭嗎？</p>
+      <div class="actions">
+        <button id="cancelDeleteOutfit" type="button">取消</button>
+        <button id="confirmDeleteOutfit" class="danger-btn" type="button">確認</button>
+      </div>
+    </article>
   </dialog>
 
   <script src="app.js"></script>

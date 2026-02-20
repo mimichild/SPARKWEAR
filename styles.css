@@ -574,6 +574,13 @@ fieldset label {
   margin-right: 8px;
 }
 
+.danger-btn {
+  width: auto;
+  border: 1px solid #e1c0c0;
+  color: #9b3a3a;
+  background: #fff5f5;
+}
+
 .detail-top-actions {
   display: flex;
   justify-content: flex-end;
@@ -581,7 +588,8 @@ fieldset label {
 }
 
 .detail-top-actions .close-btn,
-.detail-top-actions .secondary-btn {
+.detail-top-actions .secondary-btn,
+.detail-top-actions .danger-btn {
   float: none;
   margin: 0;
   width: auto;

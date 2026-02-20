@@ -91,6 +91,7 @@ const voteSearchCategory = document.getElementById("voteSearchCategory");
 
 const outfitDetailDialog = document.getElementById("outfitDetailDialog");
 const editOutfitDetail = document.getElementById("editOutfitDetail");
+const deleteOutfitDetail = document.getElementById("deleteOutfitDetail");
 const closeDetail = document.getElementById("closeDetail");
 const detailDate = document.getElementById("detailDate");
 const detailMeta = document.getElementById("detailMeta");
@@ -110,6 +111,7 @@ const closeCategoryItemsPage = document.getElementById("closeCategoryItemsPage")
 
 const itemDetailDialog = document.getElementById("itemDetailDialog");
 const editItemDetail = document.getElementById("editItemDetail");
+const deleteItemDetail = document.getElementById("deleteItemDetail");
 const closeItemDetail = document.getElementById("closeItemDetail");
 const itemDetailTitle = document.getElementById("itemDetailTitle");
 const itemDetailMainPhoto = document.getElementById("itemDetailMainPhoto");
@@ -118,6 +120,14 @@ const itemDetailNext = document.getElementById("itemDetailNext");
 const itemDetailCounter = document.getElementById("itemDetailCounter");
 const itemDetailRecords = document.getElementById("itemDetailRecords");
 const itemUsedOutfits = document.getElementById("itemUsedOutfits");
+const confirmDeleteItemDialog = document.getElementById("confirmDeleteItemDialog");
+const confirmDeleteItemText = document.getElementById("confirmDeleteItemText");
+const cancelDeleteItem = document.getElementById("cancelDeleteItem");
+const confirmDeleteItem = document.getElementById("confirmDeleteItem");
+const confirmDeleteOutfitDialog = document.getElementById("confirmDeleteOutfitDialog");
+const confirmDeleteOutfitText = document.getElementById("confirmDeleteOutfitText");
+const cancelDeleteOutfit = document.getElementById("cancelDeleteOutfit");
+const confirmDeleteOutfit = document.getElementById("confirmDeleteOutfit");
 
 let detailItemPhotos = [];
 let detailPhotoIndex = 0;
@@ -184,7 +194,9 @@ closeOutfitBtn.addEventListener("click", () => outfitFormDialog.close());
 closeVoteDialogBtn.addEventListener("click", () => voteDialog.close());
 closeDetail.addEventListener("click", () => outfitDetailDialog.close());
 editOutfitDetail.addEventListener("click", () => openOutfitEditForm());
+deleteOutfitDetail.addEventListener("click", () => openDeleteOutfitConfirm());
 editItemDetail.addEventListener("click", () => openItemEditForm());
+deleteItemDetail.addEventListener("click", () => openDeleteItemConfirm());
 closeItemDetail.addEventListener("click", () => itemDetailDialog.close());
 closeCategoryItemsPage.addEventListener("click", () => categoryItemsPage.classList.remove("active"));
 itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
@@ -301,6 +313,10 @@ itemDialog.addEventListener("close", () => {
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
 });
+cancelDeleteItem.addEventListener("click", () => confirmDeleteItemDialog.close());
+cancelDeleteOutfit.addEventListener("click", () => confirmDeleteOutfitDialog.close());
+confirmDeleteItem.addEventListener("click", () => deleteCurrentItem());
+confirmDeleteOutfit.addEventListener("click", () => deleteCurrentOutfit());
 
 renderAll();
 
@@ -363,7 +379,17 @@ function isSwipeNavBlockedTarget(target) {
 }
 
 function closeTopOverlay() {
-  const dialogs = [outfitDetailDialog, itemDetailDialog, voteDialog, outfitFormDialog, outfitMenuDialog, itemDialog, categoryEditDialog];
+  const dialogs = [
+    confirmDeleteItemDialog,
+    confirmDeleteOutfitDialog,
+    outfitDetailDialog,
+    itemDetailDialog,
+    voteDialog,
+    outfitFormDialog,
+    outfitMenuDialog,
+    itemDialog,
+    categoryEditDialog,
+  ];
   for (const dialog of dialogs) {
     if (dialog?.open) {
       dialog.close();
@@ -379,7 +405,17 @@ function closeTopOverlay() {
 
 function hasOpenOverlay() {
   if (categoryItemsPage.classList.contains("active")) return true;
-  return [outfitDetailDialog, itemDetailDialog, voteDialog, outfitFormDialog, outfitMenuDialog, itemDialog, categoryEditDialog]
+  return [
+    confirmDeleteItemDialog,
+    confirmDeleteOutfitDialog,
+    outfitDetailDialog,
+    itemDetailDialog,
+    voteDialog,
+    outfitFormDialog,
+    outfitMenuDialog,
+    itemDialog,
+    categoryEditDialog,
+  ]
     .some((dialog) => Boolean(dialog?.open));
 }
 
@@ -826,6 +862,34 @@ function openItemEditForm() {
   renderExistingItemPhotos(item.itemPhotos || []);
   itemDetailDialog.close();
   itemDialog.showModal();
+}
+
+function openDeleteItemConfirm() {
+  if (!currentItemDetailId) return;
+  const item = state.items.find((x) => x.id === currentItemDetailId);
+  if (!item) return;
+  const label = `${item.brand || "未填品牌"} ${item.name || ""}`.trim();
+  confirmDeleteItemText.textContent = `確定要刪除「${label}」嗎？`;
+  confirmDeleteItemDialog.showModal();
+}
+
+function deleteCurrentItem() {
+  if (!currentItemDetailId) return;
+  const itemId = currentItemDetailId;
+  const idx = state.items.findIndex((x) => x.id === itemId);
+  if (idx < 0) return;
+  state.items.splice(idx, 1);
+  delete state.manualVoteCounts[itemId];
+  for (const log of state.dailyLogs) {
+    log.wornItemIds = (log.wornItemIds || []).filter((id) => id !== itemId);
+  }
+  currentItemDetailId = null;
+  recomputeWearCounts();
+  normalizeCategoryOrder();
+  persistAll();
+  confirmDeleteItemDialog.close();
+  itemDetailDialog.close();
+  renderAll();
 }
 
 function renderItemUsedOutfits(itemId) {
@@ -1329,6 +1393,27 @@ function openOutfitEditForm() {
   renderOutfitItemChecklist();
   outfitDetailDialog.close();
   outfitFormDialog.showModal();
+}
+
+function openDeleteOutfitConfirm() {
+  if (!currentOutfitDetailId) return;
+  const log = state.dailyLogs.find((x) => x.id === currentOutfitDetailId);
+  if (!log) return;
+  confirmDeleteOutfitText.textContent = `確定要刪除 ${log.date || "這筆"} 穿搭嗎？`;
+  confirmDeleteOutfitDialog.showModal();
+}
+
+function deleteCurrentOutfit() {
+  if (!currentOutfitDetailId) return;
+  const idx = state.dailyLogs.findIndex((x) => x.id === currentOutfitDetailId);
+  if (idx < 0) return;
+  state.dailyLogs.splice(idx, 1);
+  currentOutfitDetailId = null;
+  recomputeWearCounts();
+  persistAll();
+  confirmDeleteOutfitDialog.close();
+  outfitDetailDialog.close();
+  renderAll();
 }
 
 function stepOutfitDetailPhoto(step) {

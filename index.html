@@ -11,6 +11,7 @@
 <body>
   <main class="app">
     <section id="homePage" class="page active home">
+      <h1 class="home-title">心動衣櫥</h1>
       <button class="home-btn" data-open-page="closet">我的衣櫃</button>
       <button class="home-btn" data-open-page="outfit">穿搭紀錄</button>
     </section>
@@ -110,7 +111,7 @@
 
   <dialog id="itemDialog">
     <form id="itemForm" class="dialog-card" method="dialog">
-      <h2>紀錄新品</h2>
+      <h2 id="itemFormTitle">紀錄新品</h2>
       <div class="grid-2">
         <label>品牌名稱<input name="brand" /></label>
         <label>商品名稱<input name="name" required /></label>
@@ -160,7 +161,11 @@
       <label>優點<textarea name="pros" rows="2"></textarea></label>
       <label>缺點<textarea name="cons" rows="2"></textarea></label>
       <label>備註<textarea name="remark" rows="2"></textarea></label>
-      <label>首圖與商品照片（第一張做首圖）<input type="file" name="itemPhotos" accept="image/*" multiple required /></label>
+      <section id="existingItemPhotosSection" class="hidden">
+        <strong>目前照片（勾選可刪除）</strong>
+        <div id="existingItemPhotosList" class="existing-photos-grid"></div>
+      </section>
+      <label>首圖與商品照片（第一張做首圖）<input type="file" name="itemPhotos" accept="image/*" multiple /></label>
 
       <div class="actions">
         <button type="button" data-close-item>取消</button>
@@ -236,8 +241,10 @@
 
   <dialog id="outfitDetailDialog">
     <article class="dialog-card">
-      <button id="editOutfitDetail" class="close-btn secondary-btn">編輯</button>
-      <button id="closeDetail" class="close-btn">關閉</button>
+      <div class="detail-top-actions">
+        <button id="editOutfitDetail" class="secondary-btn" type="button">編輯</button>
+        <button id="closeDetail" class="close-btn" type="button">關閉</button>
+      </div>
       <h2 id="detailDate"></h2>
       <section class="carousel">
         <button id="outfitDetailPrev" class="carousel-btn" type="button" aria-label="上一張">◀</button>
@@ -259,12 +266,19 @@
       <h1 id="categoryItemsTitle">分類</h1>
       <button id="closeCategoryItemsPage" class="back-btn" type="button">關閉</button>
     </header>
+    <nav class="sub-tabs category-inner-tabs">
+      <button id="categoryItemsLatestTab" class="sub-btn active" type="button">最新</button>
+      <button id="categoryItemsPhotosTab" class="sub-btn" type="button">照片</button>
+    </nav>
     <section id="categoryItemsList" class="list"></section>
   </section>
 
   <dialog id="itemDetailDialog">
     <article class="dialog-card">
-      <button id="closeItemDetail" class="close-btn">關閉</button>
+      <div class="detail-top-actions">
+        <button id="editItemDetail" class="secondary-btn" type="button">編輯</button>
+        <button id="closeItemDetail" class="close-btn" type="button">關閉</button>
+      </div>
       <h2 id="itemDetailTitle"></h2>
       <section class="carousel">
         <button id="itemDetailPrev" class="carousel-btn" type="button" aria-label="上一張">◀</button>
@@ -273,6 +287,7 @@
       </section>
       <p id="itemDetailCounter" class="meta"></p>
       <section id="itemDetailRecords" class="detail-records"></section>
+      <section id="itemUsedOutfits" class="detail-records"></section>
     </article>
   </dialog>
 

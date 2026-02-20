@@ -33,6 +33,10 @@ body {
   display: block;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .home {
   min-height: calc(100vh - 14px);
   padding-top: 20px;
@@ -46,6 +50,15 @@ body {
   align-content: center;
 }
 
+.home-title {
+  width: 100%;
+  margin: -20px 0 14px;
+  text-align: center;
+  color: #f1aba7;
+  font-weight: 300;
+  font-size: 3rem;
+}
+
 .home-btn {
   width: min(360px, 44vw);
   min-height: 220px;
@@ -53,6 +66,7 @@ body {
   border-radius: 18px;
   background: #f1aba7;
   font-size: 34px;
+  font-weight: 300;
   padding: 24px 18px;
   color: #fff;
   cursor: pointer;
@@ -465,6 +479,10 @@ body {
   border-radius: 0;
 }
 
+#categoryChips .chip {
+  border-radius: 0;
+}
+
 .fab {
   position: fixed;
   right: 18px;
@@ -556,6 +574,19 @@ fieldset label {
   margin-right: 8px;
 }
 
+.detail-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-top-actions .close-btn,
+.detail-top-actions .secondary-btn {
+  float: none;
+  margin: 0;
+  width: auto;
+}
+
 .detail-photo {
   width: 100%;
   aspect-ratio: 3 / 4;
@@ -593,6 +624,28 @@ fieldset label {
   gap: 6px;
 }
 
+.existing-photos-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.existing-photo-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  padding: 6px;
+  background: #fff;
+}
+
+.existing-photo-thumb {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
 .overlay-page {
   display: none;
 }
@@ -607,6 +660,27 @@ fieldset label {
   padding: 12px;
 }
 
+#categoryItemsTitle {
+  flex: 1;
+  display: block;
+  padding: 10px 14px;
+  margin: 0;
+  border-radius: 0;
+  color: #fff;
+  font-weight: 300;
+}
+
+#categoryItemsPage .page-head {
+  background: #fff;
+  color: var(--ink);
+  border: 0;
+  padding: 0 0 8px;
+}
+
+.category-inner-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .outfit-items-strip {
   display: flex;
   flex-wrap: wrap;
@@ -615,6 +689,19 @@ fieldset label {
 
 .outfit-item-card {
   width: 110px;
+}
+
+.related-outfit-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.related-outfit-card {
+  all: unset;
+  display: block;
+  cursor: pointer;
 }
 
 .empty-block {

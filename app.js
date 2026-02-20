@@ -19,6 +19,13 @@ const state = {
 const homePage = document.getElementById("homePage");
 const closetPage = document.getElementById("closetPage");
 const outfitPage = document.getElementById("outfitPage");
+const exportDataBtn = document.getElementById("exportDataBtn");
+const importDataBtn = document.getElementById("importDataBtn");
+const importFileInput = document.getElementById("importFileInput");
+const importModeDialog = document.getElementById("importModeDialog");
+const importMergeBtn = document.getElementById("importMergeBtn");
+const importReplaceBtn = document.getElementById("importReplaceBtn");
+const cancelImportBtn = document.getElementById("cancelImportBtn");
 
 const openPageBtns = document.querySelectorAll("[data-open-page]");
 const backBtns = document.querySelectorAll("[data-back-home]");
@@ -140,6 +147,7 @@ let currentOutfitDetailId = null;
 let currentItemDetailId = null;
 let currentCategoryItemsName = "";
 let categoryItemsView = "latest";
+let pendingImportData = null;
 
 itemForm.purchaseDate.valueAsDate = new Date();
 outfitForm.date.valueAsDate = new Date();
@@ -308,6 +316,15 @@ outfitSearchInput.addEventListener("input", () => {
 });
 clearClosetSearch.addEventListener("click", () => clearSearch("closet"));
 clearOutfitSearch.addEventListener("click", () => clearSearch("outfit"));
+exportDataBtn.addEventListener("click", exportDataAsJson);
+importDataBtn.addEventListener("click", () => importFileInput.click());
+importFileInput.addEventListener("change", onImportFilePicked);
+importMergeBtn.addEventListener("click", () => applyImportedData("merge"));
+importReplaceBtn.addEventListener("click", () => applyImportedData("replace"));
+cancelImportBtn.addEventListener("click", () => {
+  pendingImportData = null;
+  importModeDialog.close();
+});
 itemDialog.addEventListener("close", () => {
   editingItemId = null;
   existingItemPhotosSection.classList.add("hidden");
@@ -1431,6 +1448,120 @@ function renderOutfitDetailPhoto() {
   }
   outfitDetailMainPhoto.src = detailOutfitPhotos[detailOutfitIndex];
   outfitDetailCounter.textContent = `${detailOutfitIndex + 1} / ${detailOutfitPhotos.length}`;
+}
+
+function exportDataAsJson() {
+  const payload = {
+    app: "SPARK WEAR",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      items: state.items,
+      dailyLogs: state.dailyLogs,
+      manualVoteCounts: state.manualVoteCounts,
+      categoryOrder: state.categoryOrder,
+      categoryColors: state.categoryColors,
+      purchaseSort: state.purchaseSort,
+      outfitSort: state.outfitSort,
+      tagUsageSort: state.tagUsageSort,
+    },
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  a.href = url;
+  a.download = `spark-wear-backup-${y}-${m}-${day}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function onImportFilePicked() {
+  const file = importFileInput.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const raw = JSON.parse(text);
+    pendingImportData = normalizeImportedData(raw?.data && typeof raw.data === "object" ? raw.data : raw);
+    importModeDialog.showModal();
+  } catch {
+    alert("匯入失敗：檔案格式不是有效的 JSON");
+  } finally {
+    importFileInput.value = "";
+  }
+}
+
+function normalizeImportedData(source) {
+  const data = source && typeof source === "object" ? source : {};
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    dailyLogs: Array.isArray(data.dailyLogs) ? data.dailyLogs : [],
+    manualVoteCounts: data.manualVoteCounts && typeof data.manualVoteCounts === "object" ? data.manualVoteCounts : {},
+    categoryOrder: Array.isArray(data.categoryOrder) ? data.categoryOrder : [],
+    categoryColors: data.categoryColors && typeof data.categoryColors === "object" ? data.categoryColors : {},
+    purchaseSort: data.purchaseSort === "asc" ? "asc" : "desc",
+    outfitSort: data.outfitSort === "asc" ? "asc" : "desc",
+    tagUsageSort: ["none", "asc", "desc"].includes(data.tagUsageSort) ? data.tagUsageSort : "none",
+  };
+}
+
+function mergeById(existing, incoming) {
+  const map = new Map();
+  for (const row of existing || []) {
+    const key = row?.id || crypto.randomUUID();
+    map.set(key, { ...row, id: key });
+  }
+  for (const row of incoming || []) {
+    const key = row?.id || crypto.randomUUID();
+    map.set(key, { ...row, id: key });
+  }
+  return Array.from(map.values());
+}
+
+function applyImportedData(mode) {
+  if (!pendingImportData) return;
+  const incoming = pendingImportData;
+
+  if (mode === "replace") {
+    state.items = incoming.items;
+    state.dailyLogs = incoming.dailyLogs;
+    state.manualVoteCounts = incoming.manualVoteCounts;
+    state.categoryOrder = incoming.categoryOrder;
+    state.categoryColors = incoming.categoryColors;
+    state.purchaseSort = incoming.purchaseSort;
+    state.outfitSort = incoming.outfitSort;
+    state.tagUsageSort = incoming.tagUsageSort;
+  } else {
+    state.items = mergeById(state.items, incoming.items);
+    state.dailyLogs = mergeById(state.dailyLogs, incoming.dailyLogs);
+    state.manualVoteCounts = mergeVoteCounts(state.manualVoteCounts, incoming.manualVoteCounts);
+    state.categoryOrder = [...new Set([...(state.categoryOrder || []), ...(incoming.categoryOrder || [])])];
+    state.categoryColors = { ...(state.categoryColors || {}), ...(incoming.categoryColors || {}) };
+    state.purchaseSort = incoming.purchaseSort || state.purchaseSort;
+    state.outfitSort = incoming.outfitSort || state.outfitSort;
+    state.tagUsageSort = incoming.tagUsageSort || state.tagUsageSort;
+  }
+
+  pendingImportData = null;
+  normalizeCategoryOrder();
+  recomputeWearCounts();
+  persistAll();
+  importModeDialog.close();
+  renderAll();
+  alert("匯入完成");
+}
+
+function mergeVoteCounts(a, b) {
+  const merged = { ...(a || {}) };
+  for (const [k, v] of Object.entries(b || {})) {
+    merged[k] = Number(merged[k] || 0) + Number(v || 0);
+  }
+  return merged;
 }
 
 function load(key, fallback) {

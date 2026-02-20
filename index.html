@@ -4,18 +4,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Closet App</title>
-  <link rel="icon" type="image/png" sizes="512x512" href="assets/app-icon.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/app-icon.png" />
+  <title>SPARK WEAR</title>
+  <meta name="theme-color" content="#f1aba7" />
+  <link rel="manifest" href="manifest.webmanifest?v=20260220-1934" />
+  <link rel="shortcut icon" href="favicon.ico?v=20260220-1934" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png?v=20260220-1934" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=20260220-1934" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png?v=20260220-1934" />
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png?v=20260220-1934" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png?v=20260220-1934" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
   <main class="app">
     <section id="homePage" class="page active home">
-      <h1 class="home-title">心動衣櫥</h1>
+      <h1 class="home-title">SPARK WEAR</h1>
       <button class="home-btn" data-open-page="closet">我的衣櫃</button>
       <button class="home-btn" data-open-page="outfit">穿搭紀錄</button>
+      <div class="home-tools">
+        <button id="exportDataBtn" class="mini-action" type="button">匯出資料</button>
+        <button id="importDataBtn" class="mini-action" type="button">匯入資料</button>
+      </div>
+      <input id="importFileInput" type="file" accept="application/json,.json" class="hidden" />
     </section>
 
     <section id="closetPage" class="page">
@@ -329,6 +340,18 @@
       <div class="actions">
         <button id="cancelDeleteOutfit" type="button">取消</button>
         <button id="confirmDeleteOutfit" class="danger-btn" type="button">確認</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="importModeDialog">
+    <article class="dialog-card">
+      <h2>匯入資料</h2>
+      <p>請選擇匯入方式：</p>
+      <div class="actions single-col">
+        <button id="importMergeBtn" type="button">合併匯入</button>
+        <button id="importReplaceBtn" type="button">覆蓋匯入</button>
+        <button id="cancelImportBtn" type="button">取消</button>
       </div>
     </article>
   </dialog>

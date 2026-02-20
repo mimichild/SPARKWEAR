@@ -59,6 +59,14 @@ body {
   font-size: 3rem;
 }
 
+.home-tools {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
 .home-btn {
   width: min(360px, 44vw);
   min-height: 220px;

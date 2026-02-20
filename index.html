@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Closet App</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <main class="app">
+    <section id="homePage" class="page active home">
+      <button class="home-btn" data-open-page="closet">我的衣櫃</button>
+      <button class="home-btn" data-open-page="outfit">穿搭紀錄</button>
+    </section>
+
+    <section id="closetPage" class="page">
+      <nav class="sub-tabs">
+        <button class="sub-btn active" data-sub-tab="latest">最新</button>
+        <button class="sub-btn" data-sub-tab="photos">照片</button>
+        <button class="sub-btn" data-sub-tab="category">分類</button>
+        <button class="sub-btn" data-sub-tab="tags">標籤</button>
+      </nav>
+
+      <header class="page-head">
+        <button class="back-btn" data-back-home>返回</button>
+        <h1>我的衣櫃</h1>
+      </header>
+
+      <div class="sort-bar">
+        <label>
+          排序
+          <select id="purchaseSortSelect">
+            <option value="desc">最新到最舊</option>
+            <option value="asc">最舊到最新</option>
+          </select>
+        </label>
+      </div>
+
+      <section id="closetLatest" class="sub-panel active"></section>
+
+      <section id="closetPhotos" class="sub-panel"></section>
+
+      <section id="closetCategory" class="sub-panel">
+        <h3 class="section-title">分類順序自訂</h3>
+        <div id="categoryOrderList" class="list"></div>
+        <h3 class="section-title">分類瀏覽</h3>
+        <div id="categoryChips" class="chip-row"></div>
+        <div id="categoryResult" class="list"></div>
+      </section>
+
+      <section id="closetTags" class="sub-panel">
+        <div class="panel-head">
+          <h3 class="section-title">標籤（可多選）</h3>
+          <label class="mini-sort">
+            使用次數
+            <select id="tagUsageSortSelect">
+              <option value="none">不排序</option>
+              <option value="desc">最多到最少</option>
+              <option value="asc">最少到最多</option>
+            </select>
+          </label>
+        </div>
+        <div id="tagChips" class="chip-row"></div>
+        <div id="tagResult" class="list"></div>
+      </section>
+
+      <button id="openItemForm" class="fab" aria-label="新增衣物">📓</button>
+    </section>
+
+    <section id="outfitPage" class="page">
+      <header class="page-head">
+        <button class="back-btn" data-back-home>返回</button>
+        <h1>穿搭紀錄</h1>
+      </header>
+
+      <section id="outfitGrid" class="photo-grid"></section>
+      <button id="openOutfitMenu" class="fab" aria-label="穿搭筆記本">📓</button>
+    </section>
+  </main>
+
+  <dialog id="itemDialog">
+    <form id="itemForm" class="dialog-card" method="dialog">
+      <h2>紀錄新品</h2>
+      <div class="grid-2">
+        <label>品牌名稱<input name="brand" /></label>
+        <label>商品名稱<input name="name" required /></label>
+        <label>購買日期<input type="date" name="purchaseDate" required /></label>
+        <label>
+          分類
+          <select id="itemCategorySelect" name="category" required></select>
+        </label>
+        <label>原價<input type="number" name="originalPrice" min="0" /></label>
+        <label>特價<input type="number" name="specialPrice" min="0" /></label>
+        <label>優惠價<input type="number" name="discountPrice" min="0" /></label>
+        <label>建議體重（kg）<input name="suggestedWeight" placeholder="例如：45-52" /></label>
+        <label>
+          分級
+          <select name="grade">
+            <option value="">未設定</option>
+            <option>A</option>
+            <option>B</option>
+            <option>C</option>
+            <option>D</option>
+            <option>E</option>
+          </select>
+        </label>
+        <label>
+          來源
+          <select name="origin">
+            <option value="">未設定</option>
+            <option>日貨</option>
+            <option>韓貨</option>
+            <option>品牌</option>
+            <option>蝦皮</option>
+            <option>淘寶</option>
+            <option>其他</option>
+          </select>
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>季節</legend>
+        <label><input type="checkbox" name="seasons" value="春季" />春季</label>
+        <label><input type="checkbox" name="seasons" value="夏季" />夏季</label>
+        <label><input type="checkbox" name="seasons" value="秋季" />秋季</label>
+        <label><input type="checkbox" name="seasons" value="冬季" />冬季</label>
+      </fieldset>
+
+      <label>小紀錄<textarea name="miniNote" rows="2"></textarea></label>
+      <label>優點<textarea name="pros" rows="2"></textarea></label>
+      <label>缺點<textarea name="cons" rows="2"></textarea></label>
+      <label>備註<textarea name="remark" rows="2"></textarea></label>
+      <label>首圖與商品照片（第一張做首圖）<input type="file" name="itemPhotos" accept="image/*" multiple required /></label>
+
+      <div class="actions">
+        <button type="button" data-close-item>取消</button>
+        <button type="submit">儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="outfitMenuDialog">
+    <article class="dialog-card">
+      <h2>穿搭筆記本</h2>
+      <div class="actions single-col">
+        <button id="openOutfitFormAction" type="button">新增穿搭紀錄</button>
+        <button id="openVoteFormAction" type="button">票選衣服</button>
+        <button id="closeOutfitMenu" type="button">取消</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="outfitFormDialog">
+    <form id="outfitForm" class="dialog-card" method="dialog">
+      <h2>新增當日穿搭</h2>
+      <div class="grid-2">
+        <label>日期<input type="date" name="date" required /></label>
+        <label>天氣<input name="weather" placeholder="例如：24°C 陰" /></label>
+      </div>
+      <label>穿搭想法<textarea name="note" rows="3"></textarea></label>
+      <label>穿搭照片（1~20 張，第一張主圖）<input type="file" name="outfitPhotos" accept="image/*" multiple required /></label>
+      <div class="actions">
+        <button type="button" data-close-outfit>取消</button>
+        <button type="submit">儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="voteDialog">
+    <form id="voteForm" class="dialog-card" method="dialog">
+      <h2>票選衣服</h2>
+      <div class="grid-2">
+        <label>搜尋品牌<input id="voteSearchBrand" name="searchBrand" placeholder="輸入品牌" /></label>
+        <label>搜尋名稱<input id="voteSearchName" name="searchName" placeholder="輸入商品名稱" /></label>
+        <label>搜尋標籤<input id="voteSearchTag" name="searchTag" placeholder="例如：春季、日貨" /></label>
+        <label>
+          分類
+          <select id="voteSearchCategory" name="searchCategory"></select>
+        </label>
+      </div>
+      <div>
+        <strong>搜尋結果</strong>
+        <div id="voteManualChecklist" class="list"></div>
+      </div>
+      <div class="actions">
+        <button type="button" id="closeVoteDialog">取消</button>
+        <button type="submit">確認投票</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="outfitDetailDialog">
+    <article class="dialog-card">
+      <button id="closeDetail" class="close-btn">關閉</button>
+      <h2 id="detailDate"></h2>
+      <p id="detailMeta" class="meta"></p>
+      <p id="detailNote"></p>
+      <p id="detailVote"></p>
+      <div id="detailPhotos" class="photo-grid"></div>
+    </article>
+  </dialog>
+
+  <dialog id="itemDetailDialog">
+    <article class="dialog-card">
+      <button id="closeItemDetail" class="close-btn">關閉</button>
+      <h2 id="itemDetailTitle"></h2>
+      <section class="carousel">
+        <button id="itemDetailPrev" class="carousel-btn" type="button" aria-label="上一張">◀</button>
+        <img id="itemDetailMainPhoto" class="detail-photo" alt="商品照片" />
+        <button id="itemDetailNext" class="carousel-btn" type="button" aria-label="下一張">▶</button>
+      </section>
+      <p id="itemDetailCounter" class="meta"></p>
+      <section id="itemDetailRecords" class="detail-records"></section>
+    </article>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

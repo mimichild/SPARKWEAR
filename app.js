@@ -515,7 +515,9 @@ async function onSaveItem(e) {
     originalPrice: numberOrNull(fd.get("originalPrice")),
     specialPrice: numberOrNull(fd.get("specialPrice")),
     discountPrice: numberOrNull(fd.get("discountPrice")),
+    size: String(fd.get("size") || "").trim(),
     weight: String(fd.get("weight") || "").trim(),
+    bodyType: String(fd.get("bodyType") || "").trim(),
     suggestedWeight: String(fd.get("suggestedWeight") || "").trim(),
     grade: String(fd.get("grade") || "").trim(),
     origin: String(fd.get("origin") || "").trim(),
@@ -704,7 +706,9 @@ function matchesClosetQuery(item) {
     item.origin || "",
     (item.seasons || []).join(" "),
     item.grade || "",
+    item.size || "",
     item.weight || "",
+    item.bodyType || "",
     item.suggestedWeight || "",
     item.originalPrice ?? "",
     item.specialPrice ?? "",
@@ -840,7 +844,9 @@ function openItemDetail(itemId) {
     <div><strong>來源：</strong>${escapeHtml(item.origin || "未填")}</div>
     <div><strong>分級：</strong>${escapeHtml(item.grade || "未填")}</div>
     <div><strong>季節：</strong>${escapeHtml((item.seasons || []).join(" / ") || "未填")}</div>
+    <div><strong>尺寸：</strong>${escapeHtml(item.size || "未填")}</div>
     <div><strong>體重：</strong>${escapeHtml(item.weight || "未填")}</div>
+    <div><strong>身材：</strong>${escapeHtml(item.bodyType || "未填")}</div>
     <div><strong>建議體重：</strong>${escapeHtml(item.suggestedWeight || "未填")}</div>
     <div><strong>小紀錄：</strong>${escapeHtml(item.miniNote || "-")}</div>
     <div><strong>優點：</strong>${escapeHtml(item.pros || "-")}</div>
@@ -869,7 +875,9 @@ function openItemEditForm() {
   itemForm.originalPrice.value = item.originalPrice ?? "";
   itemForm.specialPrice.value = item.specialPrice ?? "";
   itemForm.discountPrice.value = item.discountPrice ?? "";
+  itemForm.size.value = item.size || "";
   itemForm.weight.value = item.weight || "";
+  itemForm.bodyType.value = item.bodyType || "";
   itemForm.suggestedWeight.value = item.suggestedWeight || "";
   itemForm.grade.value = item.grade || "";
   itemForm.origin.value = item.origin || "";
@@ -1469,7 +1477,9 @@ function exportDataAsJson() {
         "originalPrice",
         "specialPrice",
         "discountPrice",
+        "size",
         "weight",
+        "bodyType",
         "suggestedWeight",
         "grade",
         "origin",

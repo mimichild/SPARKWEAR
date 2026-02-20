@@ -219,6 +219,24 @@ body {
   padding: 7px 10px;
 }
 
+.pencil-icon {
+  display: inline-block;
+  color: #fff;
+  transform: scaleX(-1) rotate(-8deg);
+  transform-origin: center;
+}
+
+.mini-action .pencil-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f1aba7;
+  margin-right: 4px;
+}
+
 .category-edit-row {
   display: flex;
   justify-content: space-between;
@@ -500,8 +518,14 @@ body {
   border-radius: 50%;
   border: 1px solid var(--line);
   font-size: 24px;
-  background: #fff;
+  background: #f1aba7;
+  color: #fff;
   cursor: pointer;
+}
+
+.fab .pencil-icon {
+  font-size: 24px;
+  line-height: 1;
 }
 
 dialog {
@@ -616,18 +640,13 @@ fieldset label {
 .carousel {
   margin-top: 8px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr;
   gap: 8px;
   align-items: center;
 }
 
 .carousel-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fff;
-  cursor: pointer;
+  display: none;
 }
 
 .detail-records {
@@ -737,9 +756,26 @@ fieldset label {
 @media (max-width: 780px) {
 
   .product-grid,
-  .sub-tabs,
   .grid-2 {
     grid-template-columns: 1fr;
+  }
+
+  .app {
+    padding: 0 0 14px;
+  }
+
+  .page-head {
+    border-radius: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .sub-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .category-inner-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .carousel {

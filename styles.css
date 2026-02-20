@@ -36,11 +36,14 @@ body {
 .home {
   min-height: calc(100vh - 14px);
   padding-top: 20px;
+  gap: 10px;
+}
+
+.home.page.active {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-content: flex-start;
-  gap: 10px;
 }
 
 .home-btn {

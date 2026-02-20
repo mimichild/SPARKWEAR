@@ -65,6 +65,8 @@ const outfitGrid = document.getElementById("outfitGrid");
 const itemDialog = document.getElementById("itemDialog");
 const itemForm = document.getElementById("itemForm");
 const itemFormTitle = document.getElementById("itemFormTitle");
+const itemPurchaseDateInput = itemForm.querySelector('input[name="purchaseDate"]');
+const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
 const openItemForm = document.getElementById("openItemForm");
 const closeItemBtn = document.querySelector("[data-close-item]");
 const itemCategorySelect = document.getElementById("itemCategorySelect");
@@ -149,7 +151,7 @@ let currentCategoryItemsName = "";
 let categoryItemsView = "latest";
 let pendingImportData = null;
 
-itemForm.purchaseDate.valueAsDate = new Date();
+if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
 outfitForm.date.valueAsDate = new Date();
 if (!["asc", "desc"].includes(state.purchaseSort)) state.purchaseSort = "desc";
 purchaseSortSelect.value = state.purchaseSort;
@@ -364,7 +366,7 @@ function openNewItemForm() {
   editingItemId = null;
   itemFormTitle.textContent = "記錄新品";
   itemForm.reset();
-  itemForm.purchaseDate.valueAsDate = new Date();
+  if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
   itemDialog.showModal();
@@ -490,7 +492,13 @@ function navigateSwipeForward() {
 async function onSaveItem(e) {
   e.preventDefault();
   const fd = new FormData(itemForm);
-  const newPhotos = await filesToThreeFourDataUrls(itemForm.itemPhotos.files);
+  let newPhotos = [];
+  try {
+    newPhotos = await filesToThreeFourDataUrls(itemPhotosInput?.files || []);
+  } catch {
+    alert("照片處理失敗，請改用 JPG/PNG 或先壓縮後再上傳。");
+    return;
+  }
   const editing = editingItemId ? state.items.find((x) => x.id === editingItemId) : null;
   const deletedIndexes = new Set(
     fd.getAll("deleteExistingPhotos")
@@ -543,10 +551,10 @@ async function onSaveItem(e) {
   }
   normalizeCategoryOrder();
   recomputeWearCounts();
-  persistAll();
+  if (!persistAll()) return;
 
   itemForm.reset();
-  itemForm.purchaseDate.valueAsDate = new Date();
+  if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
   editingItemId = null;
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
@@ -557,7 +565,13 @@ async function onSaveItem(e) {
 async function onSaveOutfit(e) {
   e.preventDefault();
   const fd = new FormData(outfitForm);
-  const photos = await filesToThreeFourDataUrls(outfitForm.outfitPhotos.files);
+  let photos = [];
+  try {
+    photos = await filesToThreeFourDataUrls(outfitForm.outfitPhotos.files);
+  } catch {
+    alert("照片處理失敗，請改用 JPG/PNG 或先壓縮後再上傳。");
+    return;
+  }
   if (!photos.length && !editingOutfitId) {
     alert("請至少上傳 1 張穿搭照片");
     return;
@@ -588,7 +602,7 @@ async function onSaveOutfit(e) {
     state.dailyLogs.push(log);
   }
   recomputeWearCounts();
-  persistAll();
+  if (!persistAll()) return;
 
   outfitForm.reset();
   outfitForm.date.valueAsDate = new Date();
@@ -612,7 +626,7 @@ function onSaveManualVote(e) {
   }
 
   recomputeWearCounts();
-  persistAll();
+  if (!persistAll()) return;
 
   voteForm.reset();
   renderVoteSearchCategoryOptions();
@@ -680,11 +694,18 @@ function recomputeWearCounts() {
 }
 
 function persistAll() {
-  save("closet_items", state.items);
-  save("closet_daily_logs", state.dailyLogs);
-  save("closet_category_order", state.categoryOrder);
-  save("closet_category_colors", state.categoryColors);
-  save("closet_manual_vote_counts", state.manualVoteCounts);
+  try {
+    save("closet_items", state.items);
+    save("closet_daily_logs", state.dailyLogs);
+    save("closet_category_order", state.categoryOrder);
+    save("closet_category_colors", state.categoryColors);
+    save("closet_manual_vote_counts", state.manualVoteCounts);
+    return true;
+  } catch (err) {
+    console.error("persistAll failed:", err);
+    alert("儲存失敗，可能是手機儲存空間不足或照片太大。請減少照片數量後再試。");
+    return false;
+  }
 }
 
 function sortedByPurchase(items) {
@@ -870,15 +891,19 @@ function openItemEditForm() {
   itemForm.reset();
   itemForm.brand.value = item.brand || "";
   itemForm.name.value = item.name || "";
-  itemForm.purchaseDate.value = item.purchaseDate || "";
+  if (itemPurchaseDateInput) itemPurchaseDateInput.value = item.purchaseDate || "";
   itemForm.category.value = item.category || "";
   itemForm.originalPrice.value = item.originalPrice ?? "";
   itemForm.specialPrice.value = item.specialPrice ?? "";
   itemForm.discountPrice.value = item.discountPrice ?? "";
-  itemForm.size.value = item.size || "";
-  itemForm.weight.value = item.weight || "";
-  itemForm.bodyType.value = item.bodyType || "";
-  itemForm.suggestedWeight.value = item.suggestedWeight || "";
+  const sizeInput = itemForm.querySelector('input[name="size"]');
+  const weightInput = itemForm.querySelector('input[name="weight"]');
+  const bodyTypeInput = itemForm.querySelector('input[name="bodyType"]');
+  const suggestedWeightInput = itemForm.querySelector('input[name="suggestedWeight"]');
+  if (sizeInput) sizeInput.value = item.size || "";
+  if (weightInput) weightInput.value = item.weight || "";
+  if (bodyTypeInput) bodyTypeInput.value = item.bodyType || "";
+  if (suggestedWeightInput) suggestedWeightInput.value = item.suggestedWeight || "";
   itemForm.grade.value = item.grade || "";
   itemForm.origin.value = item.origin || "";
   itemForm.miniNote.value = item.miniNote || "";
@@ -1656,8 +1681,8 @@ function fileToThreeFourDataUrl(file) {
         }
         const sx = Math.max(0, (srcW - cropW) / 2);
         const sy = Math.max(0, (srcH - cropH) / 2);
-        const outW = 900;
-        const outH = 1200;
+        const outW = 720;
+        const outH = 960;
         const canvas = document.createElement("canvas");
         canvas.width = outW;
         canvas.height = outH;
@@ -1667,9 +1692,9 @@ function fileToThreeFourDataUrl(file) {
           return;
         }
         ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, outW, outH);
-        resolve(canvas.toDataURL("image/jpeg", 0.9));
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
       };
-      img.onerror = () => resolve(String(reader.result || ""));
+      img.onerror = () => reject(new Error("image-decode-failed"));
       img.src = String(reader.result || "");
     };
     reader.onerror = reject;

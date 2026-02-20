@@ -124,7 +124,7 @@
 
   <dialog id="itemDialog">
     <form id="itemForm" class="dialog-card" method="dialog">
-      <h2 id="itemFormTitle">紀錄新品</h2>
+      <h2 id="itemFormTitle">記錄新品</h2>
       <div class="grid-2">
         <label>品牌名稱<input name="brand" /></label>
         <label>商品名稱<input name="name" required /></label>
@@ -136,6 +136,7 @@
         <label>原價<input type="number" name="originalPrice" min="0" /></label>
         <label>特價<input type="number" name="specialPrice" min="0" /></label>
         <label>優惠價<input type="number" name="discountPrice" min="0" /></label>
+        <label>體重（kg）<input name="weight" placeholder="例如：48" /></label>
         <label>建議體重（kg）<input name="suggestedWeight" placeholder="例如：45-52" /></label>
         <label>
           分級
@@ -347,7 +348,7 @@
   <dialog id="importModeDialog">
     <article class="dialog-card">
       <h2>匯入資料</h2>
-      <p>請選擇匯入方式：</p>
+      <p>請選擇匯入方式（單品欄位含：體重、建議體重）：</p>
       <div class="actions single-col">
         <button id="importMergeBtn" type="button">合併匯入</button>
         <button id="importReplaceBtn" type="button">覆蓋匯入</button>

@@ -362,7 +362,7 @@ function switchSub(tab) {
 
 function openNewItemForm() {
   editingItemId = null;
-  itemFormTitle.textContent = "紀錄新品";
+  itemFormTitle.textContent = "記錄新品";
   itemForm.reset();
   itemForm.purchaseDate.valueAsDate = new Date();
   existingItemPhotosSection.classList.add("hidden");
@@ -515,6 +515,7 @@ async function onSaveItem(e) {
     originalPrice: numberOrNull(fd.get("originalPrice")),
     specialPrice: numberOrNull(fd.get("specialPrice")),
     discountPrice: numberOrNull(fd.get("discountPrice")),
+    weight: String(fd.get("weight") || "").trim(),
     suggestedWeight: String(fd.get("suggestedWeight") || "").trim(),
     grade: String(fd.get("grade") || "").trim(),
     origin: String(fd.get("origin") || "").trim(),
@@ -703,6 +704,7 @@ function matchesClosetQuery(item) {
     item.origin || "",
     (item.seasons || []).join(" "),
     item.grade || "",
+    item.weight || "",
     item.suggestedWeight || "",
     item.originalPrice ?? "",
     item.specialPrice ?? "",
@@ -838,6 +840,7 @@ function openItemDetail(itemId) {
     <div><strong>來源：</strong>${escapeHtml(item.origin || "未填")}</div>
     <div><strong>分級：</strong>${escapeHtml(item.grade || "未填")}</div>
     <div><strong>季節：</strong>${escapeHtml((item.seasons || []).join(" / ") || "未填")}</div>
+    <div><strong>體重：</strong>${escapeHtml(item.weight || "未填")}</div>
     <div><strong>建議體重：</strong>${escapeHtml(item.suggestedWeight || "未填")}</div>
     <div><strong>小紀錄：</strong>${escapeHtml(item.miniNote || "-")}</div>
     <div><strong>優點：</strong>${escapeHtml(item.pros || "-")}</div>
@@ -866,6 +869,7 @@ function openItemEditForm() {
   itemForm.originalPrice.value = item.originalPrice ?? "";
   itemForm.specialPrice.value = item.specialPrice ?? "";
   itemForm.discountPrice.value = item.discountPrice ?? "";
+  itemForm.weight.value = item.weight || "";
   itemForm.suggestedWeight.value = item.suggestedWeight || "";
   itemForm.grade.value = item.grade || "";
   itemForm.origin.value = item.origin || "";
@@ -1455,6 +1459,30 @@ function exportDataAsJson() {
     app: "SPARK WEAR",
     version: 1,
     exportedAt: new Date().toISOString(),
+    format: {
+      itemFields: [
+        "id",
+        "brand",
+        "name",
+        "purchaseDate",
+        "category",
+        "originalPrice",
+        "specialPrice",
+        "discountPrice",
+        "weight",
+        "suggestedWeight",
+        "grade",
+        "origin",
+        "seasons",
+        "miniNote",
+        "pros",
+        "cons",
+        "remark",
+        "itemPhotos",
+        "wearCountTotal",
+        "createdAt",
+      ],
+    },
     data: {
       items: state.items,
       dailyLogs: state.dailyLogs,

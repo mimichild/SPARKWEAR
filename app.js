@@ -1,4 +1,4 @@
-const DEFAULT_CATEGORY_ORDER = ["上衣", "褲裝", "裙裝", "洋裝", "套裝", "家常", "鞋類", "包包", "猶豫", "留校", "冷凍"];
+const DEFAULT_CATEGORY_ORDER = ["上衣", "裙裝", "褲裝", "洋裝", "外套", "套裝", "日常", "鞋類", "包包", "猶豫", "留校", "冷凍", "未分類"];
 const TAG_OPTIONS = ["春季", "夏季", "秋季", "冬季", "日貨", "韓貨", "品牌", "蝦皮", "淘寶", "其他"];
 
 const state = {
@@ -6,10 +6,14 @@ const state = {
   dailyLogs: load("closet_daily_logs", []),
   manualVoteCounts: load("closet_manual_vote_counts", {}),
   categoryOrder: load("closet_category_order", []),
+  categoryColors: load("closet_category_colors", {}),
   purchaseSort: load("closet_purchase_sort", "desc"),
+  outfitSort: load("closet_outfit_sort", "desc"),
   tagUsageSort: load("closet_tag_usage_sort", "none"),
   selectedCategory: "",
   selectedTags: [],
+  closetQuery: "",
+  outfitQuery: "",
 };
 
 const homePage = document.getElementById("homePage");
@@ -25,13 +29,29 @@ const closetPhotos = document.getElementById("closetPhotos");
 const closetCategory = document.getElementById("closetCategory");
 const closetTags = document.getElementById("closetTags");
 const purchaseSortSelect = document.getElementById("purchaseSortSelect");
+const outfitSortSelect = document.getElementById("outfitSortSelect");
 const tagUsageSortSelect = document.getElementById("tagUsageSortSelect");
+const toggleClosetSearch = document.getElementById("toggleClosetSearch");
+const closetSearchBar = document.getElementById("closetSearchBar");
+const closetSearchInput = document.getElementById("closetSearchInput");
+const clearClosetSearch = document.getElementById("clearClosetSearch");
+const toggleOutfitSearch = document.getElementById("toggleOutfitSearch");
+const outfitSearchBar = document.getElementById("outfitSearchBar");
+const outfitSearchInput = document.getElementById("outfitSearchInput");
+const clearOutfitSearch = document.getElementById("clearOutfitSearch");
 
-const categoryOrderList = document.getElementById("categoryOrderList");
 const categoryChips = document.getElementById("categoryChips");
 const categoryResult = document.getElementById("categoryResult");
 const tagChips = document.getElementById("tagChips");
 const tagResult = document.getElementById("tagResult");
+const openCategoryEdit = document.getElementById("openCategoryEdit");
+const categoryEditDialog = document.getElementById("categoryEditDialog");
+const categoryEditForm = document.getElementById("categoryEditForm");
+const categoryEditRows = document.getElementById("categoryEditRows");
+const closeCategoryEdit = document.getElementById("closeCategoryEdit");
+const addCategoryBtn = document.getElementById("addCategoryBtn");
+const newCategoryName = document.getElementById("newCategoryName");
+const newCategoryColor = document.getElementById("newCategoryColor");
 
 const outfitGrid = document.getElementById("outfitGrid");
 
@@ -49,7 +69,13 @@ const openVoteFormAction = document.getElementById("openVoteFormAction");
 
 const outfitFormDialog = document.getElementById("outfitFormDialog");
 const outfitForm = document.getElementById("outfitForm");
+const outfitFormTitle = document.getElementById("outfitFormTitle");
 const closeOutfitBtn = document.querySelector("[data-close-outfit]");
+const outfitSearchBrand = document.getElementById("outfitSearchBrand");
+const outfitSearchName = document.getElementById("outfitSearchName");
+const outfitSearchTag = document.getElementById("outfitSearchTag");
+const outfitSearchCategory = document.getElementById("outfitSearchCategory");
+const outfitItemChecklist = document.getElementById("outfitItemChecklist");
 
 const voteDialog = document.getElementById("voteDialog");
 const voteForm = document.getElementById("voteForm");
@@ -61,12 +87,21 @@ const voteSearchTag = document.getElementById("voteSearchTag");
 const voteSearchCategory = document.getElementById("voteSearchCategory");
 
 const outfitDetailDialog = document.getElementById("outfitDetailDialog");
+const editOutfitDetail = document.getElementById("editOutfitDetail");
 const closeDetail = document.getElementById("closeDetail");
 const detailDate = document.getElementById("detailDate");
 const detailMeta = document.getElementById("detailMeta");
+const detailTemp = document.getElementById("detailTemp");
 const detailNote = document.getElementById("detailNote");
-const detailVote = document.getElementById("detailVote");
-const detailPhotos = document.getElementById("detailPhotos");
+const detailItems = document.getElementById("detailItems");
+const outfitDetailPrev = document.getElementById("outfitDetailPrev");
+const outfitDetailNext = document.getElementById("outfitDetailNext");
+const outfitDetailMainPhoto = document.getElementById("outfitDetailMainPhoto");
+const outfitDetailCounter = document.getElementById("outfitDetailCounter");
+const categoryItemsPage = document.getElementById("categoryItemsPage");
+const categoryItemsTitle = document.getElementById("categoryItemsTitle");
+const categoryItemsList = document.getElementById("categoryItemsList");
+const closeCategoryItemsPage = document.getElementById("closeCategoryItemsPage");
 
 const itemDetailDialog = document.getElementById("itemDetailDialog");
 const closeItemDetail = document.getElementById("closeItemDetail");
@@ -79,11 +114,18 @@ const itemDetailRecords = document.getElementById("itemDetailRecords");
 
 let detailItemPhotos = [];
 let detailPhotoIndex = 0;
+let detailOutfitPhotos = [];
+let detailOutfitIndex = 0;
+let editingOutfitId = null;
+let outfitSelection = new Set();
+let currentOutfitDetailId = null;
 
 itemForm.purchaseDate.valueAsDate = new Date();
 outfitForm.date.valueAsDate = new Date();
 if (!["asc", "desc"].includes(state.purchaseSort)) state.purchaseSort = "desc";
 purchaseSortSelect.value = state.purchaseSort;
+if (!["asc", "desc"].includes(state.outfitSort)) state.outfitSort = "desc";
+outfitSortSelect.value = state.outfitSort;
 if (!["none", "desc", "asc"].includes(state.tagUsageSort)) state.tagUsageSort = "none";
 tagUsageSortSelect.value = state.tagUsageSort;
 
@@ -96,12 +138,26 @@ for (const btn of subTabs) btn.addEventListener("click", () => switchSub(btn.dat
 
 openItemForm.addEventListener("click", () => itemDialog.showModal());
 closeItemBtn.addEventListener("click", () => itemDialog.close());
+openCategoryEdit.addEventListener("click", () => {
+  renderCategoryEditRows();
+  categoryEditDialog.showModal();
+});
+closeCategoryEdit.addEventListener("click", () => categoryEditDialog.close());
+categoryEditForm.addEventListener("submit", onSaveCategoryEdit);
+addCategoryBtn.addEventListener("click", onAddCategory);
 
 openOutfitMenu.addEventListener("click", () => outfitMenuDialog.showModal());
 closeOutfitMenu.addEventListener("click", () => outfitMenuDialog.close());
 openOutfitFormAction.addEventListener("click", () => {
   outfitMenuDialog.close();
+  editingOutfitId = null;
+  outfitFormTitle.textContent = "新增穿搭";
+  outfitForm.reset();
+  outfitForm.date.valueAsDate = new Date();
+  outfitSelection = new Set();
   outfitFormDialog.showModal();
+  renderOutfitSearchCategoryOptions();
+  renderOutfitItemChecklist();
 });
 openVoteFormAction.addEventListener("click", () => {
   outfitMenuDialog.close();
@@ -113,14 +169,23 @@ openVoteFormAction.addEventListener("click", () => {
 closeOutfitBtn.addEventListener("click", () => outfitFormDialog.close());
 closeVoteDialogBtn.addEventListener("click", () => voteDialog.close());
 closeDetail.addEventListener("click", () => outfitDetailDialog.close());
+editOutfitDetail.addEventListener("click", () => openOutfitEditForm());
 closeItemDetail.addEventListener("click", () => itemDetailDialog.close());
+closeCategoryItemsPage.addEventListener("click", () => categoryItemsPage.classList.remove("active"));
 itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
 itemDetailNext.addEventListener("click", () => stepDetailPhoto(1));
+outfitDetailPrev.addEventListener("click", () => stepOutfitDetailPhoto(-1));
+outfitDetailNext.addEventListener("click", () => stepOutfitDetailPhoto(1));
 purchaseSortSelect.addEventListener("change", () => {
   state.purchaseSort = purchaseSortSelect.value === "asc" ? "asc" : "desc";
   save("closet_purchase_sort", state.purchaseSort);
   renderLatest();
   renderPhotosWall();
+});
+outfitSortSelect.addEventListener("change", () => {
+  state.outfitSort = outfitSortSelect.value === "asc" ? "asc" : "desc";
+  save("closet_outfit_sort", state.outfitSort);
+  renderOutfitGrid();
 });
 tagUsageSortSelect.addEventListener("change", () => {
   state.tagUsageSort = tagUsageSortSelect.value;
@@ -139,6 +204,17 @@ itemDetailMainPhoto.addEventListener("touchend", (e) => {
   stepDetailPhoto(dx < 0 ? 1 : -1);
 });
 
+let outfitTouchStartX = 0;
+outfitDetailMainPhoto.addEventListener("touchstart", (e) => {
+  outfitTouchStartX = e.touches[0]?.clientX || 0;
+});
+outfitDetailMainPhoto.addEventListener("touchend", (e) => {
+  const endX = e.changedTouches[0]?.clientX || 0;
+  const dx = endX - outfitTouchStartX;
+  if (Math.abs(dx) < 30) return;
+  stepOutfitDetailPhoto(dx < 0 ? 1 : -1);
+});
+
 itemForm.addEventListener("submit", onSaveItem);
 outfitForm.addEventListener("submit", onSaveOutfit);
 voteForm.addEventListener("submit", onSaveManualVote);
@@ -146,6 +222,31 @@ voteSearchBrand.addEventListener("input", renderManualVoteList);
 voteSearchName.addEventListener("input", renderManualVoteList);
 voteSearchTag.addEventListener("input", renderManualVoteList);
 voteSearchCategory.addEventListener("change", renderManualVoteList);
+outfitSearchBrand.addEventListener("input", renderOutfitItemChecklist);
+outfitSearchName.addEventListener("input", renderOutfitItemChecklist);
+outfitSearchTag.addEventListener("input", renderOutfitItemChecklist);
+outfitSearchCategory.addEventListener("change", renderOutfitItemChecklist);
+toggleClosetSearch.addEventListener("click", () => {
+  closetSearchBar.classList.toggle("hidden");
+  if (!closetSearchBar.classList.contains("hidden")) closetSearchInput.focus();
+});
+closetSearchInput.addEventListener("input", () => {
+  state.closetQuery = closetSearchInput.value.trim().toLowerCase();
+  renderLatest();
+  renderPhotosWall();
+  renderCategoryTab();
+  renderTagTab();
+});
+toggleOutfitSearch.addEventListener("click", () => {
+  outfitSearchBar.classList.toggle("hidden");
+  if (!outfitSearchBar.classList.contains("hidden")) outfitSearchInput.focus();
+});
+outfitSearchInput.addEventListener("input", () => {
+  state.outfitQuery = outfitSearchInput.value.trim().toLowerCase();
+  renderOutfitGrid();
+});
+clearClosetSearch.addEventListener("click", () => clearSearch("closet"));
+clearOutfitSearch.addEventListener("click", () => clearSearch("outfit"));
 
 renderAll();
 
@@ -223,19 +324,23 @@ async function onSaveOutfit(e) {
   e.preventDefault();
   const fd = new FormData(outfitForm);
   const photos = await filesToThreeFourDataUrls(outfitForm.outfitPhotos.files);
-  if (!photos.length) {
+  if (!photos.length && !editingOutfitId) {
     alert("請至少上傳 1 張穿搭照片");
     return;
   }
 
+  const editing = editingOutfitId ? state.dailyLogs.find((x) => x.id === editingOutfitId) : null;
   const log = {
-    id: crypto.randomUUID(),
+    id: editing?.id || crypto.randomUUID(),
     date: String(fd.get("date") || ""),
     weather: String(fd.get("weather") || "").trim(),
+    county: String(fd.get("county") || "").trim(),
+    place: String(fd.get("place") || "").trim(),
+    temperature: String(fd.get("temperature") || "").trim(),
     note: String(fd.get("note") || "").trim(),
-    wornItemIds: [],
-    outfitPhotos: photos.slice(0, 20),
-    createdAt: new Date().toISOString(),
+    wornItemIds: Array.from(outfitSelection),
+    outfitPhotos: photos.length ? photos.slice(0, 20) : editing?.outfitPhotos || [],
+    createdAt: editing?.createdAt || new Date().toISOString(),
   };
 
   if (!log.date) {
@@ -243,12 +348,18 @@ async function onSaveOutfit(e) {
     return;
   }
 
-  state.dailyLogs.push(log);
+  if (editing) {
+    Object.assign(editing, log);
+  } else {
+    state.dailyLogs.push(log);
+  }
   recomputeWearCounts();
   persistAll();
 
   outfitForm.reset();
   outfitForm.date.valueAsDate = new Date();
+  editingOutfitId = null;
+  outfitSelection = new Set();
   outfitFormDialog.close();
   renderAll();
 }
@@ -279,30 +390,40 @@ function onSaveManualVote(e) {
 function renderAll() {
   normalizeCategoryOrder();
   purchaseSortSelect.value = state.purchaseSort;
+  outfitSortSelect.value = state.outfitSort;
   tagUsageSortSelect.value = state.tagUsageSort;
   renderItemCategoryOptions();
   renderLatest();
   renderPhotosWall();
-  renderCategoryOrderEditor();
   renderCategoryTab();
   renderTagTab();
   renderVoteSearchCategoryOptions();
   renderManualVoteList();
+  renderOutfitSearchCategoryOptions();
+  renderOutfitItemChecklist();
   renderOutfitGrid();
   const activeSub = document.querySelector(".sub-btn.active")?.dataset.subTab || "latest";
   switchSub(activeSub);
 }
 
 function normalizeCategoryOrder() {
+  for (const item of state.items) {
+    if (!item.category) item.category = "未分類";
+  }
   const existingCategories = state.items.map((item) => item.category).filter(Boolean);
   const merged = [...new Set([...DEFAULT_CATEGORY_ORDER, ...state.categoryOrder, ...existingCategories])];
   state.categoryOrder = merged;
+  for (let i = 0; i < state.categoryOrder.length; i += 1) {
+    const name = state.categoryOrder[i];
+    if (!state.categoryColors[name]) state.categoryColors[name] = defaultCategoryColor(i);
+  }
 
   if (!state.selectedCategory || !state.categoryOrder.includes(state.selectedCategory)) {
     state.selectedCategory = state.categoryOrder[0] || "";
   }
 
   save("closet_category_order", state.categoryOrder);
+  save("closet_category_colors", state.categoryColors);
 }
 
 function recomputeWearCounts() {
@@ -325,6 +446,7 @@ function persistAll() {
   save("closet_items", state.items);
   save("closet_daily_logs", state.dailyLogs);
   save("closet_category_order", state.categoryOrder);
+  save("closet_category_colors", state.categoryColors);
   save("closet_manual_vote_counts", state.manualVoteCounts);
 }
 
@@ -336,6 +458,72 @@ function sortedByPurchase(items) {
   });
 }
 
+function matchesClosetQuery(item) {
+  const q = state.closetQuery;
+  if (!q) return true;
+  const text = [
+    item.brand || "",
+    item.name || "",
+    item.purchaseDate || "",
+    item.category || "",
+    item.origin || "",
+    (item.seasons || []).join(" "),
+    item.grade || "",
+    item.suggestedWeight || "",
+    item.originalPrice ?? "",
+    item.specialPrice ?? "",
+    item.discountPrice ?? "",
+    item.miniNote || "",
+    item.pros || "",
+    item.cons || "",
+    item.remark || "",
+    item.wearCountTotal ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return text.includes(q);
+}
+
+function matchesOutfitQuery(log) {
+  const q = state.outfitQuery;
+  if (!q) return true;
+  const itemNames = (log.wornItemIds || [])
+    .map((id) => state.items.find((x) => x.id === id))
+    .filter(Boolean)
+    .map((x) => `${x.brand || ""} ${x.name || ""}`)
+    .join(" ");
+  const text = [log.date || "", log.weather || "", log.temperature || "", log.note || "", log.county || "", log.place || "", itemNames]
+    .join(" ")
+    .toLowerCase();
+  return text.includes(q);
+}
+
+function clearSearch(type) {
+  if (type === "closet") {
+    state.closetQuery = "";
+    closetSearchInput.value = "";
+    renderLatest();
+    renderPhotosWall();
+    renderCategoryTab();
+    renderTagTab();
+    return;
+  }
+  state.outfitQuery = "";
+  outfitSearchInput.value = "";
+  renderOutfitGrid();
+}
+
+function emptyResultBlock(type) {
+  const label = type === "closet" ? "衣櫃" : "穿搭";
+  return `<div class="empty-block">找不到符合條件的${label}資料。<br /><button type="button" data-clear-search="${type}">一鍵清除搜尋</button></div>`;
+}
+
+function bindClearSearchButtons(root) {
+  for (const btn of root.querySelectorAll("[data-clear-search]")) {
+    btn.addEventListener("click", () => clearSearch(btn.dataset.clearSearch));
+  }
+}
+
 function renderItemCategoryOptions() {
   itemCategorySelect.innerHTML = state.categoryOrder
     .map((c) => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`)
@@ -343,26 +531,26 @@ function renderItemCategoryOptions() {
 }
 
 function renderLatest() {
-  const items = sortedByPurchase(state.items);
+  const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
   if (!items.length) {
-    closetLatest.innerHTML = '<p class="meta">目前沒有資料。</p>';
+    closetLatest.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">目前沒有資料。</p>';
+    bindClearSearchButtons(closetLatest);
     return;
   }
 
   closetLatest.innerHTML = `
     <div class="latest-list">
       ${items
-      .map(
-        (item) => `
+        .map(
+          (item) => `
             <article class="latest-row">
               <button type="button" class="latest-open-btn" data-open-item-detail="${item.id}">
-                <div class="latest-brand"><strong>${escapeHtml(item.brand || "未填品牌")}</strong></div>
-                <div class="latest-name">${escapeHtml(item.name)}</div>
-                <p class="latest-date meta">${escapeHtml(item.purchaseDate || "未填日期")}</p>
+                <div class="latest-title"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                <p class="latest-category meta">${escapeHtml(item.category || "未分類")}</p>
                 <img class="latest-thumb" src="${item.itemPhotos[0] || ""}" alt="${escapeHtml(item.name)}" />
               </button>
             </article>`
-      )
+        )
       .join("")}
     </div>
   `;
@@ -373,9 +561,10 @@ function renderLatest() {
 }
 
 function renderPhotosWall() {
-  const items = sortedByPurchase(state.items);
+  const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
   if (!items.length) {
-    closetPhotos.innerHTML = '<p class="meta">目前沒有照片。</p>';
+    closetPhotos.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">目前沒有照片。</p>';
+    bindClearSearchButtons(closetPhotos);
     return;
   }
 
@@ -420,6 +609,7 @@ function openItemDetail(itemId) {
     <div><strong>缺點：</strong>${escapeHtml(item.cons || "-")}</div>
     <div><strong>備註：</strong>${escapeHtml(item.remark || "-")}</div>
     <div><strong>使用次數：</strong>${item.wearCountTotal || 0}</div>
+    <div><strong>平均使用價格：</strong>${averageUsePriceText(item)}</div>
   `;
 
   itemDetailDialog.showModal();
@@ -442,33 +632,88 @@ function renderDetailPhoto() {
   itemDetailCounter.textContent = `${detailPhotoIndex + 1} / ${detailItemPhotos.length}`;
 }
 
-function renderCategoryOrderEditor() {
-  categoryOrderList.innerHTML = state.categoryOrder
-    .map(
-      (c, i) => `
-      <div class="order-row">
-        <strong>${escapeHtml(c)}</strong>
-        <button class="order-btn" type="button" data-order-up="${i}">上移</button>
-        <button class="order-btn" type="button" data-order-down="${i}">下移</button>
-      </div>`
-    )
+function renderCategoryEditRows() {
+  categoryEditRows.innerHTML = state.categoryOrder
+    .map((name, index) => {
+      const color = state.categoryColors[name] || defaultCategoryColor(index);
+      return `
+      <div class="category-edit-row" draggable="true" data-category-name="${escapeAttr(name)}">
+        <div class="category-edit-name">
+          <strong>${escapeHtml(name)}</strong>
+        </div>
+        <div class="category-edit-controls">
+          <input class="dot-picker" type="color" name="color_${escapeAttr(name)}" value="${escapeAttr(color)}" />
+          <span class="drag-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+          <button class="delete-btn" type="button" data-delete-category="${escapeAttr(name)}">刪除</button>
+        </div>
+      </div>`;
+    })
     .join("");
 
-  for (const btn of categoryOrderList.querySelectorAll("[data-order-up]")) {
-    btn.addEventListener("click", () => moveCategory(Number(btn.dataset.orderUp), -1));
+  for (const row of categoryEditRows.querySelectorAll(".category-edit-row")) {
+    row.addEventListener("dragstart", () => row.classList.add("dragging"));
+    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const dragging = categoryEditRows.querySelector(".category-edit-row.dragging");
+      if (!dragging || dragging === row) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      if (before) {
+        categoryEditRows.insertBefore(dragging, row);
+      } else {
+        categoryEditRows.insertBefore(dragging, row.nextSibling);
+      }
+    });
   }
-  for (const btn of categoryOrderList.querySelectorAll("[data-order-down]")) {
-    btn.addEventListener("click", () => moveCategory(Number(btn.dataset.orderDown), 1));
+  for (const btn of categoryEditRows.querySelectorAll("[data-delete-category]")) {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.deleteCategory;
+      state.categoryOrder = state.categoryOrder.filter((x) => x !== name);
+      if (state.selectedCategory === name) state.selectedCategory = state.categoryOrder[0] || "未分類";
+      renderCategoryEditRows();
+    });
   }
 }
 
-function moveCategory(index, direction) {
-  const next = index + direction;
-  if (next < 0 || next >= state.categoryOrder.length) return;
-  const arr = state.categoryOrder;
-  [arr[index], arr[next]] = [arr[next], arr[index]];
+function onSaveCategoryEdit(e) {
+  e.preventDefault();
+  const fd = new FormData(categoryEditForm);
+  const rows = Array.from(categoryEditRows.querySelectorAll(".category-edit-row"));
+  state.categoryOrder = rows.map((row) => row.dataset.categoryName || "").filter(Boolean);
+
+  for (let i = 0; i < state.categoryOrder.length; i += 1) {
+    const name = state.categoryOrder[i];
+    const color = String(fd.get(`color_${name}`) || defaultCategoryColor(i));
+    state.categoryColors[name] = color;
+  }
+  for (const key of Object.keys(state.categoryColors)) {
+    if (!state.categoryOrder.includes(key)) delete state.categoryColors[key];
+  }
+
   persistAll();
+  categoryEditDialog.close();
   renderAll();
+}
+
+function onAddCategory() {
+  const name = newCategoryName.value.trim();
+  if (!name) return;
+  if (!state.categoryOrder.includes(name)) {
+    state.categoryOrder.push(name);
+  }
+  state.categoryColors[name] = newCategoryColor.value || defaultCategoryColor(state.categoryOrder.length - 1);
+  newCategoryName.value = "";
+  renderCategoryEditRows();
+}
+
+function defaultCategoryColor(index) {
+  const palette = ["#d64949", "#f08c00", "#2b8a3e", "#1971c2", "#5f3dc4", "#0b7285", "#c2255c", "#495057"];
+  return palette[index % palette.length];
+}
+
+function categoryChipStyle(name) {
+  return 'style="border-color:#e3e3e3;color:#27231d;background:#f6f6f6;"';
 }
 
 function renderCategoryTab() {
@@ -479,34 +724,59 @@ function renderCategoryTab() {
     return;
   }
 
+  const countMap = new Map();
+  for (const item of state.items.filter(matchesClosetQuery)) {
+    const key = item.category || "未分類";
+    countMap.set(key, (countMap.get(key) || 0) + 1);
+  }
+
   categoryChips.innerHTML = pool
-    .map(
-      (c) => `<button class="chip ${c === state.selectedCategory ? "active" : ""}" data-category-chip="${escapeAttr(c)}">${escapeHtml(c)}</button>`
-    )
+    .map((c) => {
+      const active = c === state.selectedCategory;
+      const color = state.categoryColors[c] || defaultCategoryColor(0);
+      const style = active ? `style="border-color:#bfbfbf;color:#27231d;background:#f6f6f6;"` : categoryChipStyle(c);
+      const count = countMap.get(c) || 0;
+      return `<button class="chip category-chip ${active ? "active" : ""}" data-category-chip="${escapeAttr(c)}" ${style}><span class="category-chip-inner"><span class="category-dot" style="background:${color};"></span><span>${escapeHtml(c)}</span><span class="category-count">${count}</span></span></button>`;
+    })
     .join("");
 
-  const target = sortedByPurchase(state.items).filter((item) => item.category === state.selectedCategory);
-  categoryResult.innerHTML = target.length
-    ? target
-      .map(
-        (item) => `
-          <article class="item-row">
-            <img class="cover-sm" src="${item.itemPhotos[0] || ""}" alt="${escapeHtml(item.name)}" />
-            <div>
-              <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong></div>
-              <div>${escapeHtml(item.name)}</div>
-            </div>
-          </article>`
-      )
-      .join("")
-    : '<p class="meta">此分類目前沒有商品。</p>';
+  categoryResult.innerHTML = "";
 
   for (const btn of categoryChips.querySelectorAll("[data-category-chip]")) {
     btn.addEventListener("click", () => {
       state.selectedCategory = btn.dataset.categoryChip;
       renderCategoryTab();
+      openCategoryItemsPage(state.selectedCategory);
     });
   }
+}
+
+function openCategoryItemsPage(category) {
+  const items = sortedByPurchase(state.items).filter((x) => x.category === category && matchesClosetQuery(x));
+  const color = state.categoryColors[category] || defaultCategoryColor(0);
+  categoryItemsTitle.textContent = category;
+  categoryItemsTitle.style.color = color;
+  categoryItemsList.innerHTML = items.length
+    ? items
+      .map(
+        (item) => `
+        <button type="button" class="item-open-btn" data-open-item-detail="${item.id}">
+          <article class="item-row">
+            <img class="cover-sm" src="${item.itemPhotos[0] || ""}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+              <p class="meta">${escapeHtml(item.category || "未分類")}</p>
+            </div>
+          </article>
+        </button>`
+      )
+      .join("")
+    : '<p class="meta">此分類目前沒有商品。</p>';
+
+  for (const btn of categoryItemsList.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+  categoryItemsPage.classList.add("active");
 }
 
 function renderTagTab() {
@@ -529,7 +799,7 @@ function renderTagTab() {
 
   const filterTags = state.selectedTags;
 
-  let result = [...state.items];
+  let result = state.items.filter(matchesClosetQuery);
   for (const tag of filterTags) {
     if (["春季", "夏季", "秋季", "冬季"].includes(tag)) {
       result = result.filter((item) => (item.seasons || []).includes(tag));
@@ -550,16 +820,23 @@ function renderTagTab() {
     ? result
       .map(
         (item) => `
-          <article class="item-row">
-            <img class="cover-sm" src="${item.itemPhotos[0] || ""}" alt="${escapeHtml(item.name)}" />
-            <div>
-              <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong> / ${escapeHtml(item.name)}</div>
-              <p class="meta">使用次數：${item.wearCountTotal || 0}</p>
-            </div>
-          </article>`
+          <button type="button" class="item-open-btn" data-open-item-detail="${item.id}">
+            <article class="item-row">
+              <img class="cover-sm" src="${item.itemPhotos[0] || ""}" alt="${escapeHtml(item.name)}" />
+              <div>
+                <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                <p class="meta">使用次數：${item.wearCountTotal || 0}</p>
+              </div>
+            </article>
+          </button>`
       )
       .join("")
-    : '<p class="meta">此標籤條件沒有商品。</p>';
+    : state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">此標籤條件沒有商品。</p>';
+
+  for (const btn of tagResult.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+  bindClearSearchButtons(tagResult);
 }
 
 function renderVoteChecklist(container, selectedIds) {
@@ -627,13 +904,76 @@ function renderManualVoteList() {
     : '<p class="meta">沒有符合條件的商品。</p>';
 }
 
+function renderOutfitSearchCategoryOptions() {
+  const previous = outfitSearchCategory.value;
+  outfitSearchCategory.innerHTML =
+    '<option value="">全部分類</option>' +
+    state.categoryOrder.map((c) => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
+  if (previous && state.categoryOrder.includes(previous)) {
+    outfitSearchCategory.value = previous;
+  }
+}
+
+function renderOutfitItemChecklist() {
+  const brandQ = outfitSearchBrand.value.trim().toLowerCase();
+  const nameQ = outfitSearchName.value.trim().toLowerCase();
+  const tagQ = outfitSearchTag.value.trim().toLowerCase();
+  const categoryQ = outfitSearchCategory.value;
+
+  const rows = sortedByPurchase(state.items).filter((item) => {
+    if (brandQ && !String(item.brand || "").toLowerCase().includes(brandQ)) return false;
+    if (nameQ && !String(item.name || "").toLowerCase().includes(nameQ)) return false;
+    if (categoryQ && item.category !== categoryQ) return false;
+    if (tagQ) {
+      const searchableTags = [...(item.seasons || []), item.origin || "", item.grade || "", item.category || ""]
+        .join(" ")
+        .toLowerCase();
+      if (!searchableTags.includes(tagQ)) return false;
+    }
+    return true;
+  });
+
+  outfitItemChecklist.innerHTML = rows.length
+    ? rows
+      .map(
+        (item) => `
+          <label class="item-row">
+            <img class="cover-sm" src="${item.itemPhotos[0] || ""}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <input type="checkbox" name="outfitItemIds" value="${item.id}" ${outfitSelection.has(item.id) ? "checked" : ""} />
+              <span><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</span>
+              <p class="meta">${escapeHtml(item.category || "未分類")}</p>
+            </div>
+          </label>`
+      )
+      .join("")
+    : '<p class="meta">沒有符合條件的商品。</p>';
+
+  for (const cb of outfitItemChecklist.querySelectorAll('input[name="outfitItemIds"]')) {
+    cb.addEventListener("change", () => {
+      const id = cb.value;
+      if (cb.checked) {
+        outfitSelection.add(id);
+      } else {
+        outfitSelection.delete(id);
+      }
+    });
+  }
+}
+
 function renderOutfitGrid() {
   const logs = [...state.dailyLogs]
     .filter((log) => (log.outfitPhotos || []).length > 0)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .filter(matchesOutfitQuery)
+    .sort((a, b) => {
+      const ta = new Date(a.date).getTime();
+      const tb = new Date(b.date).getTime();
+      return state.outfitSort === "asc" ? ta - tb : tb - ta;
+    });
 
   if (!logs.length) {
-    outfitGrid.innerHTML = '<p class="meta">目前沒有穿搭紀錄。</p>';
+    outfitGrid.innerHTML = state.outfitQuery ? emptyResultBlock("outfit") : '<p class="meta">目前沒有穿搭紀錄。</p>';
+    bindClearSearchButtons(outfitGrid);
     return;
   }
 
@@ -651,28 +991,82 @@ function renderOutfitGrid() {
 function openOutfitDetail(logId) {
   const log = state.dailyLogs.find((x) => x.id === logId);
   if (!log) return;
+  currentOutfitDetailId = logId;
 
   const names = (log.wornItemIds || [])
     .map((id) => state.items.find((x) => x.id === id))
-    .filter(Boolean)
-    .map((item) => `${item.brand ? `${item.brand} / ` : ""}${item.name}`)
-    .join("、");
+    .filter(Boolean);
 
   detailDate.textContent = log.date;
   detailMeta.textContent = `天氣：${log.weather || "未填"}`;
+  detailTemp.textContent = `氣溫：${log.temperature || "未填"} | 縣市：${log.county || "未填"} | 地點：${log.place || "未填"}`;
   detailNote.textContent = `穿搭想法：${log.note || "-"}`;
-  detailVote.textContent = `票選衣服：${names || "未勾選"}`;
+  detailItems.innerHTML = names.length
+    ? `<div><strong>搭配單品</strong></div>
+      <div class="outfit-items-strip">
+        ${names
+          .map(
+            (item) => `
+            <button type="button" class="item-open-btn outfit-item-card" data-open-item-detail="${item.id}">
+              <img class="cover-grid" src="${item.itemPhotos?.[0] || ""}" alt="${escapeHtml(item.name)}" />
+              <div class="meta">${escapeHtml(item.brand || "未填品牌")}&nbsp;${escapeHtml(item.name)}</div>
+              <div class="meta">使用次數：${item.wearCountTotal || 0}</div>
+            </button>`
+          )
+          .join("")}
+      </div>`
+    : "搭配單品：未勾選";
 
-  detailPhotos.innerHTML = "";
-  for (const src of (log.outfitPhotos || []).slice(0, 20)) {
-    const img = document.createElement("img");
-    img.className = "cover-grid";
-    img.src = src;
-    img.alt = log.date;
-    detailPhotos.appendChild(img);
+  for (const btn of detailItems.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
   }
 
+  detailOutfitPhotos = (log.outfitPhotos || []).slice(0, 20);
+  detailOutfitIndex = 0;
+  renderOutfitDetailPhoto();
+
   outfitDetailDialog.showModal();
+}
+
+function openOutfitEditForm() {
+  if (!currentOutfitDetailId) return;
+  const log = state.dailyLogs.find((x) => x.id === currentOutfitDetailId);
+  if (!log) return;
+
+  editingOutfitId = log.id;
+  outfitSelection = new Set(log.wornItemIds || []);
+  outfitFormTitle.textContent = "編輯穿搭";
+  outfitForm.date.value = log.date || "";
+  outfitForm.weather.value = log.weather || "";
+  outfitForm.county.value = log.county || "";
+  outfitForm.place.value = log.place || "";
+  outfitForm.temperature.value = log.temperature || "";
+  outfitForm.note.value = log.note || "";
+  outfitSearchBrand.value = "";
+  outfitSearchName.value = "";
+  outfitSearchTag.value = "";
+  outfitSearchCategory.value = "";
+  renderOutfitSearchCategoryOptions();
+  renderOutfitItemChecklist();
+  outfitDetailDialog.close();
+  outfitFormDialog.showModal();
+}
+
+function stepOutfitDetailPhoto(step) {
+  if (!detailOutfitPhotos.length) return;
+  const total = detailOutfitPhotos.length;
+  detailOutfitIndex = (detailOutfitIndex + step + total) % total;
+  renderOutfitDetailPhoto();
+}
+
+function renderOutfitDetailPhoto() {
+  if (!detailOutfitPhotos.length) {
+    outfitDetailMainPhoto.removeAttribute("src");
+    outfitDetailCounter.textContent = "沒有照片";
+    return;
+  }
+  outfitDetailMainPhoto.src = detailOutfitPhotos[detailOutfitIndex];
+  outfitDetailCounter.textContent = `${detailOutfitIndex + 1} / ${detailOutfitPhotos.length}`;
 }
 
 function load(key, fallback) {
@@ -692,6 +1086,17 @@ function numberOrNull(v) {
   if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function averageUsePriceText(item) {
+  const prices = [item.originalPrice, item.specialPrice, item.discountPrice]
+    .map((x) => (x == null ? NaN : Number(x)))
+    .filter((x) => Number.isFinite(x) && x > 0);
+  if (!prices.length) return "未填價格";
+  const minPrice = Math.min(...prices);
+  const count = Number(item.wearCountTotal || 0);
+  if (count <= 0) return "尚無使用次數";
+  return (minPrice / count).toFixed(2);
 }
 
 function filesToThreeFourDataUrls(files) {

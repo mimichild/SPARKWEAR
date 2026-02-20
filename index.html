@@ -16,17 +16,26 @@
     </section>
 
     <section id="closetPage" class="page">
+      <header class="page-head">
+        <h1>我的衣櫃</h1>
+        <div class="head-actions">
+          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋">🔍</button>
+          <button class="back-btn" data-back-home>返回</button>
+        </div>
+      </header>
+      <div id="closetSearchBar" class="search-bar hidden">
+        <div class="search-row">
+          <input id="closetSearchInput" placeholder="搜尋關鍵字（品牌/名稱/介紹/分類/標籤）" />
+          <button id="clearClosetSearch" type="button">清除</button>
+        </div>
+      </div>
+
       <nav class="sub-tabs">
         <button class="sub-btn active" data-sub-tab="latest">最新</button>
         <button class="sub-btn" data-sub-tab="photos">照片</button>
         <button class="sub-btn" data-sub-tab="category">分類</button>
         <button class="sub-btn" data-sub-tab="tags">標籤</button>
       </nav>
-
-      <header class="page-head">
-        <button class="back-btn" data-back-home>返回</button>
-        <h1>我的衣櫃</h1>
-      </header>
 
       <div class="sort-bar">
         <label>
@@ -43,9 +52,10 @@
       <section id="closetPhotos" class="sub-panel"></section>
 
       <section id="closetCategory" class="sub-panel">
-        <h3 class="section-title">分類順序自訂</h3>
-        <div id="categoryOrderList" class="list"></div>
-        <h3 class="section-title">分類瀏覽</h3>
+        <div class="panel-head">
+          <h3 class="section-title">分類瀏覽</h3>
+          <button id="openCategoryEdit" type="button" class="mini-action">✏️ 編輯類別</button>
+        </div>
         <div id="categoryChips" class="chip-row"></div>
         <div id="categoryResult" class="list"></div>
       </section>
@@ -66,17 +76,35 @@
         <div id="tagResult" class="list"></div>
       </section>
 
-      <button id="openItemForm" class="fab" aria-label="新增衣物">📓</button>
+      <button id="openItemForm" class="fab" aria-label="新增衣物">✏️</button>
     </section>
 
     <section id="outfitPage" class="page">
       <header class="page-head">
-        <button class="back-btn" data-back-home>返回</button>
         <h1>穿搭紀錄</h1>
+        <div class="head-actions">
+          <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋">🔍</button>
+          <button class="back-btn" data-back-home>返回</button>
+        </div>
       </header>
+      <div id="outfitSearchBar" class="search-bar hidden">
+        <div class="search-row">
+          <input id="outfitSearchInput" placeholder="搜尋關鍵字（天氣/氣溫/小紀錄/縣市/地點）" />
+          <button id="clearOutfitSearch" type="button">清除</button>
+        </div>
+      </div>
+      <div class="sort-bar">
+        <label>
+          排序
+          <select id="outfitSortSelect">
+            <option value="desc">最新到最舊</option>
+            <option value="asc">最舊到最新</option>
+          </select>
+        </label>
+      </div>
 
       <section id="outfitGrid" class="photo-grid"></section>
-      <button id="openOutfitMenu" class="fab" aria-label="穿搭筆記本">📓</button>
+      <button id="openOutfitMenu" class="fab" aria-label="穿搭筆記本">✏️</button>
     </section>
   </main>
 
@@ -145,7 +173,7 @@
     <article class="dialog-card">
       <h2>穿搭筆記本</h2>
       <div class="actions single-col">
-        <button id="openOutfitFormAction" type="button">新增穿搭紀錄</button>
+        <button id="openOutfitFormAction" type="button">新增穿搭</button>
         <button id="openVoteFormAction" type="button">票選衣服</button>
         <button id="closeOutfitMenu" type="button">取消</button>
       </div>
@@ -154,13 +182,28 @@
 
   <dialog id="outfitFormDialog">
     <form id="outfitForm" class="dialog-card" method="dialog">
-      <h2>新增當日穿搭</h2>
+      <h2 id="outfitFormTitle">新增穿搭</h2>
       <div class="grid-2">
         <label>日期<input type="date" name="date" required /></label>
         <label>天氣<input name="weather" placeholder="例如：24°C 陰" /></label>
       </div>
+      <div class="grid-2">
+        <label>縣市<input name="county" placeholder="例如：台北市" /></label>
+        <label>地點<input name="place" placeholder="例如：信義區" /></label>
+      </div>
+      <label>氣溫<input name="temperature" placeholder="例如：24°C" /></label>
       <label>穿搭想法<textarea name="note" rows="3"></textarea></label>
-      <label>穿搭照片（1~20 張，第一張主圖）<input type="file" name="outfitPhotos" accept="image/*" multiple required /></label>
+      <label>穿搭照片（1~20 張，第一張主圖）<input type="file" name="outfitPhotos" accept="image/*" multiple /></label>
+      <div>
+        <strong>搭配單品（可多選）</strong>
+        <div class="grid-2">
+          <label>搜尋品牌<input id="outfitSearchBrand" name="outfitSearchBrand" placeholder="輸入品牌" /></label>
+          <label>搜尋名稱<input id="outfitSearchName" name="outfitSearchName" placeholder="輸入名稱" /></label>
+          <label>搜尋標籤<input id="outfitSearchTag" name="outfitSearchTag" placeholder="例如：春季、韓貨" /></label>
+          <label>分類<select id="outfitSearchCategory" name="outfitSearchCategory"></select></label>
+        </div>
+        <div id="outfitItemChecklist" class="list"></div>
+      </div>
       <div class="actions">
         <button type="button" data-close-outfit>取消</button>
         <button type="submit">儲存</button>
@@ -193,14 +236,31 @@
 
   <dialog id="outfitDetailDialog">
     <article class="dialog-card">
+      <button id="editOutfitDetail" class="close-btn secondary-btn">編輯</button>
       <button id="closeDetail" class="close-btn">關閉</button>
       <h2 id="detailDate"></h2>
-      <p id="detailMeta" class="meta"></p>
-      <p id="detailNote"></p>
-      <p id="detailVote"></p>
-      <div id="detailPhotos" class="photo-grid"></div>
+      <section class="carousel">
+        <button id="outfitDetailPrev" class="carousel-btn" type="button" aria-label="上一張">◀</button>
+        <img id="outfitDetailMainPhoto" class="detail-photo" alt="穿搭照片" />
+        <button id="outfitDetailNext" class="carousel-btn" type="button" aria-label="下一張">▶</button>
+      </section>
+      <p id="outfitDetailCounter" class="meta"></p>
+      <section class="detail-records">
+        <div id="detailMeta"></div>
+        <div id="detailTemp"></div>
+        <div id="detailNote"></div>
+        <div id="detailItems"></div>
+      </section>
     </article>
   </dialog>
+
+  <section id="categoryItemsPage" class="overlay-page">
+    <header class="page-head">
+      <h1 id="categoryItemsTitle">分類</h1>
+      <button id="closeCategoryItemsPage" class="back-btn" type="button">關閉</button>
+    </header>
+    <section id="categoryItemsList" class="list"></section>
+  </section>
 
   <dialog id="itemDetailDialog">
     <article class="dialog-card">
@@ -214,6 +274,22 @@
       <p id="itemDetailCounter" class="meta"></p>
       <section id="itemDetailRecords" class="detail-records"></section>
     </article>
+  </dialog>
+
+  <dialog id="categoryEditDialog">
+    <form id="categoryEditForm" class="dialog-card" method="dialog">
+      <h2>編輯類別</h2>
+      <div id="categoryEditRows" class="list"></div>
+      <section class="add-category-row">
+        <input id="newCategoryName" placeholder="新增類別名稱" />
+        <input id="newCategoryColor" type="color" value="#888888" />
+        <button id="addCategoryBtn" type="button">新增</button>
+      </section>
+      <div class="actions">
+        <button type="button" id="closeCategoryEdit">取消</button>
+        <button type="submit">儲存設定</button>
+      </div>
+    </form>
   </dialog>
 
   <script src="app.js"></script>

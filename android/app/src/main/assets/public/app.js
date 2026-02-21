@@ -1,0 +1,2656 @@
+const DEFAULT_CATEGORY_ORDER = ["上衣", "裙裝", "褲裝", "洋裝", "外套", "套裝", "日常", "鞋類", "包包", "猶豫", "留校", "冷凍", "未分類"];
+const TAG_OPTIONS = ["春季", "夏季", "秋季", "冬季", "日貨", "韓貨", "品牌", "蝦皮", "淘寶", "其他"];
+const PHOTO_DB_NAME = "closet_photo_db";
+const PHOTO_DB_VERSION = 1;
+const PHOTO_DB_STORE = "photos";
+const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
+const APP_VERSION_LABEL = "v1.0.6+7";
+const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
+
+const state = {
+  items: load("closet_items", []),
+  dailyLogs: load("closet_daily_logs", []),
+  manualVoteCounts: load("closet_manual_vote_counts", {}),
+  categoryOrder: load("closet_category_order", []),
+  categoryColors: load("closet_category_colors", {}),
+  purchaseSort: load("closet_purchase_sort", "desc"),
+  outfitSort: load("closet_outfit_sort", "desc"),
+  tagUsageSort: load("closet_tag_usage_sort", "none"),
+  selectedCategory: "",
+  selectedTags: [],
+  closetQuery: "",
+  outfitQuery: "",
+};
+
+const homePage = document.getElementById("homePage");
+const closetPage = document.getElementById("closetPage");
+const outfitPage = document.getElementById("outfitPage");
+const exportDataBtn = document.getElementById("exportDataBtn");
+const importDataBtn = document.getElementById("importDataBtn");
+const importFileInput = document.getElementById("importFileInput");
+const showStorageStatsBtn = document.getElementById("showStorageStatsBtn");
+const cleanupPhotosBtn = document.getElementById("cleanupPhotosBtn");
+const storageStatsText = document.getElementById("storageStatsText");
+const appVersionText = document.getElementById("appVersionText");
+const uploadProgressOverlay = document.getElementById("uploadProgressOverlay");
+const uploadProgressTitle = document.getElementById("uploadProgressTitle");
+const uploadProgressFill = document.getElementById("uploadProgressFill");
+const uploadProgressMeta = document.getElementById("uploadProgressMeta");
+const importModeDialog = document.getElementById("importModeDialog");
+const importMergeBtn = document.getElementById("importMergeBtn");
+const importReplaceBtn = document.getElementById("importReplaceBtn");
+const cancelImportBtn = document.getElementById("cancelImportBtn");
+
+const openPageBtns = document.querySelectorAll("[data-open-page]");
+const backBtns = document.querySelectorAll("[data-back-home]");
+
+const subTabs = document.querySelectorAll("[data-sub-tab]");
+const closetLatest = document.getElementById("closetLatest");
+const closetPhotos = document.getElementById("closetPhotos");
+const closetCategory = document.getElementById("closetCategory");
+const closetTags = document.getElementById("closetTags");
+const purchaseSortSelect = document.getElementById("purchaseSortSelect");
+const outfitSortSelect = document.getElementById("outfitSortSelect");
+const tagUsageSortSelect = document.getElementById("tagUsageSortSelect");
+const toggleClosetSearch = document.getElementById("toggleClosetSearch");
+const closetSearchBar = document.getElementById("closetSearchBar");
+const closetSearchInput = document.getElementById("closetSearchInput");
+const clearClosetSearch = document.getElementById("clearClosetSearch");
+const toggleOutfitSearch = document.getElementById("toggleOutfitSearch");
+const outfitSearchBar = document.getElementById("outfitSearchBar");
+const outfitSearchInput = document.getElementById("outfitSearchInput");
+const clearOutfitSearch = document.getElementById("clearOutfitSearch");
+
+const categoryChips = document.getElementById("categoryChips");
+const categoryResult = document.getElementById("categoryResult");
+const tagChips = document.getElementById("tagChips");
+const tagResult = document.getElementById("tagResult");
+const openCategoryEdit = document.getElementById("openCategoryEdit");
+const categoryEditDialog = document.getElementById("categoryEditDialog");
+const categoryEditForm = document.getElementById("categoryEditForm");
+const categoryEditRows = document.getElementById("categoryEditRows");
+const closeCategoryEdit = document.getElementById("closeCategoryEdit");
+const addCategoryBtn = document.getElementById("addCategoryBtn");
+const newCategoryName = document.getElementById("newCategoryName");
+const newCategoryColor = document.getElementById("newCategoryColor");
+
+const outfitGrid = document.getElementById("outfitGrid");
+
+const itemDialog = document.getElementById("itemDialog");
+const itemForm = document.getElementById("itemForm");
+const itemFormTitle = document.getElementById("itemFormTitle");
+const itemPurchaseDateInput = itemForm.querySelector('input[name="purchaseDate"]');
+const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
+const openItemForm = document.getElementById("openItemForm");
+const closeItemBtn = document.querySelector("[data-close-item]");
+const itemCategorySelect = document.getElementById("itemCategorySelect");
+const existingItemPhotosSection = document.getElementById("existingItemPhotosSection");
+const existingItemPhotosList = document.getElementById("existingItemPhotosList");
+
+const outfitMenuDialog = document.getElementById("outfitMenuDialog");
+const openOutfitMenu = document.getElementById("openOutfitMenu");
+const closeOutfitMenu = document.getElementById("closeOutfitMenu");
+const openOutfitFormAction = document.getElementById("openOutfitFormAction");
+const openVoteFormAction = document.getElementById("openVoteFormAction");
+
+const outfitFormDialog = document.getElementById("outfitFormDialog");
+const outfitForm = document.getElementById("outfitForm");
+const outfitFormTitle = document.getElementById("outfitFormTitle");
+const closeOutfitBtn = document.querySelector("[data-close-outfit]");
+const outfitSearchBrand = document.getElementById("outfitSearchBrand");
+const outfitSearchName = document.getElementById("outfitSearchName");
+const outfitSearchTag = document.getElementById("outfitSearchTag");
+const outfitSearchCategory = document.getElementById("outfitSearchCategory");
+const outfitItemChecklist = document.getElementById("outfitItemChecklist");
+
+const voteDialog = document.getElementById("voteDialog");
+const voteForm = document.getElementById("voteForm");
+const closeVoteDialogBtn = document.getElementById("closeVoteDialog");
+const voteManualChecklist = document.getElementById("voteManualChecklist");
+const voteSearchBrand = document.getElementById("voteSearchBrand");
+const voteSearchName = document.getElementById("voteSearchName");
+const voteSearchTag = document.getElementById("voteSearchTag");
+const voteSearchCategory = document.getElementById("voteSearchCategory");
+
+const outfitDetailDialog = document.getElementById("outfitDetailDialog");
+const editOutfitDetail = document.getElementById("editOutfitDetail");
+const deleteOutfitDetail = document.getElementById("deleteOutfitDetail");
+const closeDetail = document.getElementById("closeDetail");
+const detailDate = document.getElementById("detailDate");
+const detailMeta = document.getElementById("detailMeta");
+const detailTemp = document.getElementById("detailTemp");
+const detailNote = document.getElementById("detailNote");
+const detailItems = document.getElementById("detailItems");
+const outfitDetailPrev = document.getElementById("outfitDetailPrev");
+const outfitDetailNext = document.getElementById("outfitDetailNext");
+const outfitDetailMainPhoto = document.getElementById("outfitDetailMainPhoto");
+const outfitDetailCounter = document.getElementById("outfitDetailCounter");
+const categoryItemsPage = document.getElementById("categoryItemsPage");
+const categoryItemsTitle = document.getElementById("categoryItemsTitle");
+const categoryItemsLatestTab = document.getElementById("categoryItemsLatestTab");
+const categoryItemsPhotosTab = document.getElementById("categoryItemsPhotosTab");
+const categoryItemsList = document.getElementById("categoryItemsList");
+const closeCategoryItemsPage = document.getElementById("closeCategoryItemsPage");
+
+const itemDetailDialog = document.getElementById("itemDetailDialog");
+const editItemDetail = document.getElementById("editItemDetail");
+const deleteItemDetail = document.getElementById("deleteItemDetail");
+const closeItemDetail = document.getElementById("closeItemDetail");
+const itemDetailTitle = document.getElementById("itemDetailTitle");
+const itemDetailMainPhoto = document.getElementById("itemDetailMainPhoto");
+const itemDetailPrev = document.getElementById("itemDetailPrev");
+const itemDetailNext = document.getElementById("itemDetailNext");
+const itemDetailCounter = document.getElementById("itemDetailCounter");
+const itemDetailRecords = document.getElementById("itemDetailRecords");
+const itemUsedOutfits = document.getElementById("itemUsedOutfits");
+const confirmDeleteItemDialog = document.getElementById("confirmDeleteItemDialog");
+const confirmDeleteItemText = document.getElementById("confirmDeleteItemText");
+const cancelDeleteItem = document.getElementById("cancelDeleteItem");
+const confirmDeleteItem = document.getElementById("confirmDeleteItem");
+const confirmDeleteOutfitDialog = document.getElementById("confirmDeleteOutfitDialog");
+const confirmDeleteOutfitText = document.getElementById("confirmDeleteOutfitText");
+const cancelDeleteOutfit = document.getElementById("cancelDeleteOutfit");
+const confirmDeleteOutfit = document.getElementById("confirmDeleteOutfit");
+
+let detailItemPhotos = [];
+let detailPhotoIndex = 0;
+let detailOutfitPhotos = [];
+let detailOutfitIndex = 0;
+let editingItemId = null;
+let editingOutfitId = null;
+let outfitSelection = new Set();
+let currentOutfitDetailId = null;
+let currentItemDetailId = null;
+let currentCategoryItemsName = "";
+let categoryItemsView = "latest";
+let pendingImportData = null;
+const photoSrcCache = new Map();
+const photoSrcLoading = new Set();
+let scheduledPhotoRerender = false;
+let uploadProgressVisible = false;
+
+if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
+outfitForm.date.valueAsDate = new Date();
+if (!["asc", "desc"].includes(state.purchaseSort)) state.purchaseSort = "desc";
+purchaseSortSelect.value = state.purchaseSort;
+if (!["asc", "desc"].includes(state.outfitSort)) state.outfitSort = "desc";
+outfitSortSelect.value = state.outfitSort;
+if (!["none", "desc", "asc"].includes(state.tagUsageSort)) state.tagUsageSort = "none";
+tagUsageSortSelect.value = state.tagUsageSort;
+
+const platform = typeof window !== "undefined" ? window.Capacitor?.getPlatform?.() || "web" : "web";
+document.body.classList.add(`platform-${platform}`);
+
+// 初始化狀態列
+const initStatusBar = async () => {
+  const { StatusBar } = window.Capacitor?.Plugins || {};
+  if (StatusBar) {
+    try {
+      // 強制 Webview 延伸到狀態列下方（以便我們用 CSS 位移內容）
+      await StatusBar.setOverlaysWebView({ overlay: true });
+      // 設定狀態列背景顏色為粉紅色
+      await StatusBar.setBackgroundColor({ color: "#f1aba7" });
+      // 設定圖示顏色為白色 (Style.LIGHT)
+      await StatusBar.setStyle({ style: "LIGHT" });
+    } catch (e) {
+      console.warn("StatusBar plugin not available or failed", e);
+    }
+  }
+};
+initStatusBar();
+
+
+if (appVersionText) appVersionText.textContent = `版本 ${APP_VERSION_LABEL}`;
+
+
+state.items = state.items.map((item) => ({ ...item, itemPhotos: normalizePhotoList(item?.itemPhotos) }));
+state.dailyLogs = state.dailyLogs.map((log) => ({ ...log, outfitPhotos: normalizePhotoList(log?.outfitPhotos) }));
+
+normalizeCategoryOrder();
+recomputeWearCounts();
+hydratePhotoRefs();
+
+for (const btn of openPageBtns) btn.addEventListener("click", () => openPage(btn.dataset.openPage));
+for (const btn of backBtns) btn.addEventListener("click", showHome);
+for (const btn of subTabs) btn.addEventListener("click", () => switchSub(btn.dataset.subTab));
+
+openItemForm.addEventListener("click", () => openNewItemForm());
+closeItemBtn.addEventListener("click", () => {
+  editingItemId = null;
+  itemDialog.close();
+});
+openCategoryEdit.addEventListener("click", () => {
+  renderCategoryEditRows();
+  categoryEditDialog.showModal();
+});
+closeCategoryEdit.addEventListener("click", () => categoryEditDialog.close());
+categoryEditForm.addEventListener("submit", onSaveCategoryEdit);
+addCategoryBtn.addEventListener("click", onAddCategory);
+
+openOutfitMenu.addEventListener("click", () => outfitMenuDialog.showModal());
+closeOutfitMenu.addEventListener("click", () => outfitMenuDialog.close());
+openOutfitFormAction.addEventListener("click", () => {
+  outfitMenuDialog.close();
+  editingOutfitId = null;
+  outfitFormTitle.textContent = "新增穿搭";
+  outfitForm.reset();
+  outfitForm.date.valueAsDate = new Date();
+  outfitSelection = new Set();
+  outfitFormDialog.showModal();
+  renderOutfitSearchCategoryOptions();
+  renderOutfitItemChecklist();
+});
+openVoteFormAction.addEventListener("click", () => {
+  outfitMenuDialog.close();
+  voteDialog.showModal();
+  renderVoteSearchCategoryOptions();
+  renderManualVoteList();
+});
+
+closeOutfitBtn.addEventListener("click", () => outfitFormDialog.close());
+closeVoteDialogBtn.addEventListener("click", () => voteDialog.close());
+closeDetail.addEventListener("click", () => outfitDetailDialog.close());
+editOutfitDetail.addEventListener("click", () => openOutfitEditForm());
+deleteOutfitDetail.addEventListener("click", () => openDeleteOutfitConfirm());
+editItemDetail.addEventListener("click", () => openItemEditForm());
+deleteItemDetail.addEventListener("click", () => openDeleteItemConfirm());
+closeItemDetail.addEventListener("click", () => itemDetailDialog.close());
+closeCategoryItemsPage.addEventListener("click", () => categoryItemsPage.classList.remove("active"));
+itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
+itemDetailNext.addEventListener("click", () => stepDetailPhoto(1));
+outfitDetailPrev.addEventListener("click", () => stepOutfitDetailPhoto(-1));
+outfitDetailNext.addEventListener("click", () => stepOutfitDetailPhoto(1));
+categoryItemsLatestTab.addEventListener("click", () => {
+  categoryItemsView = "latest";
+  renderCategoryItemsPage();
+});
+categoryItemsPhotosTab.addEventListener("click", () => {
+  categoryItemsView = "photos";
+  renderCategoryItemsPage();
+});
+purchaseSortSelect.addEventListener("change", () => {
+  state.purchaseSort = purchaseSortSelect.value === "asc" ? "asc" : "desc";
+  save("closet_purchase_sort", state.purchaseSort);
+  renderLatest();
+  renderPhotosWall();
+});
+outfitSortSelect.addEventListener("change", () => {
+  state.outfitSort = outfitSortSelect.value === "asc" ? "asc" : "desc";
+  save("closet_outfit_sort", state.outfitSort);
+  renderOutfitGrid();
+});
+tagUsageSortSelect.addEventListener("change", () => {
+  state.tagUsageSort = tagUsageSortSelect.value;
+  save("closet_tag_usage_sort", state.tagUsageSort);
+  renderTagTab();
+});
+
+let touchStartX = 0;
+itemDetailMainPhoto.addEventListener("touchstart", (e) => {
+  touchStartX = e.touches[0]?.clientX || 0;
+});
+itemDetailMainPhoto.addEventListener("touchend", (e) => {
+  const endX = e.changedTouches[0]?.clientX || 0;
+  const dx = endX - touchStartX;
+  if (Math.abs(dx) < 30) return;
+  stepDetailPhoto(dx < 0 ? 1 : -1);
+});
+
+let outfitTouchStartX = 0;
+outfitDetailMainPhoto.addEventListener("touchstart", (e) => {
+  outfitTouchStartX = e.touches[0]?.clientX || 0;
+});
+outfitDetailMainPhoto.addEventListener("touchend", (e) => {
+  const endX = e.changedTouches[0]?.clientX || 0;
+  const dx = endX - outfitTouchStartX;
+  if (Math.abs(dx) < 30) return;
+  stepOutfitDetailPhoto(dx < 0 ? 1 : -1);
+});
+
+const SWIPE_THRESHOLD = 60;
+const SWIPE_MAX_VERTICAL_DRIFT = 90;
+let navTouchStartX = 0;
+let navTouchStartY = 0;
+let navTouchTarget = null;
+
+document.addEventListener("touchstart", (e) => {
+  navTouchStartX = e.touches[0]?.clientX || 0;
+  navTouchStartY = e.touches[0]?.clientY || 0;
+  navTouchTarget = e.target;
+});
+
+document.addEventListener("touchend", (e) => {
+  if (!navTouchTarget || isSwipeNavBlockedTarget(navTouchTarget)) return;
+  const endX = e.changedTouches[0]?.clientX || 0;
+  const endY = e.changedTouches[0]?.clientY || 0;
+  const dx = endX - navTouchStartX;
+  const dy = endY - navTouchStartY;
+  if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_MAX_VERTICAL_DRIFT) return;
+  if (dx < 0) {
+    navigateSwipeBack();
+  } else {
+    navigateSwipeForward();
+  }
+});
+
+itemForm.addEventListener("submit", onSaveItem);
+outfitForm.addEventListener("submit", onSaveOutfit);
+voteForm.addEventListener("submit", onSaveManualVote);
+voteSearchBrand.addEventListener("input", renderManualVoteList);
+voteSearchName.addEventListener("input", renderManualVoteList);
+voteSearchTag.addEventListener("input", renderManualVoteList);
+voteSearchCategory.addEventListener("change", renderManualVoteList);
+outfitSearchBrand.addEventListener("input", renderOutfitItemChecklist);
+outfitSearchName.addEventListener("input", renderOutfitItemChecklist);
+outfitSearchTag.addEventListener("input", renderOutfitItemChecklist);
+outfitSearchCategory.addEventListener("change", renderOutfitItemChecklist);
+toggleClosetSearch.addEventListener("click", () => {
+  closetSearchBar.classList.toggle("hidden");
+  if (!closetSearchBar.classList.contains("hidden")) closetSearchInput.focus();
+});
+closetSearchInput.addEventListener("input", () => {
+  state.closetQuery = closetSearchInput.value.trim().toLowerCase();
+  renderLatest();
+  renderPhotosWall();
+  renderCategoryTab();
+  renderTagTab();
+});
+toggleOutfitSearch.addEventListener("click", () => {
+  outfitSearchBar.classList.toggle("hidden");
+  if (!outfitSearchBar.classList.contains("hidden")) outfitSearchInput.focus();
+});
+outfitSearchInput.addEventListener("input", () => {
+  state.outfitQuery = outfitSearchInput.value.trim().toLowerCase();
+  renderOutfitGrid();
+});
+clearClosetSearch.addEventListener("click", () => clearSearch("closet"));
+clearOutfitSearch.addEventListener("click", () => clearSearch("outfit"));
+exportDataBtn.addEventListener("click", exportDataAsJson);
+importDataBtn.addEventListener("click", () => importFileInput.click());
+importFileInput.addEventListener("change", onImportFilePicked);
+showStorageStatsBtn.addEventListener("click", () => refreshStorageStats(true));
+cleanupPhotosBtn.addEventListener("click", onCleanupPhotos);
+importMergeBtn.addEventListener("click", () => applyImportedData("merge"));
+importReplaceBtn.addEventListener("click", () => applyImportedData("replace"));
+cancelImportBtn.addEventListener("click", () => {
+  pendingImportData = null;
+  importModeDialog.close();
+});
+itemDialog.addEventListener("close", () => {
+  editingItemId = null;
+  existingItemPhotosSection.classList.add("hidden");
+  existingItemPhotosList.innerHTML = "";
+});
+cancelDeleteItem.addEventListener("click", () => confirmDeleteItemDialog.close());
+cancelDeleteOutfit.addEventListener("click", () => confirmDeleteOutfitDialog.close());
+confirmDeleteItem.addEventListener("click", () => deleteCurrentItem());
+confirmDeleteOutfit.addEventListener("click", () => deleteCurrentOutfit());
+
+renderAll();
+refreshStorageStats(false);
+
+function showHome() {
+  homePage.classList.add("active");
+  closetPage.classList.remove("active");
+  outfitPage.classList.remove("active");
+}
+
+function openPage(type) {
+  homePage.classList.remove("active");
+  closetPage.classList.toggle("active", type === "closet");
+  outfitPage.classList.toggle("active", type === "outfit");
+}
+
+function switchSub(tab) {
+  for (const btn of subTabs) btn.classList.toggle("active", btn.dataset.subTab === tab);
+  closetLatest.classList.toggle("active", tab === "latest");
+  closetPhotos.classList.toggle("active", tab === "photos");
+  closetCategory.classList.toggle("active", tab === "category");
+  closetTags.classList.toggle("active", tab === "tags");
+  const sortBar = document.querySelector(".sort-bar");
+  const showPurchaseSort = tab === "latest" || tab === "photos";
+  if (sortBar) sortBar.classList.toggle("hidden", !showPurchaseSort);
+}
+
+function openNewItemForm() {
+  editingItemId = null;
+  itemFormTitle.textContent = "記錄新品";
+  itemForm.reset();
+  if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
+  existingItemPhotosSection.classList.add("hidden");
+  existingItemPhotosList.innerHTML = "";
+  itemDialog.showModal();
+}
+
+function renderExistingItemPhotos(photos) {
+  if (!editingItemId) {
+    existingItemPhotosSection.classList.add("hidden");
+    existingItemPhotosList.innerHTML = "";
+    return;
+  }
+  existingItemPhotosSection.classList.remove("hidden");
+  existingItemPhotosList.innerHTML = (photos || []).length
+    ? photos
+      .map(
+        (photo, idx) => `
+        <label class="existing-photo-card">
+          <img class="existing-photo-thumb" src="${photoSrc(photo)}" alt="商品照片${idx + 1}" />
+          <span><input type="checkbox" name="deleteExistingPhotos" value="${idx}" /> 刪除</span>
+        </label>`
+      )
+      .join("")
+    : '<p class="meta">目前沒有已存照片，請新增照片。</p>';
+}
+
+function isSwipeNavBlockedTarget(target) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest("input,textarea,select,button,label,[contenteditable='true'],.carousel,.detail-photo"));
+}
+
+function closeTopOverlay() {
+  const dialogs = [
+    confirmDeleteItemDialog,
+    confirmDeleteOutfitDialog,
+    outfitDetailDialog,
+    itemDetailDialog,
+    voteDialog,
+    outfitFormDialog,
+    outfitMenuDialog,
+    itemDialog,
+    categoryEditDialog,
+  ];
+  for (const dialog of dialogs) {
+    if (dialog?.open) {
+      dialog.close();
+      return true;
+    }
+  }
+  if (categoryItemsPage.classList.contains("active")) {
+    categoryItemsPage.classList.remove("active");
+    return true;
+  }
+  return false;
+}
+
+function hasOpenOverlay() {
+  if (categoryItemsPage.classList.contains("active")) return true;
+  return [
+    confirmDeleteItemDialog,
+    confirmDeleteOutfitDialog,
+    outfitDetailDialog,
+    itemDetailDialog,
+    voteDialog,
+    outfitFormDialog,
+    outfitMenuDialog,
+    itemDialog,
+    categoryEditDialog,
+  ]
+    .some((dialog) => Boolean(dialog?.open));
+}
+
+function currentMainPage() {
+  if (closetPage.classList.contains("active")) return "closet";
+  if (outfitPage.classList.contains("active")) return "outfit";
+  return "home";
+}
+
+function activeClosetSubTab() {
+  const active = Array.from(subTabs).find((btn) => btn.classList.contains("active"));
+  return active?.dataset.subTab || "latest";
+}
+
+function navigateSwipeBack() {
+  if (closeTopOverlay()) return;
+  const main = currentMainPage();
+  if (main === "closet") {
+    const order = ["latest", "photos", "category", "tags"];
+    const idx = order.indexOf(activeClosetSubTab());
+    if (idx > 0) {
+      switchSub(order[idx - 1]);
+    } else {
+      showHome();
+    }
+    return;
+  }
+  if (main === "outfit") {
+    openPage("closet");
+    return;
+  }
+  openPage("outfit");
+}
+
+function navigateSwipeForward() {
+  if (hasOpenOverlay()) return;
+  const main = currentMainPage();
+  if (main === "home") {
+    openPage("closet");
+    return;
+  }
+  if (main === "closet") {
+    const order = ["latest", "photos", "category", "tags"];
+    const idx = order.indexOf(activeClosetSubTab());
+    if (idx >= 0 && idx < order.length - 1) {
+      switchSub(order[idx + 1]);
+    } else {
+      openPage("outfit");
+    }
+    return;
+  }
+  showHome();
+}
+
+async function onSaveItem(e) {
+  e.preventDefault();
+  const fd = new FormData(itemForm);
+  let newPhotos = [];
+  const hasFileSelection = Boolean(itemPhotosInput?.files?.length);
+  try {
+    startUploadProgress(hasFileSelection ? "照片壓縮中..." : "挑選照片中...");
+    if (hasFileSelection) {
+      newPhotos = await filesToPhotoRefs(itemPhotosInput?.files || [], "grid", (done, total) => {
+        setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已處理 ${done}/${total} 張`);
+      });
+    } else if (!editingItemId) {
+      newPhotos = await pickAndSavePhotosViaBridge(20, "grid", (done, total) => {
+        setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已儲存 ${done}/${total} 張`);
+      });
+    }
+  } catch (err) {
+    alert(humanizePhotoError(err, "照片處理失敗，請改用 JPG/PNG 或先壓縮後再上傳。"));
+    return;
+  } finally {
+    finishUploadProgress();
+  }
+  const editing = editingItemId ? state.items.find((x) => x.id === editingItemId) : null;
+  const deletedIndexes = new Set(
+    fd.getAll("deleteExistingPhotos")
+      .map((x) => Number(x))
+      .filter((x) => Number.isInteger(x) && x >= 0)
+  );
+  const keptOldPhotos = editing
+    ? (editing.itemPhotos || []).filter((_, idx) => !deletedIndexes.has(idx))
+    : [];
+  const finalPhotos = editing ? [...keptOldPhotos, ...newPhotos] : newPhotos;
+  const detachedPhotos = editing ? diffRemovedPhotoRefs(editing.itemPhotos || [], finalPhotos) : [];
+  if (!finalPhotos.length) {
+    alert("請至少保留或上傳 1 張商品照片");
+    return;
+  }
+
+  const item = {
+    id: editing?.id || crypto.randomUUID(),
+    brand: String(fd.get("brand") || "").trim(),
+    name: String(fd.get("name") || "").trim(),
+    purchaseDate: String(fd.get("purchaseDate") || ""),
+    category: String(fd.get("category") || "").trim(),
+    originalPrice: numberOrNull(fd.get("originalPrice")),
+    specialPrice: numberOrNull(fd.get("specialPrice")),
+    discountPrice: numberOrNull(fd.get("discountPrice")),
+    size: String(fd.get("size") || "").trim(),
+    weight: String(fd.get("weight") || "").trim(),
+    bodyType: String(fd.get("bodyType") || "").trim(),
+    suggestedWeight: String(fd.get("suggestedWeight") || "").trim(),
+    grade: String(fd.get("grade") || "").trim(),
+    origin: String(fd.get("origin") || "").trim(),
+    seasons: fd.getAll("seasons"),
+    miniNote: String(fd.get("miniNote") || "").trim(),
+    pros: String(fd.get("pros") || "").trim(),
+    cons: String(fd.get("cons") || "").trim(),
+    remark: String(fd.get("remark") || "").trim(),
+    itemPhotos: finalPhotos,
+    wearCountTotal: editing?.wearCountTotal || 0,
+    createdAt: editing?.createdAt || new Date().toISOString(),
+  };
+
+  if (!item.name || !item.category || !item.purchaseDate) {
+    alert("商品名稱、分類、購買日期是必填");
+    return;
+  }
+
+  if (editing) {
+    Object.assign(editing, item);
+  } else {
+    state.items.push(item);
+  }
+  cleanupDetachedPhotoRefs(detachedPhotos);
+  cleanupOrphanPhotos();
+  normalizeCategoryOrder();
+  recomputeWearCounts();
+  if (!persistAll()) return;
+
+  itemForm.reset();
+  if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
+  editingItemId = null;
+  existingItemPhotosSection.classList.add("hidden");
+  existingItemPhotosList.innerHTML = "";
+  itemDialog.close();
+  renderAll();
+}
+
+async function onSaveOutfit(e) {
+  e.preventDefault();
+  const fd = new FormData(outfitForm);
+  let photos = [];
+  const hasFileSelection = Boolean(outfitForm.outfitPhotos.files?.length);
+  try {
+    startUploadProgress(hasFileSelection ? "照片壓縮中..." : "挑選照片中...");
+    if (hasFileSelection) {
+      photos = await filesToPhotoRefs(outfitForm.outfitPhotos.files, "detail", (done, total) => {
+        setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已處理 ${done}/${total} 張`);
+      });
+    } else if (!editingOutfitId) {
+      photos = await pickAndSavePhotosViaBridge(20, "detail", (done, total) => {
+        setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已儲存 ${done}/${total} 張`);
+      });
+    }
+  } catch (err) {
+    alert(humanizePhotoError(err, "照片處理失敗，請改用 JPG/PNG 或先壓縮後再上傳。"));
+    return;
+  } finally {
+    finishUploadProgress();
+  }
+  if (!photos.length && !editingOutfitId) {
+    alert("請至少上傳 1 張穿搭照片");
+    return;
+  }
+
+  const editing = editingOutfitId ? state.dailyLogs.find((x) => x.id === editingOutfitId) : null;
+  const finalPhotos = photos.length ? photos.slice(0, 20) : editing?.outfitPhotos || [];
+  const detachedPhotos = editing ? diffRemovedPhotoRefs(editing.outfitPhotos || [], finalPhotos) : [];
+  const log = {
+    id: editing?.id || crypto.randomUUID(),
+    date: String(fd.get("date") || ""),
+    weather: String(fd.get("weather") || "").trim(),
+    county: String(fd.get("county") || "").trim(),
+    place: String(fd.get("place") || "").trim(),
+    temperature: String(fd.get("temperature") || "").trim(),
+    note: String(fd.get("note") || "").trim(),
+    wornItemIds: Array.from(outfitSelection),
+    outfitPhotos: finalPhotos,
+    createdAt: editing?.createdAt || new Date().toISOString(),
+  };
+
+  if (!log.date) {
+    alert("日期必填");
+    return;
+  }
+
+  if (editing) {
+    Object.assign(editing, log);
+  } else {
+    state.dailyLogs.push(log);
+  }
+  cleanupDetachedPhotoRefs(detachedPhotos);
+  cleanupOrphanPhotos();
+  recomputeWearCounts();
+  if (!persistAll()) return;
+
+  outfitForm.reset();
+  outfitForm.date.valueAsDate = new Date();
+  editingOutfitId = null;
+  outfitSelection = new Set();
+  outfitFormDialog.close();
+  renderAll();
+}
+
+function onSaveManualVote(e) {
+  e.preventDefault();
+  const fd = new FormData(voteForm);
+  const votedItemIds = fd.getAll("voteItemIds");
+  if (!votedItemIds.length) {
+    alert("請至少勾選一件商品");
+    return;
+  }
+
+  for (const itemId of votedItemIds) {
+    state.manualVoteCounts[itemId] = (state.manualVoteCounts[itemId] || 0) + 1;
+  }
+
+  recomputeWearCounts();
+  if (!persistAll()) return;
+
+  voteForm.reset();
+  renderVoteSearchCategoryOptions();
+  renderManualVoteList();
+  voteDialog.close();
+  renderAll();
+}
+
+function renderAll() {
+  normalizeCategoryOrder();
+  purchaseSortSelect.value = state.purchaseSort;
+  outfitSortSelect.value = state.outfitSort;
+  tagUsageSortSelect.value = state.tagUsageSort;
+  renderItemCategoryOptions();
+  renderLatest();
+  renderPhotosWall();
+  renderCategoryTab();
+  renderTagTab();
+  renderVoteSearchCategoryOptions();
+  renderManualVoteList();
+  renderOutfitSearchCategoryOptions();
+  renderOutfitItemChecklist();
+  renderOutfitGrid();
+  if (categoryItemsPage.classList.contains("active")) {
+    renderCategoryItemsPage();
+  }
+  const activeSub = document.querySelector(".sub-btn.active")?.dataset.subTab || "latest";
+  switchSub(activeSub);
+}
+
+function normalizeCategoryOrder() {
+  for (const item of state.items) {
+    if (!item.category) item.category = "未分類";
+  }
+  const existingCategories = state.items.map((item) => item.category).filter(Boolean);
+  const merged = [...new Set([...DEFAULT_CATEGORY_ORDER, ...state.categoryOrder, ...existingCategories])];
+  state.categoryOrder = merged;
+  for (let i = 0; i < state.categoryOrder.length; i += 1) {
+    const name = state.categoryOrder[i];
+    if (!state.categoryColors[name]) state.categoryColors[name] = defaultCategoryColor(i);
+  }
+
+  if (!state.selectedCategory || !state.categoryOrder.includes(state.selectedCategory)) {
+    state.selectedCategory = state.categoryOrder[0] || "";
+  }
+
+  save("closet_category_order", state.categoryOrder);
+  save("closet_category_colors", state.categoryColors);
+}
+
+function recomputeWearCounts() {
+  const counter = new Map();
+  for (const item of state.items) counter.set(item.id, 0);
+  for (const log of state.dailyLogs) {
+    for (const itemId of log.wornItemIds || []) {
+      counter.set(itemId, (counter.get(itemId) || 0) + 1);
+    }
+  }
+  for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
+    counter.set(itemId, (counter.get(itemId) || 0) + Number(count || 0));
+  }
+  for (const item of state.items) {
+    item.wearCountTotal = counter.get(item.id) || 0;
+  }
+}
+
+function persistAll() {
+  try {
+    save("closet_items", state.items);
+    save("closet_daily_logs", state.dailyLogs);
+    save("closet_category_order", state.categoryOrder);
+    save("closet_category_colors", state.categoryColors);
+    save("closet_manual_vote_counts", state.manualVoteCounts);
+    return true;
+  } catch (err) {
+    console.error("persistAll failed:", err);
+    alert(humanizePhotoError(err, "儲存失敗，可能是手機儲存空間不足或照片太大。請減少照片數量後再試。"));
+    return false;
+  }
+}
+
+function sortedByPurchase(items) {
+  return [...items].sort((a, b) => {
+    const ta = new Date(a.purchaseDate || a.createdAt).getTime();
+    const tb = new Date(b.purchaseDate || b.createdAt).getTime();
+    return state.purchaseSort === "asc" ? ta - tb : tb - ta;
+  });
+}
+
+function matchesClosetQuery(item) {
+  const q = state.closetQuery;
+  if (!q) return true;
+  const text = [
+    item.brand || "",
+    item.name || "",
+    item.purchaseDate || "",
+    item.category || "",
+    item.origin || "",
+    (item.seasons || []).join(" "),
+    item.grade || "",
+    item.size || "",
+    item.weight || "",
+    item.bodyType || "",
+    item.suggestedWeight || "",
+    item.originalPrice ?? "",
+    item.specialPrice ?? "",
+    item.discountPrice ?? "",
+    item.miniNote || "",
+    item.pros || "",
+    item.cons || "",
+    item.remark || "",
+    item.wearCountTotal ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return text.includes(q);
+}
+
+function matchesOutfitQuery(log) {
+  const q = state.outfitQuery;
+  if (!q) return true;
+  const itemNames = (log.wornItemIds || [])
+    .map((id) => state.items.find((x) => x.id === id))
+    .filter(Boolean)
+    .map((x) => `${x.brand || ""} ${x.name || ""}`)
+    .join(" ");
+  const text = [log.date || "", log.weather || "", log.temperature || "", log.note || "", log.county || "", log.place || "", itemNames]
+    .join(" ")
+    .toLowerCase();
+  return text.includes(q);
+}
+
+function clearSearch(type) {
+  if (type === "closet") {
+    state.closetQuery = "";
+    closetSearchInput.value = "";
+    renderLatest();
+    renderPhotosWall();
+    renderCategoryTab();
+    renderTagTab();
+    return;
+  }
+  state.outfitQuery = "";
+  outfitSearchInput.value = "";
+  renderOutfitGrid();
+}
+
+function emptyResultBlock(type) {
+  const label = type === "closet" ? "衣櫃" : "穿搭";
+  return `<div class="empty-block">找不到符合條件的${label}資料。<br /><button type="button" data-clear-search="${type}">一鍵清除搜尋</button></div>`;
+}
+
+function bindClearSearchButtons(root) {
+  for (const btn of root.querySelectorAll("[data-clear-search]")) {
+    btn.addEventListener("click", () => clearSearch(btn.dataset.clearSearch));
+  }
+}
+
+function renderItemCategoryOptions() {
+  itemCategorySelect.innerHTML = state.categoryOrder
+    .map((c) => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`)
+    .join("");
+}
+
+function renderLatest() {
+  const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
+  queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
+  if (!items.length) {
+    closetLatest.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">目前沒有資料。</p>';
+    bindClearSearchButtons(closetLatest);
+    return;
+  }
+
+  closetLatest.innerHTML = `
+    <div class="latest-list">
+      ${items
+      .map(
+        (item) => `
+            <article class="latest-row">
+              <button type="button" class="latest-open-btn" data-open-item-detail="${item.id}">
+                <div class="latest-title"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                <p class="latest-category meta">${escapeHtml(item.category || "未分類")}</p>
+                <img class="latest-thumb" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+              </button>
+            </article>`
+      )
+      .join("")}
+    </div>
+  `;
+
+  for (const btn of closetLatest.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+}
+
+function renderPhotosWall() {
+  const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
+  queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
+  if (!items.length) {
+    closetPhotos.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">目前沒有照片。</p>';
+    bindClearSearchButtons(closetPhotos);
+    return;
+  }
+
+  closetPhotos.innerHTML = `
+    <div class="photo-grid">
+      ${items
+      .map(
+        (item) =>
+          `<button type="button" class="photo-open-btn" data-open-item-detail="${item.id}"><img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" /></button>`
+      )
+      .join("")}
+    </div>
+  `;
+
+  for (const btn of closetPhotos.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+}
+
+function openItemDetail(itemId) {
+  const item = state.items.find((x) => x.id === itemId);
+  if (!item) return;
+  currentItemDetailId = item.id;
+
+  itemDetailTitle.textContent = `${item.brand ? `${item.brand} / ` : ""}${item.name}`;
+
+  detailItemPhotos = item.itemPhotos || [];
+  detailPhotoIndex = 0;
+  renderDetailPhoto();
+
+  itemDetailRecords.innerHTML = `
+    <div><strong>購買日期：</strong>${escapeHtml(item.purchaseDate || "未填")}</div>
+    <div><strong>分類：</strong>${escapeHtml(item.category || "未填")}</div>
+    <div><strong>原價：</strong>${item.originalPrice ?? "未填"}</div>
+    <div><strong>特價：</strong>${item.specialPrice ?? "未填"}</div>
+    <div><strong>優惠價：</strong>${item.discountPrice ?? "未填"}</div>
+    <div><strong>來源：</strong>${escapeHtml(item.origin || "未填")}</div>
+    <div><strong>分級：</strong>${escapeHtml(item.grade || "未填")}</div>
+    <div><strong>季節：</strong>${escapeHtml((item.seasons || []).join(" / ") || "未填")}</div>
+    <div><strong>尺寸：</strong>${escapeHtml(item.size || "未填")}</div>
+    <div><strong>體重：</strong>${escapeHtml(item.weight || "未填")}</div>
+    <div><strong>身材：</strong>${escapeHtml(item.bodyType || "未填")}</div>
+    <div><strong>建議體重：</strong>${escapeHtml(item.suggestedWeight || "未填")}</div>
+    <div><strong>小紀錄：</strong>${escapeHtml(item.miniNote || "-")}</div>
+    <div><strong>優點：</strong>${escapeHtml(item.pros || "-")}</div>
+    <div><strong>缺點：</strong>${escapeHtml(item.cons || "-")}</div>
+    <div><strong>備註：</strong>${escapeHtml(item.remark || "-")}</div>
+    <div><strong>使用次數：</strong>${item.wearCountTotal || 0}</div>
+    <div><strong>平均使用價格：</strong>${averageUsePriceText(item)}</div>
+  `;
+  renderItemUsedOutfits(item.id);
+
+  itemDetailDialog.showModal();
+}
+
+function openItemEditForm() {
+  if (!currentItemDetailId) return;
+  const item = state.items.find((x) => x.id === currentItemDetailId);
+  if (!item) return;
+
+  editingItemId = item.id;
+  itemFormTitle.textContent = "編輯商品";
+  itemForm.reset();
+  itemForm.brand.value = item.brand || "";
+  itemForm.name.value = item.name || "";
+  if (itemPurchaseDateInput) itemPurchaseDateInput.value = item.purchaseDate || "";
+  itemForm.category.value = item.category || "";
+  itemForm.originalPrice.value = item.originalPrice ?? "";
+  itemForm.specialPrice.value = item.specialPrice ?? "";
+  itemForm.discountPrice.value = item.discountPrice ?? "";
+  const sizeInput = itemForm.querySelector('input[name="size"]');
+  const weightInput = itemForm.querySelector('input[name="weight"]');
+  const bodyTypeInput = itemForm.querySelector('input[name="bodyType"]');
+  const suggestedWeightInput = itemForm.querySelector('input[name="suggestedWeight"]');
+  if (sizeInput) sizeInput.value = item.size || "";
+  if (weightInput) weightInput.value = item.weight || "";
+  if (bodyTypeInput) bodyTypeInput.value = item.bodyType || "";
+  if (suggestedWeightInput) suggestedWeightInput.value = item.suggestedWeight || "";
+  itemForm.grade.value = item.grade || "";
+  itemForm.origin.value = item.origin || "";
+  itemForm.miniNote.value = item.miniNote || "";
+  itemForm.pros.value = item.pros || "";
+  itemForm.cons.value = item.cons || "";
+  itemForm.remark.value = item.remark || "";
+  for (const cb of itemForm.querySelectorAll('input[name="seasons"]')) {
+    cb.checked = (item.seasons || []).includes(cb.value);
+  }
+  renderExistingItemPhotos(item.itemPhotos || []);
+  itemDetailDialog.close();
+  itemDialog.showModal();
+}
+
+function openDeleteItemConfirm() {
+  if (!currentItemDetailId) return;
+  const item = state.items.find((x) => x.id === currentItemDetailId);
+  if (!item) return;
+  const label = `${item.brand || "未填品牌"} ${item.name || ""}`.trim();
+  confirmDeleteItemText.textContent = `確定要刪除「${label}」嗎？`;
+  confirmDeleteItemDialog.showModal();
+}
+
+function deleteCurrentItem() {
+  if (!currentItemDetailId) return;
+  const itemId = currentItemDetailId;
+  const idx = state.items.findIndex((x) => x.id === itemId);
+  if (idx < 0) return;
+  cleanupDetachedPhotoRefs(state.items[idx].itemPhotos || []);
+  state.items.splice(idx, 1);
+  delete state.manualVoteCounts[itemId];
+  for (const log of state.dailyLogs) {
+    log.wornItemIds = (log.wornItemIds || []).filter((id) => id !== itemId);
+  }
+  currentItemDetailId = null;
+  cleanupOrphanPhotos();
+  recomputeWearCounts();
+  normalizeCategoryOrder();
+  persistAll();
+  confirmDeleteItemDialog.close();
+  itemDetailDialog.close();
+  renderAll();
+}
+
+function renderItemUsedOutfits(itemId) {
+  const usedLogs = [...state.dailyLogs]
+    .filter((log) => (log.wornItemIds || []).includes(itemId))
+    .filter((log) => (log.outfitPhotos || []).length > 0)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  queuePhotoRefs(usedLogs.map((log) => log.outfitPhotos?.[0]));
+
+  if (!usedLogs.length) {
+    itemUsedOutfits.innerHTML = "<div><strong>使用此單品的穿搭</strong></div><p class=\"meta\">目前沒有相關穿搭。</p>";
+    return;
+  }
+
+  itemUsedOutfits.innerHTML = `
+    <div><strong>使用此單品的穿搭</strong></div>
+    <div class="related-outfit-grid">
+      ${usedLogs
+      .map(
+        (log) => `
+          <button type="button" class="related-outfit-card" data-open-outfit-detail="${log.id}">
+            <img class="cover-grid" src="${photoSrc(log.outfitPhotos?.[0])}" alt="${escapeHtml(log.date || "穿搭")}" />
+            <div class="meta">${escapeHtml(log.date || "-")}</div>
+          </button>`
+      )
+      .join("")}
+    </div>
+  `;
+
+  for (const btn of itemUsedOutfits.querySelectorAll("[data-open-outfit-detail]")) {
+    btn.addEventListener("click", () => {
+      itemDetailDialog.close();
+      openOutfitDetail(btn.dataset.openOutfitDetail);
+    });
+  }
+}
+
+function stepDetailPhoto(step) {
+  if (!detailItemPhotos.length) return;
+  const total = detailItemPhotos.length;
+  detailPhotoIndex = (detailPhotoIndex + step + total) % total;
+  renderDetailPhoto();
+}
+
+function renderDetailPhoto() {
+  if (!detailItemPhotos.length) {
+    itemDetailMainPhoto.removeAttribute("src");
+    itemDetailCounter.textContent = "沒有照片";
+    return;
+  }
+  queuePhotoRefs([detailItemPhotos[detailPhotoIndex]]);
+  itemDetailMainPhoto.src = photoSrc(detailItemPhotos[detailPhotoIndex]);
+  itemDetailCounter.textContent = `${detailPhotoIndex + 1} / ${detailItemPhotos.length}`;
+}
+
+function renderCategoryEditRows() {
+  categoryEditRows.innerHTML = state.categoryOrder
+    .map((name, index) => {
+      const color = state.categoryColors[name] || defaultCategoryColor(index);
+      return `
+      <div class="category-edit-row" draggable="true" data-category-name="${escapeAttr(name)}">
+        <div class="category-edit-name">
+          <strong>${escapeHtml(name)}</strong>
+        </div>
+        <div class="category-edit-controls">
+          <input class="dot-picker" type="color" name="color_${escapeAttr(name)}" value="${escapeAttr(color)}" />
+          <span class="drag-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+          <button class="delete-btn" type="button" data-delete-category="${escapeAttr(name)}">刪除</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  for (const row of categoryEditRows.querySelectorAll(".category-edit-row")) {
+    row.addEventListener("dragstart", () => row.classList.add("dragging"));
+    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const dragging = categoryEditRows.querySelector(".category-edit-row.dragging");
+      if (!dragging || dragging === row) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      if (before) {
+        categoryEditRows.insertBefore(dragging, row);
+      } else {
+        categoryEditRows.insertBefore(dragging, row.nextSibling);
+      }
+    });
+  }
+  for (const btn of categoryEditRows.querySelectorAll("[data-delete-category]")) {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.deleteCategory;
+      state.categoryOrder = state.categoryOrder.filter((x) => x !== name);
+      if (state.selectedCategory === name) state.selectedCategory = state.categoryOrder[0] || "未分類";
+      renderCategoryEditRows();
+    });
+  }
+}
+
+function onSaveCategoryEdit(e) {
+  e.preventDefault();
+  const fd = new FormData(categoryEditForm);
+  const rows = Array.from(categoryEditRows.querySelectorAll(".category-edit-row"));
+  state.categoryOrder = rows.map((row) => row.dataset.categoryName || "").filter(Boolean);
+
+  for (let i = 0; i < state.categoryOrder.length; i += 1) {
+    const name = state.categoryOrder[i];
+    const color = String(fd.get(`color_${name}`) || defaultCategoryColor(i));
+    state.categoryColors[name] = color;
+  }
+  for (const key of Object.keys(state.categoryColors)) {
+    if (!state.categoryOrder.includes(key)) delete state.categoryColors[key];
+  }
+
+  persistAll();
+  categoryEditDialog.close();
+  renderAll();
+}
+
+function onAddCategory() {
+  const name = newCategoryName.value.trim();
+  if (!name) return;
+  if (!state.categoryOrder.includes(name)) {
+    state.categoryOrder.push(name);
+  }
+  state.categoryColors[name] = newCategoryColor.value || defaultCategoryColor(state.categoryOrder.length - 1);
+  newCategoryName.value = "";
+  renderCategoryEditRows();
+}
+
+function defaultCategoryColor(index) {
+  const palette = ["#d64949", "#f08c00", "#2b8a3e", "#1971c2", "#5f3dc4", "#0b7285", "#c2255c", "#495057"];
+  return palette[index % palette.length];
+}
+
+function categoryChipStyle(name) {
+  return 'style="border-color:#e3e3e3;color:#27231d;background:#f6f6f6;"';
+}
+
+function renderCategoryTab() {
+  const pool = state.categoryOrder;
+  if (!pool.length) {
+    categoryChips.innerHTML = '<p class="meta">目前沒有分類。</p>';
+    categoryResult.innerHTML = "";
+    return;
+  }
+
+  const countMap = new Map();
+  for (const item of state.items.filter(matchesClosetQuery)) {
+    const key = item.category || "未分類";
+    countMap.set(key, (countMap.get(key) || 0) + 1);
+  }
+
+  categoryChips.innerHTML = pool
+    .map((c) => {
+      const active = c === state.selectedCategory;
+      const color = state.categoryColors[c] || defaultCategoryColor(0);
+      const style = active ? `style="border-color:#bfbfbf;color:#27231d;background:#f6f6f6;"` : categoryChipStyle(c);
+      const count = countMap.get(c) || 0;
+      return `<button class="chip category-chip ${active ? "active" : ""}" data-category-chip="${escapeAttr(c)}" ${style}><span class="category-chip-inner"><span class="category-dot" style="background:${color};"></span><span>${escapeHtml(c)}</span><span class="category-count">${count}</span></span></button>`;
+    })
+    .join("");
+
+  categoryResult.innerHTML = "";
+
+  for (const btn of categoryChips.querySelectorAll("[data-category-chip]")) {
+    btn.addEventListener("click", () => {
+      state.selectedCategory = btn.dataset.categoryChip;
+      renderCategoryTab();
+      openCategoryItemsPage(state.selectedCategory);
+    });
+  }
+}
+
+function openCategoryItemsPage(category) {
+  currentCategoryItemsName = category;
+  categoryItemsView = "latest";
+  renderCategoryItemsPage();
+  categoryItemsPage.classList.add("active");
+}
+
+function renderCategoryItemsPage() {
+  if (!currentCategoryItemsName) return;
+  const category = currentCategoryItemsName;
+  const items = sortedByPurchase(state.items).filter((x) => x.category === category && matchesClosetQuery(x));
+  queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
+  const color = state.categoryColors[category] || defaultCategoryColor(0);
+  categoryItemsTitle.textContent = category;
+  categoryItemsTitle.style.background = color;
+  categoryItemsTitle.style.color = "#fff";
+  categoryItemsTitle.style.fontWeight = "300";
+  categoryItemsLatestTab.classList.toggle("active", categoryItemsView === "latest");
+  categoryItemsPhotosTab.classList.toggle("active", categoryItemsView === "photos");
+
+  if (!items.length) {
+    categoryItemsList.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">此分類目前沒有商品。</p>';
+    bindClearSearchButtons(categoryItemsList);
+    return;
+  }
+
+  if (categoryItemsView === "photos") {
+    categoryItemsList.innerHTML = `
+      <div class="photo-grid">
+        ${items
+        .map(
+          (item) =>
+            `<button type="button" class="photo-open-btn" data-open-item-detail="${item.id}"><img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" /></button>`
+        )
+        .join("")}
+      </div>
+    `;
+  } else {
+    categoryItemsList.innerHTML = `
+      <div class="latest-list">
+        ${items
+        .map(
+          (item) => `
+              <article class="latest-row">
+                <button type="button" class="latest-open-btn" data-open-item-detail="${item.id}">
+                  <div class="latest-title"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                  <p class="latest-category meta">${escapeHtml(item.category || "未分類")}</p>
+                  <img class="latest-thumb" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+                </button>
+              </article>`
+        )
+        .join("")}
+      </div>
+    `;
+  }
+
+  for (const btn of categoryItemsList.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+}
+
+function renderTagTab() {
+  tagChips.innerHTML = TAG_OPTIONS.map((tag) => {
+    const active = state.selectedTags.includes(tag);
+    return `<button class="chip ${active ? "active" : ""}" data-tag-chip="${escapeAttr(tag)}">${escapeHtml(tag)}</button>`;
+  }).join("");
+
+  for (const btn of tagChips.querySelectorAll("[data-tag-chip]")) {
+    btn.addEventListener("click", () => {
+      const tag = btn.dataset.tagChip;
+      if (state.selectedTags.includes(tag)) {
+        state.selectedTags = state.selectedTags.filter((x) => x !== tag);
+      } else {
+        state.selectedTags = [...state.selectedTags, tag];
+      }
+      renderTagTab();
+    });
+  }
+
+  const filterTags = state.selectedTags;
+
+  let result = state.items.filter(matchesClosetQuery);
+  for (const tag of filterTags) {
+    if (["春季", "夏季", "秋季", "冬季"].includes(tag)) {
+      result = result.filter((item) => (item.seasons || []).includes(tag));
+    } else {
+      result = result.filter((item) => item.origin === tag);
+    }
+  }
+
+  if (state.tagUsageSort === "desc") {
+    result = result.sort((a, b) => (b.wearCountTotal || 0) - (a.wearCountTotal || 0));
+  } else if (state.tagUsageSort === "asc") {
+    result = result.sort((a, b) => (a.wearCountTotal || 0) - (b.wearCountTotal || 0));
+  } else {
+    result = sortedByPurchase(result);
+  }
+  queuePhotoRefs(result.map((item) => item.itemPhotos?.[0]));
+
+  tagResult.innerHTML = result.length
+    ? result
+      .map(
+        (item) => `
+          <button type="button" class="item-open-btn" data-open-item-detail="${item.id}">
+            <article class="item-row">
+              <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+              <div>
+                <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                <p class="meta">使用次數：${item.wearCountTotal || 0}</p>
+              </div>
+            </article>
+          </button>`
+      )
+      .join("")
+    : state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">此標籤條件沒有商品。</p>';
+
+  for (const btn of tagResult.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+  bindClearSearchButtons(tagResult);
+}
+
+function renderVoteChecklist(container, selectedIds) {
+  const selected = new Set(selectedIds || []);
+  const items = sortedByPurchase(state.items);
+  queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
+  container.innerHTML = items.length
+    ? items
+      .map(
+        (item) => `
+          <label class="item-row">
+            <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <input type="checkbox" name="wornItemIds" value="${item.id}" ${selected.has(item.id) ? "checked" : ""} />
+              <span>${escapeHtml(item.brand || "未填品牌")} / ${escapeHtml(item.name)}</span>
+            </div>
+          </label>`
+      )
+      .join("")
+    : '<p class="meta">請先到我的衣櫃新增商品。</p>';
+}
+
+function renderVoteSearchCategoryOptions() {
+  const previous = voteSearchCategory.value;
+  voteSearchCategory.innerHTML =
+    '<option value="">全部分類</option>' +
+    state.categoryOrder.map((c) => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
+  if (previous && state.categoryOrder.includes(previous)) {
+    voteSearchCategory.value = previous;
+  }
+}
+
+function renderManualVoteList() {
+  const brandQ = voteSearchBrand.value.trim().toLowerCase();
+  const nameQ = voteSearchName.value.trim().toLowerCase();
+  const tagQ = voteSearchTag.value.trim().toLowerCase();
+  const categoryQ = voteSearchCategory.value;
+
+  const rows = sortedByPurchase(state.items).filter((item) => {
+    if (brandQ && !String(item.brand || "").toLowerCase().includes(brandQ)) return false;
+    if (nameQ && !String(item.name || "").toLowerCase().includes(nameQ)) return false;
+    if (categoryQ && item.category !== categoryQ) return false;
+    if (tagQ) {
+      const searchableTags = [...(item.seasons || []), item.origin || "", item.grade || "", item.category || ""]
+        .join(" ")
+        .toLowerCase();
+      if (!searchableTags.includes(tagQ)) return false;
+    }
+    return true;
+  });
+  queuePhotoRefs(rows.map((item) => item.itemPhotos?.[0]));
+
+  voteManualChecklist.innerHTML = rows.length
+    ? rows
+      .map(
+        (item) => `
+          <label class="item-row">
+            <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong> / ${escapeHtml(item.name)}</div>
+              <p class="meta">目前使用次數：${item.wearCountTotal || 0}</p>
+              <label><input type="checkbox" name="voteItemIds" value="${item.id}" /> 投票</label>
+            </div>
+          </label>`
+      )
+      .join("")
+    : '<p class="meta">沒有符合條件的商品。</p>';
+}
+
+function renderOutfitSearchCategoryOptions() {
+  const previous = outfitSearchCategory.value;
+  outfitSearchCategory.innerHTML =
+    '<option value="">全部分類</option>' +
+    state.categoryOrder.map((c) => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
+  if (previous && state.categoryOrder.includes(previous)) {
+    outfitSearchCategory.value = previous;
+  }
+}
+
+function renderOutfitItemChecklist() {
+  const brandQ = outfitSearchBrand.value.trim().toLowerCase();
+  const nameQ = outfitSearchName.value.trim().toLowerCase();
+  const tagQ = outfitSearchTag.value.trim().toLowerCase();
+  const categoryQ = outfitSearchCategory.value;
+
+  const rows = sortedByPurchase(state.items).filter((item) => {
+    if (brandQ && !String(item.brand || "").toLowerCase().includes(brandQ)) return false;
+    if (nameQ && !String(item.name || "").toLowerCase().includes(nameQ)) return false;
+    if (categoryQ && item.category !== categoryQ) return false;
+    if (tagQ) {
+      const searchableTags = [...(item.seasons || []), item.origin || "", item.grade || "", item.category || ""]
+        .join(" ")
+        .toLowerCase();
+      if (!searchableTags.includes(tagQ)) return false;
+    }
+    return true;
+  });
+  queuePhotoRefs(rows.map((item) => item.itemPhotos?.[0]));
+
+  outfitItemChecklist.innerHTML = rows.length
+    ? rows
+      .map(
+        (item) => `
+          <label class="item-row">
+            <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <input type="checkbox" name="outfitItemIds" value="${item.id}" ${outfitSelection.has(item.id) ? "checked" : ""} />
+              <span><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</span>
+              <p class="meta">${escapeHtml(item.category || "未分類")}</p>
+            </div>
+          </label>`
+      )
+      .join("")
+    : '<p class="meta">沒有符合條件的商品。</p>';
+
+  for (const cb of outfitItemChecklist.querySelectorAll('input[name="outfitItemIds"]')) {
+    cb.addEventListener("change", () => {
+      const id = cb.value;
+      if (cb.checked) {
+        outfitSelection.add(id);
+      } else {
+        outfitSelection.delete(id);
+      }
+    });
+  }
+}
+
+function renderOutfitGrid() {
+  const logs = [...state.dailyLogs]
+    .filter((log) => (log.outfitPhotos || []).length > 0)
+    .filter(matchesOutfitQuery)
+    .sort((a, b) => {
+      const ta = new Date(a.date).getTime();
+      const tb = new Date(b.date).getTime();
+      return state.outfitSort === "asc" ? ta - tb : tb - ta;
+    });
+
+  if (!logs.length) {
+    outfitGrid.innerHTML = state.outfitQuery ? emptyResultBlock("outfit") : '<p class="meta">目前沒有穿搭紀錄。</p>';
+    bindClearSearchButtons(outfitGrid);
+    return;
+  }
+  queuePhotoRefs(logs.map((log) => log.outfitPhotos?.[0]));
+
+  outfitGrid.innerHTML = "";
+  for (const log of logs) {
+    const img = document.createElement("img");
+    img.className = "cover-grid";
+    img.src = photoSrc(log.outfitPhotos?.[0]);
+    img.alt = log.date;
+    img.addEventListener("click", () => openOutfitDetail(log.id));
+    outfitGrid.appendChild(img);
+  }
+}
+
+function openOutfitDetail(logId) {
+  const log = state.dailyLogs.find((x) => x.id === logId);
+  if (!log) return;
+  currentOutfitDetailId = logId;
+
+  const names = (log.wornItemIds || [])
+    .map((id) => state.items.find((x) => x.id === id))
+    .filter(Boolean);
+  queuePhotoRefs(names.map((item) => item.itemPhotos?.[0]));
+
+  detailDate.textContent = log.date;
+  detailMeta.textContent = `天氣：${log.weather || "未填"}`;
+  detailTemp.textContent = `氣溫：${log.temperature || "未填"} | 縣市：${log.county || "未填"} | 地點：${log.place || "未填"}`;
+  detailNote.textContent = `穿搭想法：${log.note || "-"}`;
+  detailItems.innerHTML = names.length
+    ? `<div><strong>搭配單品</strong></div>
+      <div class="outfit-items-strip">
+        ${names
+      .map(
+        (item) => `
+            <button type="button" class="item-open-btn outfit-item-card" data-open-item-detail="${item.id}">
+              <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+              <div class="meta">${escapeHtml(item.brand || "未填品牌")}&nbsp;${escapeHtml(item.name)}</div>
+              <div class="meta">使用次數：${item.wearCountTotal || 0}</div>
+            </button>`
+      )
+      .join("")}
+      </div>`
+    : "搭配單品：未勾選";
+
+  for (const btn of detailItems.querySelectorAll("[data-open-item-detail]")) {
+    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+  }
+
+  detailOutfitPhotos = (log.outfitPhotos || []).slice(0, 20);
+  detailOutfitIndex = 0;
+  renderOutfitDetailPhoto();
+
+  outfitDetailDialog.showModal();
+}
+
+function openOutfitEditForm() {
+  if (!currentOutfitDetailId) return;
+  const log = state.dailyLogs.find((x) => x.id === currentOutfitDetailId);
+  if (!log) return;
+
+  editingOutfitId = log.id;
+  outfitSelection = new Set(log.wornItemIds || []);
+  outfitFormTitle.textContent = "編輯穿搭";
+  outfitForm.date.value = log.date || "";
+  outfitForm.weather.value = log.weather || "";
+  outfitForm.county.value = log.county || "";
+  outfitForm.place.value = log.place || "";
+  outfitForm.temperature.value = log.temperature || "";
+  outfitForm.note.value = log.note || "";
+  outfitSearchBrand.value = "";
+  outfitSearchName.value = "";
+  outfitSearchTag.value = "";
+  outfitSearchCategory.value = "";
+  renderOutfitSearchCategoryOptions();
+  renderOutfitItemChecklist();
+  outfitDetailDialog.close();
+  outfitFormDialog.showModal();
+}
+
+function openDeleteOutfitConfirm() {
+  if (!currentOutfitDetailId) return;
+  const log = state.dailyLogs.find((x) => x.id === currentOutfitDetailId);
+  if (!log) return;
+  confirmDeleteOutfitText.textContent = `確定要刪除 ${log.date || "這筆"} 穿搭嗎？`;
+  confirmDeleteOutfitDialog.showModal();
+}
+
+function deleteCurrentOutfit() {
+  if (!currentOutfitDetailId) return;
+  const idx = state.dailyLogs.findIndex((x) => x.id === currentOutfitDetailId);
+  if (idx < 0) return;
+  cleanupDetachedPhotoRefs(state.dailyLogs[idx].outfitPhotos || []);
+  state.dailyLogs.splice(idx, 1);
+  currentOutfitDetailId = null;
+  cleanupOrphanPhotos();
+  recomputeWearCounts();
+  persistAll();
+  confirmDeleteOutfitDialog.close();
+  outfitDetailDialog.close();
+  renderAll();
+}
+
+function stepOutfitDetailPhoto(step) {
+  if (!detailOutfitPhotos.length) return;
+  const total = detailOutfitPhotos.length;
+  detailOutfitIndex = (detailOutfitIndex + step + total) % total;
+  renderOutfitDetailPhoto();
+}
+
+function renderOutfitDetailPhoto() {
+  if (!detailOutfitPhotos.length) {
+    outfitDetailMainPhoto.removeAttribute("src");
+    outfitDetailCounter.textContent = "沒有照片";
+    return;
+  }
+  queuePhotoRefs([detailOutfitPhotos[detailOutfitIndex]]);
+  outfitDetailMainPhoto.src = photoSrc(detailOutfitPhotos[detailOutfitIndex]);
+  outfitDetailCounter.textContent = `${detailOutfitIndex + 1} / ${detailOutfitPhotos.length}`;
+}
+
+async function exportDataAsJson() {
+  const exportItems = state.items.map((item) => ({
+    ...item,
+    itemPhotos: sanitizePhotosForExport(item.itemPhotos),
+  }));
+  const exportLogs = state.dailyLogs.map((log) => ({
+    ...log,
+    outfitPhotos: sanitizePhotosForExport(log.outfitPhotos),
+  }));
+  const mediaPhotos = await collectExportPhotoBundle([...exportItems, ...exportLogs]);
+  const payload = {
+    app: "SPARK WEAR",
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    format: {
+      itemFields: [
+        "id",
+        "brand",
+        "name",
+        "purchaseDate",
+        "category",
+        "originalPrice",
+        "specialPrice",
+        "discountPrice",
+        "size",
+        "weight",
+        "bodyType",
+        "suggestedWeight",
+        "grade",
+        "origin",
+        "seasons",
+        "miniNote",
+        "pros",
+        "cons",
+        "remark",
+        "itemPhotos",
+        "wearCountTotal",
+        "createdAt",
+      ],
+    },
+    data: {
+      items: exportItems,
+      dailyLogs: exportLogs,
+      manualVoteCounts: state.manualVoteCounts,
+      categoryOrder: state.categoryOrder,
+      categoryColors: state.categoryColors,
+      purchaseSort: state.purchaseSort,
+      outfitSort: state.outfitSort,
+      tagUsageSort: state.tagUsageSort,
+    },
+    media: {
+      photos: [],
+    },
+  };
+  const zipEntries = [];
+  const mediaManifest = [];
+  for (let i = 0; i < mediaPhotos.length; i += 1) {
+    const photo = mediaPhotos[i];
+    const dataUrl = String(photo?.dataUrl || "");
+    if (!dataUrl) continue;
+    const base64 = dataUrlToBase64(dataUrl);
+    if (!base64) continue;
+    const ext = mimeToExtension(photo?.mimeType || extractMimeFromDataUrl(dataUrl) || "image/jpeg");
+    const safeKey = sanitizeFileName(photo.key || `photo-${i + 1}`);
+    const fileName = `photos/${String(i + 1).padStart(5, "0")}-${safeKey}.${ext}`;
+    zipEntries.push({ name: fileName, base64 });
+    mediaManifest.push({
+      key: String(photo.key || ""),
+      profile: String(photo.profile || "grid"),
+      mimeType: String(photo.mimeType || extractMimeFromDataUrl(dataUrl) || "image/jpeg"),
+      file: fileName,
+    });
+  }
+  payload.media.photos = mediaManifest;
+  const JSZipCtor = getJSZipConstructor();
+  const zip = new JSZipCtor();
+  zip.file("manifest.json", JSON.stringify(payload, null, 2));
+  for (const entry of zipEntries) {
+    zip.file(entry.name, entry.base64, { base64: true });
+  }
+  const blob = await zip.generateAsync({
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  a.href = url;
+  a.download = `spark-wear-backup-${y}-${m}-${day}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function onImportFilePicked() {
+  const file = importFileInput.files?.[0];
+  if (!file) return;
+  try {
+    const raw = await readBackupFile(file);
+    const normalized = normalizeImportedData(raw?.data && typeof raw.data === "object" ? raw.data : raw);
+    const mediaPhotos = Array.isArray(raw?.media?.photos) ? raw.media.photos : [];
+    pendingImportData = { ...normalized, mediaPhotos };
+    importModeDialog.showModal();
+  } catch {
+    alert("匯入失敗：檔案格式不是有效的 ZIP 備份檔");
+  } finally {
+    importFileInput.value = "";
+  }
+}
+
+function normalizeImportedData(source) {
+  const data = source && typeof source === "object" ? source : {};
+  const items = Array.isArray(data.items)
+    ? data.items.map((item) => ({
+      ...item,
+      itemPhotos: normalizePhotoList(item?.itemPhotos),
+    }))
+    : [];
+  const dailyLogs = Array.isArray(data.dailyLogs)
+    ? data.dailyLogs.map((log) => ({
+      ...log,
+      outfitPhotos: normalizePhotoList(log?.outfitPhotos),
+    }))
+    : [];
+  return {
+    items,
+    dailyLogs,
+    manualVoteCounts: data.manualVoteCounts && typeof data.manualVoteCounts === "object" ? data.manualVoteCounts : {},
+    categoryOrder: Array.isArray(data.categoryOrder) ? data.categoryOrder : [],
+    categoryColors: data.categoryColors && typeof data.categoryColors === "object" ? data.categoryColors : {},
+    purchaseSort: data.purchaseSort === "asc" ? "asc" : "desc",
+    outfitSort: data.outfitSort === "asc" ? "asc" : "desc",
+    tagUsageSort: ["none", "asc", "desc"].includes(data.tagUsageSort) ? data.tagUsageSort : "none",
+  };
+}
+
+function mergeById(existing, incoming) {
+  const map = new Map();
+  for (const row of existing || []) {
+    const key = row?.id || crypto.randomUUID();
+    map.set(key, { ...row, id: key });
+  }
+  for (const row of incoming || []) {
+    const key = row?.id || crypto.randomUUID();
+    map.set(key, { ...row, id: key });
+  }
+  return Array.from(map.values());
+}
+
+async function applyImportedData(mode) {
+  if (!pendingImportData) return;
+  let incoming;
+  try {
+    incoming = await materializeImportPhotos(pendingImportData);
+  } catch (err) {
+    console.error("materializeImportPhotos failed:", err);
+    alert("匯入失敗：照片重建過程發生錯誤，請重試。");
+    return;
+  }
+
+  if (mode === "replace") {
+    state.items = incoming.items;
+    state.dailyLogs = incoming.dailyLogs;
+    state.manualVoteCounts = incoming.manualVoteCounts;
+    state.categoryOrder = incoming.categoryOrder;
+    state.categoryColors = incoming.categoryColors;
+    state.purchaseSort = incoming.purchaseSort;
+    state.outfitSort = incoming.outfitSort;
+    state.tagUsageSort = incoming.tagUsageSort;
+  } else {
+    state.items = mergeById(state.items, incoming.items);
+    state.dailyLogs = mergeById(state.dailyLogs, incoming.dailyLogs);
+    state.manualVoteCounts = mergeVoteCounts(state.manualVoteCounts, incoming.manualVoteCounts);
+    state.categoryOrder = [...new Set([...(state.categoryOrder || []), ...(incoming.categoryOrder || [])])];
+    state.categoryColors = { ...(state.categoryColors || {}), ...(incoming.categoryColors || {}) };
+    state.purchaseSort = incoming.purchaseSort || state.purchaseSort;
+    state.outfitSort = incoming.outfitSort || state.outfitSort;
+    state.tagUsageSort = incoming.tagUsageSort || state.tagUsageSort;
+  }
+
+  pendingImportData = null;
+  normalizeCategoryOrder();
+  recomputeWearCounts();
+  hydratePhotoRefs();
+  await cleanupOrphanPhotos();
+  persistAll();
+  importModeDialog.close();
+  renderAll();
+  const missingCount = Number(incoming.__missingPhotoCount || 0);
+  if (missingCount > 0) {
+    alert(`匯入完成，但有 ${missingCount} 張照片遺失（來源備份缺檔或損毀）。`);
+  } else {
+    alert("匯入完成");
+  }
+  refreshStorageStats(false);
+}
+
+function mergeVoteCounts(a, b) {
+  const merged = { ...(a || {}) };
+  for (const [k, v] of Object.entries(b || {})) {
+    merged[k] = Number(merged[k] || 0) + Number(v || 0);
+  }
+  return merged;
+}
+
+function load(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function save(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function numberOrNull(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function averageUsePriceText(item) {
+  const prices = [item.originalPrice, item.specialPrice, item.discountPrice]
+    .map((x) => (x == null ? NaN : Number(x)))
+    .filter((x) => Number.isFinite(x) && x > 0);
+  if (!prices.length) return "未填價格";
+  const minPrice = Math.min(...prices);
+  const count = Number(item.wearCountTotal || 0);
+  if (count <= 0) return "尚無使用次數";
+  return (minPrice / count).toFixed(2);
+}
+
+let photoDbPromise = null;
+const NATIVE_PHOTO_BRIDGE = "PhotoStorageBridge";
+
+function normalizePhotoList(photos) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .map((photo) => {
+      if (typeof photo === "string") return photo;
+      if (!photo || typeof photo !== "object") return null;
+      return {
+        id: String(photo.id || photo.path || crypto.randomUUID()),
+        path: photo.path ? String(photo.path) : String(photo.id || ""),
+        storage: photo.storage === "idb" ? "idb" : (photo.storage || "native"),
+        mimeType: photo.mimeType ? String(photo.mimeType) : "image/jpeg",
+        size: Number(photo.size || 0),
+        width: Number(photo.width || 0),
+        height: Number(photo.height || 0),
+        createdAt: photo.createdAt || new Date().toISOString(),
+        profile: photo.profile || "grid",
+        webSrc: photo.storage === "idb" ? "" : String(photo.webSrc || ""),
+        bundleKey: photo.bundleKey ? String(photo.bundleKey) : "",
+        inlineDataUrl: photo.inlineDataUrl ? String(photo.inlineDataUrl) : "",
+      };
+    })
+    .filter(Boolean);
+}
+
+function sanitizePhotosForExport(photos) {
+  return normalizePhotoList(photos)
+    .map((photo) => {
+      if (typeof photo === "string") {
+        const dataUrl = photo.startsWith("data:image/") ? photo : "";
+        const key = `legacy-inline:${crypto.randomUUID()}`;
+        return {
+          id: `legacy-${crypto.randomUUID()}`,
+          path: "",
+          storage: "legacy-inline",
+          mimeType: extractMimeFromDataUrl(dataUrl) || "image/jpeg",
+          size: 0,
+          width: 0,
+          height: 0,
+          createdAt: new Date().toISOString(),
+          profile: "legacy",
+          webSrc: "",
+          bundleKey: key,
+          inlineDataUrl: dataUrl,
+        };
+      }
+      const key = exportPhotoBundleKey(photo);
+      return {
+        id: photo.id || photo.path || crypto.randomUUID(),
+        path: photo.path || "",
+        storage: photo.storage || "native",
+        mimeType: photo.mimeType || "image/jpeg",
+        size: Number(photo.size || 0),
+        width: Number(photo.width || 0),
+        height: Number(photo.height || 0),
+        createdAt: photo.createdAt || new Date().toISOString(),
+        profile: photo.profile || "grid",
+        webSrc: "",
+        bundleKey: key,
+      };
+    })
+    .filter(Boolean);
+}
+
+function exportPhotoBundleKey(photo) {
+  if (!photo || typeof photo !== "object") return "";
+  const key = photoKey(photo);
+  if (!key) return "";
+  const storage = photo.storage || "native";
+  return `${storage}:${key}`;
+}
+
+function collectAllExportPhotos(rows) {
+  const photos = [];
+  for (const row of rows || []) {
+    if (Array.isArray(row.itemPhotos)) photos.push(...row.itemPhotos);
+    if (Array.isArray(row.outfitPhotos)) photos.push(...row.outfitPhotos);
+  }
+  return normalizePhotoList(photos).filter((photo) => typeof photo !== "string");
+}
+
+async function collectExportPhotoBundle(rows) {
+  const unique = new Map();
+  for (const photo of collectAllExportPhotos(rows)) {
+    const key = String(photo.bundleKey || exportPhotoBundleKey(photo));
+    if (!key || unique.has(key)) continue;
+    unique.set(key, photo);
+  }
+  const bundle = [];
+  for (const [key, photo] of unique.entries()) {
+    const dataUrl = String(photo.inlineDataUrl || "") || await readPhotoAsDataUrl(photo);
+    if (!dataUrl) continue;
+    bundle.push({
+      key,
+      profile: photo.profile || "grid",
+      mimeType: photo.mimeType || "image/jpeg",
+      dataUrl,
+    });
+  }
+  return bundle;
+}
+
+function getCompressionProfile(name) {
+  const profileName = String(name || "grid");
+  if (profileName === "thumb") return { name: "thumb", width: 320, height: 427, quality: 0.66 };
+  if (profileName === "detail") return { name: "detail", width: 1080, height: 1440, quality: 0.82 };
+  if (profileName === "backup-lite") return { name: "backup-lite", maxLongEdge: 1600, quality: 0.86 };
+  return { name: "grid", width: 720, height: 960, quality: 0.76 };
+}
+
+async function filesToPhotoRefs(files, profileName, onProgress) {
+  const list = Array.from(files || []);
+  const output = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const ref = await fileToPhotoRef(list[i], profileName);
+    output.push(ref);
+    if (onProgress) onProgress(i + 1, list.length);
+  }
+  return output;
+}
+
+async function fileToPhotoRef(file, profileName) {
+  const profile = getCompressionProfile(profileName);
+  const { blob, width, height } = await compressImage(file, profile);
+  const nativeSaved = await savePhotoViaNativeBridge(blob, profile.name, width, height);
+  if (nativeSaved) return nativeSaved;
+  const photoId = await putPhotoBlob(blob);
+  const cachedSrc = URL.createObjectURL(blob);
+  photoSrcCache.set(photoId, cachedSrc);
+  return {
+    id: photoId,
+    path: photoId,
+    storage: "idb",
+    mimeType: blob.type || "image/jpeg",
+    size: blob.size,
+    width,
+    height,
+    createdAt: new Date().toISOString(),
+    profile: profile.name,
+    webSrc: "",
+  };
+}
+
+function compressImage(file, profile) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const srcW = img.naturalWidth || 1;
+        const srcH = img.naturalHeight || 1;
+        const canvas = document.createElement("canvas");
+        let sx = 0;
+        let sy = 0;
+        let sw = srcW;
+        let sh = srcH;
+        let outW = srcW;
+        let outH = srcH;
+
+        if (profile.width && profile.height) {
+          const targetRatio = profile.width / profile.height;
+          const srcRatio = srcW / srcH;
+          if (srcRatio > targetRatio) {
+            sw = srcH * targetRatio;
+            sx = Math.max(0, (srcW - sw) / 2);
+          } else {
+            sh = srcW / targetRatio;
+            sy = Math.max(0, (srcH - sh) / 2);
+          }
+          outW = profile.width;
+          outH = profile.height;
+        } else if (profile.maxLongEdge) {
+          const longEdge = Math.max(srcW, srcH);
+          const ratio = longEdge > profile.maxLongEdge ? (profile.maxLongEdge / longEdge) : 1;
+          outW = Math.max(1, Math.round(srcW * ratio));
+          outH = Math.max(1, Math.round(srcH * ratio));
+        }
+
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("canvas-context-unavailable"));
+          return;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("image-compress-failed"));
+            return;
+          }
+          resolve({ blob, width: outW, height: outH });
+        }, "image/jpeg", profile.quality);
+      };
+      img.onerror = () => reject(new Error("image-decode-failed"));
+      img.src = String(reader.result || "");
+    };
+    reader.onerror = () => reject(new Error("file-read-failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function openPhotoDb() {
+  if (photoDbPromise) return photoDbPromise;
+  photoDbPromise = new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("indexeddb-unavailable"));
+      return;
+    }
+    const req = indexedDB.open(PHOTO_DB_NAME, PHOTO_DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(PHOTO_DB_STORE)) {
+        db.createObjectStore(PHOTO_DB_STORE, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("indexeddb-open-failed"));
+  });
+  return photoDbPromise;
+}
+
+async function putPhotoBlob(blob) {
+  const id = crypto.randomUUID();
+  const db = await openPhotoDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_DB_STORE, "readwrite");
+    const store = tx.objectStore(PHOTO_DB_STORE);
+    store.put({ id, blob, updatedAt: Date.now() });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error || new Error("indexeddb-write-failed"));
+  });
+  return id;
+}
+
+async function getPhotoBlob(id) {
+  const db = await openPhotoDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_DB_STORE, "readonly");
+    const store = tx.objectStore(PHOTO_DB_STORE);
+    const req = store.get(id);
+    req.onsuccess = () => resolve(req.result?.blob || null);
+    req.onerror = () => reject(req.error || new Error("indexeddb-read-failed"));
+  });
+}
+
+async function listPhotoIds() {
+  const db = await openPhotoDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_DB_STORE, "readonly");
+    const store = tx.objectStore(PHOTO_DB_STORE);
+    const req = store.getAllKeys();
+    req.onsuccess = () => resolve((req.result || []).map((x) => String(x)));
+    req.onerror = () => reject(req.error || new Error("indexeddb-list-failed"));
+  });
+}
+
+async function deletePhotoById(id) {
+  const db = await openPhotoDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_DB_STORE, "readwrite");
+    const store = tx.objectStore(PHOTO_DB_STORE);
+    store.delete(id);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error || new Error("indexeddb-delete-failed"));
+  });
+  const cached = photoSrcCache.get(id);
+  if (cached) URL.revokeObjectURL(cached);
+  photoSrcCache.delete(id);
+}
+
+function photoKey(photo) {
+  if (!photo || typeof photo !== "object") return "";
+  return String(photo.path || photo.id || "");
+}
+
+function photoSrc(photo) {
+  if (!photo) return "";
+  if (typeof photo === "string") return photo;
+  if (photo.storage === "missing") return MISSING_PHOTO_SRC;
+  if (photo.webSrc) return String(photo.webSrc);
+  const key = photoKey(photo);
+  if (!key) return "";
+  if (photo.storage !== "idb") {
+    const maybeCapacitor = typeof window !== "undefined" ? window.Capacitor : null;
+    if (maybeCapacitor?.convertFileSrc && key.startsWith("file://")) {
+      return maybeCapacitor.convertFileSrc(key);
+    }
+    return key;
+  }
+  return photoSrcCache.get(key) || "";
+}
+
+function queuePhotoRefs(photos) {
+  for (const photo of photos || []) {
+    if (!photo || typeof photo !== "object" || photo.storage !== "idb") continue;
+    const key = photoKey(photo);
+    if (!key || photoSrcCache.has(key) || photoSrcLoading.has(key)) continue;
+    photoSrcLoading.add(key);
+    getPhotoBlob(key)
+      .then((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        photoSrcCache.set(key, url);
+        schedulePhotoRerender();
+      })
+      .catch(() => null)
+      .finally(() => {
+        photoSrcLoading.delete(key);
+      });
+  }
+}
+
+function schedulePhotoRerender() {
+  if (scheduledPhotoRerender) return;
+  scheduledPhotoRerender = true;
+  setTimeout(() => {
+    scheduledPhotoRerender = false;
+    renderAll();
+    if (itemDetailDialog?.open) renderDetailPhoto();
+    if (outfitDetailDialog?.open) renderOutfitDetailPhoto();
+  }, 0);
+}
+
+function hydratePhotoRefs() {
+  const refs = [];
+  for (const item of state.items) refs.push(...(item.itemPhotos || []));
+  for (const log of state.dailyLogs) refs.push(...(log.outfitPhotos || []));
+  queuePhotoRefs(refs);
+}
+
+function collectReferencedPhotoIds() {
+  const used = new Set();
+  for (const item of state.items || []) {
+    for (const photo of item.itemPhotos || []) {
+      if (photo && typeof photo === "object" && photo.storage === "idb") {
+        const id = photoKey(photo);
+        if (id) used.add(id);
+      }
+    }
+  }
+  for (const log of state.dailyLogs || []) {
+    for (const photo of log.outfitPhotos || []) {
+      if (photo && typeof photo === "object" && photo.storage === "idb") {
+        const id = photoKey(photo);
+        if (id) used.add(id);
+      }
+    }
+  }
+  return used;
+}
+
+async function cleanupOrphanPhotos() {
+  let touched = false;
+  try {
+    const ids = await listPhotoIds();
+    const used = collectReferencedPhotoIds();
+    for (const id of ids) {
+      if (!used.has(id)) {
+        touched = true;
+        await deletePhotoById(id);
+      }
+    }
+  } catch {
+    // noop
+  }
+  const nativeDeleted = await cleanupNativeOrphanPhotos();
+  if (nativeDeleted > 0) touched = true;
+  if (touched) save(LAST_CLEANUP_KEY, new Date().toISOString());
+  refreshStorageStats(false);
+}
+
+function collectReferencedNativePaths() {
+  const used = new Set();
+  const put = (photo) => {
+    if (!photo || typeof photo !== "object") return;
+    if (photo.storage !== "native") return;
+    const key = photoKey(photo);
+    if (key) used.add(key);
+  };
+  for (const item of state.items || []) for (const photo of item.itemPhotos || []) put(photo);
+  for (const log of state.dailyLogs || []) for (const photo of log.outfitPhotos || []) put(photo);
+  return Array.from(used);
+}
+
+async function cleanupNativeOrphanPhotos() {
+  const bridge = getNativePhotoBridge();
+  if (!bridge?.cleanupOrphans) return 0;
+  try {
+    const result = await bridge.cleanupOrphans({ referencedPaths: collectReferencedNativePaths() });
+    return Number(result?.deleted || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function getNativePhotoBridge() {
+  if (typeof window === "undefined") return null;
+  const plugins = window.Capacitor?.Plugins;
+  if (!plugins) return null;
+  return plugins[NATIVE_PHOTO_BRIDGE] || null;
+}
+
+function startUploadProgress(title) {
+  uploadProgressVisible = true;
+  if (uploadProgressOverlay) uploadProgressOverlay.classList.remove("hidden");
+  if (uploadProgressTitle) uploadProgressTitle.textContent = title || "處理中...";
+  if (uploadProgressFill) uploadProgressFill.style.width = "5%";
+  if (uploadProgressMeta) uploadProgressMeta.textContent = "0%";
+}
+
+function setUploadProgress(percent, text) {
+  if (!uploadProgressVisible) return;
+  const value = Math.max(0, Math.min(100, Number(percent || 0)));
+  if (uploadProgressFill) uploadProgressFill.style.width = `${value}%`;
+  if (uploadProgressMeta) uploadProgressMeta.textContent = text || `${value}%`;
+}
+
+function finishUploadProgress() {
+  if (!uploadProgressVisible) return;
+  if (uploadProgressFill) uploadProgressFill.style.width = "100%";
+  if (uploadProgressMeta) uploadProgressMeta.textContent = "完成";
+  setTimeout(() => {
+    uploadProgressVisible = false;
+    if (uploadProgressOverlay) uploadProgressOverlay.classList.add("hidden");
+    if (uploadProgressFill) uploadProgressFill.style.width = "0%";
+    if (uploadProgressMeta) uploadProgressMeta.textContent = "0%";
+  }, 250);
+}
+
+function humanizePhotoError(err, fallback) {
+  const text = String(err?.message || err || "").toLowerCase();
+  if (text.includes("permission") || text.includes("denied")) {
+    return "照片權限被拒絕，請到系統設定開啟相簿/檔案存取權限後再試。";
+  }
+  if (text.includes("quota") || text.includes("storage") || text.includes("no space") || text.includes("insufficient")) {
+    return "儲存空間不足，請先清理手機空間或刪除部分照片後再試。";
+  }
+  if (text.includes("decode") || text.includes("invalid image") || text.includes("corrupt")) {
+    return "照片檔案可能損毀或格式不支援，請改用其他照片。";
+  }
+  if (text.includes("timeout") || text.includes("network")) {
+    return "處理照片逾時，請降低一次上傳張數後再試。";
+  }
+  return fallback;
+}
+
+async function getIdbPhotoStats() {
+  try {
+    const ids = await listPhotoIds();
+    let bytes = 0;
+    for (const id of ids) {
+      const blob = await getPhotoBlob(id);
+      bytes += Number(blob?.size || 0);
+    }
+    return { count: ids.length, bytes };
+  } catch {
+    return { count: 0, bytes: 0 };
+  }
+}
+
+async function getNativePhotoStats() {
+  const bridge = getNativePhotoBridge();
+  if (!bridge?.getStorageStats) return { count: 0, bytes: 0 };
+  try {
+    const res = await bridge.getStorageStats();
+    return { count: Number(res?.count || 0), bytes: Number(res?.bytes || 0) };
+  } catch {
+    return { count: 0, bytes: 0 };
+  }
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+async function refreshStorageStats(showAlert) {
+  const idb = await getIdbPhotoStats();
+  const native = await getNativePhotoStats();
+  const totalCount = idb.count + native.count;
+  const totalBytes = idb.bytes + native.bytes;
+  const lastCleanup = load(LAST_CLEANUP_KEY, "");
+  const cleanupLabel = lastCleanup ? formatDateTime(lastCleanup) : "尚未清理";
+  if (storageStatsText) {
+    storageStatsText.textContent = `照片 ${totalCount} 張 / ${formatBytes(totalBytes)}（Native ${native.count}，IDB ${idb.count}）｜最近清理：${cleanupLabel}`;
+  }
+  if (showAlert) {
+    alert(`照片 ${totalCount} 張，總容量 ${formatBytes(totalBytes)}\nNative: ${native.count} 張 (${formatBytes(native.bytes)})\nIDB: ${idb.count} 張 (${formatBytes(idb.bytes)})\n最近清理：${cleanupLabel}`);
+  }
+}
+
+async function onCleanupPhotos() {
+  await cleanupOrphanPhotos();
+  alert("已清理未引用照片。");
+}
+
+function formatDateTime(iso) {
+  const d = new Date(String(iso || ""));
+  if (!Number.isFinite(d.getTime())) return "未知";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day} ${hh}:${mm}`;
+}
+
+async function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("blob-read-failed"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function savePhotoViaNativeBridge(blob, profileName, width, height) {
+  const bridge = getNativePhotoBridge();
+  if (!bridge?.saveImage) return null;
+  try {
+    const dataUrl = await blobToDataUrl(blob);
+    const result = await bridge.saveImage({ dataUrl, profile: profileName });
+    const path = String(result?.path || result?.id || "");
+    if (!path) return null;
+    return {
+      id: String(result?.id || path),
+      path,
+      storage: "native",
+      mimeType: String(result?.mimeType || blob.type || "image/jpeg"),
+      size: Number(result?.size || blob.size || 0),
+      width: Number(result?.width || width || 0),
+      height: Number(result?.height || height || 0),
+      createdAt: result?.createdAt || new Date().toISOString(),
+      profile: profileName,
+      webSrc: String(result?.webSrc || ""),
+    };
+  } catch (err) {
+    console.warn("savePhotoViaNativeBridge fallback to idb:", err);
+    return null;
+  }
+}
+
+async function readPhotoViaNativeBridge(path) {
+  const bridge = getNativePhotoBridge();
+  if (!bridge?.readImage || !path) return null;
+  try {
+    const result = await bridge.readImage({ path });
+    const dataUrl = String(result?.dataUrl || "");
+    if (!dataUrl) return null;
+    return {
+      dataUrl,
+      mimeType: String(result?.mimeType || "image/jpeg"),
+      size: Number(result?.size || 0),
+    };
+  } catch (err) {
+    console.warn("readPhotoViaNativeBridge failed:", err);
+    return null;
+  }
+}
+
+async function readPhotoAsDataUrl(photo) {
+  if (!photo) return "";
+  if (typeof photo === "string") {
+    return photo.startsWith("data:image/") ? photo : "";
+  }
+  const key = photoKey(photo);
+  if (!key) return "";
+  if (photo.storage === "idb") {
+    const blob = await getPhotoBlob(key);
+    return blob ? blobToDataUrl(blob) : "";
+  }
+  const native = await readPhotoViaNativeBridge(key);
+  if (native?.dataUrl) return native.dataUrl;
+  try {
+    const src = photoSrc(photo);
+    if (!src) return "";
+    const res = await fetch(src);
+    if (!res.ok) return "";
+    const blob = await res.blob();
+    return blobToDataUrl(blob);
+  } catch {
+    return "";
+  }
+}
+
+async function saveBundledDataUrlToPhotoRef(bundlePhoto) {
+  const dataUrl = String(bundlePhoto?.dataUrl || "");
+  const profile = String(bundlePhoto?.profile || "grid");
+  if (!dataUrl) return null;
+  try {
+    const bridge = getNativePhotoBridge();
+    if (bridge?.saveImage) {
+      const result = await bridge.saveImage({ dataUrl, profile });
+      const path = String(result?.path || result?.id || "");
+      if (path) {
+        return {
+          id: String(result?.id || path),
+          path,
+          storage: "native",
+          mimeType: String(result?.mimeType || bundlePhoto?.mimeType || "image/jpeg"),
+          size: Number(result?.size || 0),
+          width: Number(result?.width || 0),
+          height: Number(result?.height || 0),
+          createdAt: result?.createdAt || new Date().toISOString(),
+          profile,
+          webSrc: String(result?.webSrc || ""),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("saveBundledDataUrlToPhotoRef bridge fallback:", err);
+  }
+
+  const blob = await dataUrlToBlob(dataUrl);
+  if (!blob) return null;
+  const id = await putPhotoBlob(blob);
+  const url = URL.createObjectURL(blob);
+  photoSrcCache.set(id, url);
+  return {
+    id,
+    path: id,
+    storage: "idb",
+    mimeType: String(bundlePhoto?.mimeType || blob.type || "image/jpeg"),
+    size: blob.size,
+    width: 0,
+    height: 0,
+    createdAt: new Date().toISOString(),
+    profile,
+    webSrc: "",
+  };
+}
+
+async function materializeImportPhotos(incoming) {
+  const bundle = Array.isArray(incoming?.mediaPhotos) ? incoming.mediaPhotos : [];
+  if (!bundle.length) return incoming;
+  const keyToRef = new Map();
+  for (const entry of bundle) {
+    const key = String(entry?.key || "");
+    if (!key) continue;
+    const ref = await saveBundledDataUrlToPhotoRef(entry);
+    if (ref) keyToRef.set(key, ref);
+  }
+  let missingCount = 0;
+
+  const mapRowPhotos = (photos) =>
+    normalizePhotoList(photos).map((photo) => {
+      if (!photo || typeof photo !== "object") return photo;
+      const key = String(photo.bundleKey || exportPhotoBundleKey(photo));
+      if (!key) return photo;
+      const resolved = keyToRef.get(key);
+      if (resolved) return { ...resolved, profile: photo.profile || resolved.profile };
+      missingCount += 1;
+      return {
+        ...photo,
+        storage: "missing",
+        path: "",
+        webSrc: "",
+      };
+    });
+
+  return {
+    ...incoming,
+    items: (incoming.items || []).map((item) => ({ ...item, itemPhotos: mapRowPhotos(item.itemPhotos) })),
+    dailyLogs: (incoming.dailyLogs || []).map((log) => ({ ...log, outfitPhotos: mapRowPhotos(log.outfitPhotos) })),
+    __missingPhotoCount: missingCount,
+  };
+}
+
+async function pickAndSavePhotosViaBridge(limit, profileName, onProgress) {
+  const bridge = getNativePhotoBridge();
+  if (!bridge?.pickImages || !bridge?.saveImage) return [];
+  try {
+    const picked = await bridge.pickImages({ limit, source: "library" });
+    const images = Array.isArray(picked?.images) ? picked.images : [];
+    const refs = [];
+    for (const image of images) {
+      const tempUri = String(image?.tempUri || "");
+      if (!tempUri) continue;
+      const result = await bridge.saveImage({ tempUri, profile: profileName });
+      const path = String(result?.path || result?.id || "");
+      if (!path) continue;
+      refs.push({
+        id: String(result?.id || path),
+        path,
+        storage: "native",
+        mimeType: String(result?.mimeType || "image/jpeg"),
+        size: Number(result?.size || 0),
+        width: Number(result?.width || 0),
+        height: Number(result?.height || 0),
+        createdAt: result?.createdAt || new Date().toISOString(),
+        profile: String(result?.profile || profileName),
+        webSrc: String(result?.webSrc || ""),
+      });
+      if (onProgress) onProgress(refs.length, images.length);
+    }
+    return refs;
+  } catch (err) {
+    console.warn("pickAndSavePhotosViaBridge fallback:", err);
+    return [];
+  }
+}
+
+async function dataUrlToBlob(dataUrl) {
+  try {
+    const res = await fetch(dataUrl);
+    if (!res.ok) return null;
+    return res.blob();
+  } catch {
+    return null;
+  }
+}
+
+async function readBackupFile(file) {
+  const name = String(file?.name || "").toLowerCase();
+  if (!(name.endsWith(".zip") || file?.type === "application/zip")) {
+    throw new Error("invalid-backup-format");
+  }
+  const JSZipCtor = getJSZipConstructor();
+  const zip = await JSZipCtor.loadAsync(await file.arrayBuffer());
+  const manifestEntry = zip.file("manifest.json");
+  if (!manifestEntry) throw new Error("manifest.json missing");
+  const manifest = JSON.parse(await manifestEntry.async("string"));
+  const photos = Array.isArray(manifest?.media?.photos) ? manifest.media.photos : [];
+  const hydratedPhotos = [];
+  for (const photo of photos) {
+    const fileName = String(photo?.file || "");
+    const entry = zip.file(fileName);
+    if (!entry) {
+      hydratedPhotos.push({ ...photo, dataUrl: "" });
+      continue;
+    }
+    const base64 = await entry.async("base64");
+    const mimeType = String(photo?.mimeType || guessMimeFromFileName(fileName));
+    hydratedPhotos.push({ ...photo, dataUrl: `data:${mimeType};base64,${base64}` });
+  }
+  return {
+    ...manifest,
+    media: {
+      ...(manifest.media || {}),
+      photos: hydratedPhotos,
+    },
+  };
+}
+
+function sanitizeFileName(name) {
+  return String(name || "")
+    .replaceAll(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 60) || "photo";
+}
+
+function extractMimeFromDataUrl(dataUrl) {
+  const m = String(dataUrl || "").match(/^data:([^;,]+)[;,]/i);
+  return m ? m[1] : "";
+}
+
+function mimeToExtension(mime) {
+  const m = String(mime || "").toLowerCase();
+  if (m.includes("png")) return "png";
+  if (m.includes("webp")) return "webp";
+  return "jpg";
+}
+
+function guessMimeFromFileName(fileName) {
+  const lower = String(fileName || "").toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return "image/jpeg";
+}
+
+function dataUrlToBase64(dataUrl) {
+  const value = String(dataUrl || "");
+  const comma = value.indexOf(",");
+  if (comma < 0) return null;
+  return value.slice(comma + 1);
+}
+
+function getJSZipConstructor() {
+  const ctor = typeof window !== "undefined" ? window.JSZip : null;
+  if (!ctor) throw new Error("jszip-not-loaded");
+  return ctor;
+}
+
+function diffRemovedPhotoRefs(before, after) {
+  const beforeList = normalizePhotoList(before);
+  const afterSet = new Set(
+    normalizePhotoList(after).map((photo) => {
+      if (typeof photo === "string") return photo;
+      return photoKey(photo);
+    })
+  );
+  return beforeList.filter((photo) => {
+    if (typeof photo === "string") return false;
+    const key = photoKey(photo);
+    return key && !afterSet.has(key);
+  });
+}
+
+function cleanupDetachedPhotoRefs(photos) {
+  for (const photo of normalizePhotoList(photos)) {
+    if (!photo || typeof photo === "string") continue;
+    const key = photoKey(photo);
+    if (!key) continue;
+    if (photo.storage === "idb") {
+      deletePhotoById(key).catch(() => null);
+      continue;
+    }
+    const bridge = getNativePhotoBridge();
+    if (bridge?.deleteImage) {
+      bridge.deleteImage({ path: key }).catch(() => null);
+    }
+  }
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function escapeAttr(text) {
+  return escapeHtml(text).replaceAll("`", "");
+}

@@ -1,0 +1,39 @@
+{
+  "name": "heartsonfire",
+  "version": "1.0.6",
+  "private": true,
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "prepare:web": "mkdir -p web web/assets web/assets/vendor && cp -f index.html app.js styles.css manifest.webmanifest favicon.ico favicon-2.png web/ && cp -f assets/*.png web/assets/ && cp -f assets/vendor/* web/assets/vendor/",
+    "cap:doctor": "npx cap doctor",
+    "cap:sync": "npm run prepare:web && npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "bump:version": "node scripts/bump_version.mjs",
+    "build:apk": "npm run bump:version && npm run cap:sync && ./android/gradlew -p android assembleDebug",
+    "report:backup": "node scripts/backup_report.mjs",
+    "validate:backup": "node scripts/validate_backup.mjs",
+    "test": "echo \"No tests configured yet\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mimichild/heartsonfire.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mimichild/heartsonfire/issues"
+  },
+  "homepage": "https://github.com/mimichild/heartsonfire#readme",
+  "dependencies": {
+    "@awesome-cordova-plugins/core": "^8.1.0",
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
+    "@capacitor/status-bar": "^8.0.1",
+    "jszip": "^3.10.1"
+  }
+}

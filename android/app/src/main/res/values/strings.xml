@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Heartsonfire</string>
+    <string name="title_activity_main">Heartsonfire</string>
+    <string name="package_name">com.heartsonfire.app</string>
+    <string name="custom_url_scheme">com.heartsonfire.app</string>
+</resources>

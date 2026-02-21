@@ -1,0 +1,14 @@
+{
+  "appId": "com.heartsonfire.app",
+  "appName": "Heartsonfire",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false
+    }
+  }
+}

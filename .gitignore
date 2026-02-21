@@ -22,6 +22,7 @@ android/local.properties
 android/.idea/
 android/captures/
 android/app/google-services.json
+android/*/build/
 *.apk
 *.aab
 
@@ -32,6 +33,7 @@ ios/App/App.xcworkspace/xcuserdata/
 ios/App/App.xcodeproj/xcuserdata/
 ios/App/*.ipa
 ios/App/.DS_Store
+ios/App/*/.build/
 DerivedData/
 
 # IDE

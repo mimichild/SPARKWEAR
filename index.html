@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <title>SPARK WEAR</title>
   <meta name="theme-color" content="#f1aba7" />
   <link rel="manifest" href="manifest.webmanifest?v=20260220-2012" />
@@ -38,8 +38,8 @@
       <header class="page-head">
         <h1>我的衣櫃</h1>
         <div class="head-actions">
-          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋">🔍</button>
-          <button class="back-btn" data-back-home>返回</button>
+          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
+          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
       </header>
       <div id="closetSearchBar" class="search-bar hidden">
@@ -103,8 +103,8 @@
       <header class="page-head">
         <h1>穿搭紀錄</h1>
         <div class="head-actions">
-          <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋">🔍</button>
-          <button class="back-btn" data-back-home>返回</button>
+          <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
+          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
       </header>
       <div id="outfitSearchBar" class="search-bar hidden">
@@ -214,11 +214,11 @@
         <label>日期<input type="date" name="date" required /></label>
         <label>天氣<input name="weather" placeholder="例如：24°C 陰" /></label>
       </div>
+      <label>氣溫<input name="temperature" placeholder="例如：24°C" /></label>
       <div class="grid-2">
         <label>縣市<input name="county" placeholder="例如：台北市" /></label>
         <label>地點<input name="place" placeholder="例如：信義區" /></label>
       </div>
-      <label>氣溫<input name="temperature" placeholder="例如：24°C" /></label>
       <label>穿搭想法<textarea name="note" rows="3"></textarea></label>
       <label>穿搭照片（1~20 張，第一張主圖）<input type="file" name="outfitPhotos" accept="image/*" multiple /></label>
       <div>
@@ -266,7 +266,7 @@
       <div class="detail-top-actions">
         <button id="editOutfitDetail" class="secondary-btn" type="button">編輯</button>
         <button id="deleteOutfitDetail" class="danger-btn" type="button">刪除</button>
-        <button id="closeDetail" class="close-btn" type="button">關閉</button>
+        <button id="closeDetail" class="close-btn" type="button" aria-label="回上一頁">←</button>
       </div>
       <h2 id="detailDate"></h2>
       <section class="carousel">
@@ -278,6 +278,7 @@
       <section class="detail-records">
         <div id="detailMeta"></div>
         <div id="detailTemp"></div>
+        <div id="detailLocation"></div>
         <div id="detailNote"></div>
         <div id="detailItems"></div>
       </section>
@@ -287,8 +288,17 @@
   <section id="categoryItemsPage" class="overlay-page">
     <header class="page-head">
       <h1 id="categoryItemsTitle">分類</h1>
-      <button id="closeCategoryItemsPage" class="back-btn" type="button">關閉</button>
+      <div class="head-actions">
+        <button id="toggleCategoryItemsSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
+        <button id="closeCategoryItemsPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
+      </div>
     </header>
+    <div id="categoryItemsSearchBar" class="search-bar hidden">
+      <div class="search-row">
+        <input id="categoryItemsSearchInput" placeholder="搜尋關鍵字（品牌/名稱/介紹）" />
+        <button id="clearCategoryItemsSearch" type="button">清除</button>
+      </div>
+    </div>
     <nav class="sub-tabs category-inner-tabs">
       <button id="categoryItemsLatestTab" class="sub-btn active" type="button">最新</button>
       <button id="categoryItemsPhotosTab" class="sub-btn" type="button">照片</button>
@@ -301,7 +311,7 @@
       <div class="detail-top-actions">
         <button id="editItemDetail" class="secondary-btn" type="button">編輯</button>
         <button id="deleteItemDetail" class="danger-btn" type="button">刪除</button>
-        <button id="closeItemDetail" class="close-btn" type="button">關閉</button>
+        <button id="closeItemDetail" class="close-btn" type="button" aria-label="回上一頁">←</button>
       </div>
       <h2 id="itemDetailTitle"></h2>
       <section class="carousel">
@@ -361,6 +371,21 @@
         <button id="importMergeBtn" type="button">合併匯入</button>
         <button id="importReplaceBtn" type="button">覆蓋匯入</button>
         <button id="cancelImportBtn" type="button">取消</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="photoCropDialog">
+    <article class="dialog-card">
+      <h2>裁切照片</h2>
+      <p id="photoCropMeta" class="meta"></p>
+      <div id="photoCropViewport" class="photo-crop-viewport">
+        <img id="photoCropImage" class="photo-crop-image" alt="裁切預覽" />
+      </div>
+      <p class="meta">可用雙指縮放、單指拖拉調整位置，按「確定」後會自動進入下一張。</p>
+      <div class="actions">
+        <button id="cancelPhotoCrop" type="button">取消</button>
+        <button id="confirmPhotoCrop" type="button">確定</button>
       </div>
     </article>
   </dialog>

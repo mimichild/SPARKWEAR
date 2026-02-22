@@ -859,7 +859,10 @@ fieldset label {
 
 #itemDetailDialog .detail-top-actions .close-btn,
 #itemDetailDialog .detail-top-actions .secondary-btn,
-#itemDetailDialog .detail-top-actions .danger-btn {
+#itemDetailDialog .detail-top-actions .danger-btn,
+#outfitDetailDialog .detail-top-actions .close-btn,
+#outfitDetailDialog .detail-top-actions .secondary-btn,
+#outfitDetailDialog .detail-top-actions .danger-btn {
   border: 1px solid #f1aba7;
   background: #f1aba7;
   color: #fff;

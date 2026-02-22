@@ -27,10 +27,7 @@
       <div class="home-tools">
         <button id="exportDataBtn" class="mini-action" type="button">匯出資料</button>
         <button id="importDataBtn" class="mini-action" type="button">匯入資料</button>
-        <button id="showStorageStatsBtn" class="mini-action" type="button">儲存統計</button>
-        <button id="cleanupPhotosBtn" class="mini-action" type="button">清理照片</button>
       </div>
-      <p id="storageStatsText" class="meta home-meta"></p>
       <input id="importFileInput" type="file" accept="application/zip,.zip" class="hidden" />
     </section>
 
@@ -135,6 +132,7 @@
         <label>品牌名稱<input name="brand" /></label>
         <label>商品名稱<input name="name" required /></label>
         <label>購買日期<input type="date" name="purchaseDate" required /></label>
+        <label>購買時間<input type="time" name="purchaseTime" /></label>
         <label>
           分類
           <select id="itemCategorySelect" name="category" required></select>
@@ -212,6 +210,7 @@
       <h2 id="outfitFormTitle">新增穿搭</h2>
       <div class="grid-2">
         <label>日期<input type="date" name="date" required /></label>
+        <label>時間<input type="time" name="time" /></label>
         <label>天氣<input name="weather" placeholder="例如：24°C 陰" /></label>
       </div>
       <label>氣溫<input name="temperature" placeholder="例如：24°C" /></label>

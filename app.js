@@ -4,7 +4,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.7+8";
+const APP_VERSION_LABEL = "v1.0.9+10";
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
 const LOADING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#f5f1e9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9f9689" font-size="30">LOADING</text></svg>');
 
@@ -30,9 +30,7 @@ const outfitPage = document.getElementById("outfitPage");
 const exportDataBtn = document.getElementById("exportDataBtn");
 const importDataBtn = document.getElementById("importDataBtn");
 const importFileInput = document.getElementById("importFileInput");
-const showStorageStatsBtn = document.getElementById("showStorageStatsBtn");
-const cleanupPhotosBtn = document.getElementById("cleanupPhotosBtn");
-const storageStatsText = document.getElementById("storageStatsText");
+const storageStatsText = null;
 const appVersionText = document.getElementById("appVersionText");
 const uploadProgressOverlay = document.getElementById("uploadProgressOverlay");
 const uploadProgressTitle = document.getElementById("uploadProgressTitle");
@@ -82,6 +80,7 @@ const itemDialog = document.getElementById("itemDialog");
 const itemForm = document.getElementById("itemForm");
 const itemFormTitle = document.getElementById("itemFormTitle");
 const itemPurchaseDateInput = itemForm.querySelector('input[name="purchaseDate"]');
+const itemPurchaseTimeInput = itemForm.querySelector('input[name="purchaseTime"]');
 const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
 const openItemForm = document.getElementById("openItemForm");
 const closeItemBtn = document.querySelector("[data-close-item]");
@@ -99,6 +98,7 @@ const outfitFormDialog = document.getElementById("outfitFormDialog");
 const outfitForm = document.getElementById("outfitForm");
 const outfitFormTitle = document.getElementById("outfitFormTitle");
 const closeOutfitBtn = document.querySelector("[data-close-outfit]");
+const outfitTimeInput = outfitForm.querySelector('input[name="time"]');
 const outfitPhotosInput = outfitForm.querySelector('input[name="outfitPhotos"]');
 const outfitSearchBrand = document.getElementById("outfitSearchBrand");
 const outfitSearchName = document.getElementById("outfitSearchName");
@@ -189,7 +189,9 @@ let stagedOutfitUploadFiles = null;
 let cropDialogProgrammaticClose = false;
 
 if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
+if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
 outfitForm.date.valueAsDate = new Date();
+if (outfitTimeInput) outfitTimeInput.value = formatTimeNow();
 if (!["asc", "desc"].includes(state.purchaseSort)) state.purchaseSort = "desc";
 purchaseSortSelect.value = state.purchaseSort;
 if (!["asc", "desc"].includes(state.outfitSort)) state.outfitSort = "desc";
@@ -222,8 +224,16 @@ initStatusBar();
 if (appVersionText) appVersionText.textContent = `版本 ${APP_VERSION_LABEL}`;
 
 
-state.items = state.items.map((item) => ({ ...item, itemPhotos: normalizePhotoList(item?.itemPhotos) }));
-state.dailyLogs = state.dailyLogs.map((log) => ({ ...log, outfitPhotos: normalizePhotoList(log?.outfitPhotos) }));
+state.items = state.items.map((item) => ({
+  ...item,
+  purchaseTime: normalizeTimeText(item?.purchaseTime, item?.createdAt),
+  itemPhotos: normalizePhotoList(item?.itemPhotos),
+}));
+state.dailyLogs = state.dailyLogs.map((log) => ({
+  ...log,
+  time: normalizeTimeText(log?.time, log?.createdAt),
+  outfitPhotos: normalizePhotoList(log?.outfitPhotos),
+}));
 
 normalizeCategoryOrder();
 recomputeWearCounts();
@@ -257,6 +267,7 @@ openOutfitFormAction.addEventListener("click", () => {
   stagedOutfitUploadFiles = null;
   if (outfitPhotosInput) outfitPhotosInput.value = "";
   outfitForm.date.valueAsDate = new Date();
+  if (outfitTimeInput) outfitTimeInput.value = formatTimeNow();
   outfitSelection = new Set();
   outfitFormDialog.showModal();
   renderOutfitSearchCategoryOptions();
@@ -432,8 +443,6 @@ clearCategoryItemsSearch.addEventListener("click", () => clearSearch("categoryIt
 exportDataBtn.addEventListener("click", exportDataAsJson);
 importDataBtn.addEventListener("click", () => importFileInput.click());
 importFileInput.addEventListener("change", onImportFilePicked);
-showStorageStatsBtn.addEventListener("click", () => refreshStorageStats(true));
-cleanupPhotosBtn.addEventListener("click", onCleanupPhotos);
 importMergeBtn.addEventListener("click", () => applyImportedData("merge"));
 importReplaceBtn.addEventListener("click", () => applyImportedData("replace"));
 cancelImportBtn.addEventListener("click", () => {
@@ -478,7 +487,6 @@ async function initApp() {
     console.warn("warmupInitialPhotos failed:", err);
   }
   renderAll();
-  refreshStorageStats(false);
 }
 
 function showHome() {
@@ -511,6 +519,7 @@ function openNewItemForm() {
   stagedItemUploadFiles = null;
   if (itemPhotosInput) itemPhotosInput.value = "";
   if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
+  if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
   itemDialog.showModal();
@@ -1037,6 +1046,7 @@ async function onSaveItem(e) {
     brand: String(fd.get("brand") || "").trim(),
     name: String(fd.get("name") || "").trim(),
     purchaseDate: String(fd.get("purchaseDate") || ""),
+    purchaseTime: normalizeTimeText(fd.get("purchaseTime"), editing?.createdAt || new Date().toISOString()),
     category: String(fd.get("category") || "").trim(),
     originalPrice: numberOrNull(fd.get("originalPrice")),
     specialPrice: numberOrNull(fd.get("specialPrice")),
@@ -1077,6 +1087,7 @@ async function onSaveItem(e) {
   stagedItemUploadFiles = null;
   if (itemPhotosInput) itemPhotosInput.value = "";
   if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
+  if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
   editingItemId = null;
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
@@ -1118,6 +1129,7 @@ async function onSaveOutfit(e) {
   const log = {
     id: editing?.id || crypto.randomUUID(),
     date: String(fd.get("date") || ""),
+    time: normalizeTimeText(fd.get("time"), editing?.createdAt || new Date().toISOString()),
     weather: String(fd.get("weather") || "").trim(),
     county: String(fd.get("county") || "").trim(),
     place: String(fd.get("place") || "").trim(),
@@ -1147,6 +1159,7 @@ async function onSaveOutfit(e) {
   stagedOutfitUploadFiles = null;
   if (outfitPhotosInput) outfitPhotosInput.value = "";
   outfitForm.date.valueAsDate = new Date();
+  if (outfitTimeInput) outfitTimeInput.value = formatTimeNow();
   editingOutfitId = null;
   outfitSelection = new Set();
   outfitFormDialog.close();
@@ -1251,10 +1264,58 @@ function persistAll() {
 
 function sortedByPurchase(items) {
   return [...items].sort((a, b) => {
-    const ta = new Date(a.purchaseDate || a.createdAt).getTime();
-    const tb = new Date(b.purchaseDate || b.createdAt).getTime();
+    const ta = closetSortTimestamp(a);
+    const tb = closetSortTimestamp(b);
     return state.purchaseSort === "asc" ? ta - tb : tb - ta;
   });
+}
+
+function safeTimestamp(value) {
+  const t = new Date(String(value || "")).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function formatTimeNow() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function normalizeTimeText(value, fallbackCreatedAt = "") {
+  const text = String(value || "").trim();
+  if (/^\d{2}:\d{2}$/.test(text)) return text;
+  const d = new Date(String(fallbackCreatedAt || ""));
+  if (Number.isFinite(d.getTime())) {
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+  return "";
+}
+
+function combineDateAndTime(dateText, timeText, fallbackCreatedAt = "") {
+  const date = String(dateText || "").trim();
+  const time = normalizeTimeText(timeText, fallbackCreatedAt);
+  if (date) {
+    const candidate = safeTimestamp(`${date}T${time || "00:00"}:00`);
+    if (candidate) return candidate;
+  }
+  return safeTimestamp(fallbackCreatedAt);
+}
+
+function timeOfDayFromCreatedAt(createdAt) {
+  const d = new Date(String(createdAt || ""));
+  if (!Number.isFinite(d.getTime())) return 0;
+  return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) * 1000 + d.getMilliseconds();
+}
+
+function closetSortTimestamp(item) {
+  return combineDateAndTime(item?.purchaseDate, item?.purchaseTime, item?.createdAt);
+}
+
+function outfitSortTimestamp(log) {
+  return combineDateAndTime(log?.date, log?.time, log?.createdAt);
 }
 
 function matchesClosetQuery(item) {
@@ -1264,6 +1325,7 @@ function matchesClosetQuery(item) {
     item.brand || "",
     item.name || "",
     item.purchaseDate || "",
+    item.purchaseTime || "",
     item.category || "",
     item.origin || "",
     (item.seasons || []).join(" "),
@@ -1294,7 +1356,7 @@ function matchesOutfitQuery(log) {
     .filter(Boolean)
     .map((x) => `${x.brand || ""} ${x.name || ""}`)
     .join(" ");
-  const text = [log.date || "", log.weather || "", log.temperature || "", log.note || "", log.county || "", log.place || "", itemNames]
+  const text = [log.date || "", log.time || "", log.weather || "", log.temperature || "", log.note || "", log.county || "", log.place || "", itemNames]
     .join(" ")
     .toLowerCase();
   return text.includes(q);
@@ -1463,6 +1525,7 @@ function openItemEditForm() {
   itemForm.brand.value = item.brand || "";
   itemForm.name.value = item.name || "";
   if (itemPurchaseDateInput) itemPurchaseDateInput.value = item.purchaseDate || "";
+  if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = normalizeTimeText(item.purchaseTime, item.createdAt);
   itemForm.category.value = item.category || "";
   itemForm.originalPrice.value = item.originalPrice ?? "";
   itemForm.specialPrice.value = item.specialPrice ?? "";
@@ -1523,7 +1586,7 @@ function renderItemUsedOutfits(itemId) {
   const usedLogs = [...state.dailyLogs]
     .filter((log) => (log.wornItemIds || []).includes(itemId))
     .filter((log) => (log.outfitPhotos || []).length > 0)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .sort((a, b) => outfitSortTimestamp(b) - outfitSortTimestamp(a));
   queuePhotoRefs(usedLogs.map((log) => log.outfitPhotos?.[0]));
 
   if (!usedLogs.length) {
@@ -1938,8 +2001,8 @@ function renderOutfitGrid() {
     .filter((log) => (log.outfitPhotos || []).length > 0)
     .filter(matchesOutfitQuery)
     .sort((a, b) => {
-      const ta = new Date(a.date).getTime();
-      const tb = new Date(b.date).getTime();
+      const ta = outfitSortTimestamp(a);
+      const tb = outfitSortTimestamp(b);
       return state.outfitSort === "asc" ? ta - tb : tb - ta;
     });
 
@@ -1971,7 +2034,7 @@ function openOutfitDetail(logId) {
     .filter(Boolean);
   queuePhotoRefs(names.map((item) => item.itemPhotos?.[0]));
 
-  detailDate.textContent = log.date;
+  detailDate.textContent = `${log.date || ""}${log.time ? ` ${log.time}` : ""}`.trim();
   detailMeta.textContent = `天氣：${log.weather || "未填"}`;
   detailTemp.textContent = `氣溫：${log.temperature || "未填"}`;
   detailLocation.textContent = `縣市：${log.county || "未填"} | 地點：${log.place || "未填"}`;
@@ -2012,6 +2075,7 @@ function openOutfitEditForm() {
   outfitSelection = new Set(log.wornItemIds || []);
   outfitFormTitle.textContent = "編輯穿搭";
   outfitForm.date.value = log.date || "";
+  if (outfitTimeInput) outfitTimeInput.value = normalizeTimeText(log.time, log.createdAt);
   outfitForm.weather.value = log.weather || "";
   outfitForm.county.value = log.county || "";
   outfitForm.place.value = log.place || "";
@@ -2155,18 +2219,67 @@ async function exportDataAsJson() {
     compression: "DEFLATE",
     compressionOptions: { level: 6 },
   });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const d = new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const fileName = `spark-wear-backup-${y}-${m}-${day}-${hh}${mm}.zip`;
+  try {
+    const saved = await trySaveZipViaNativeBridge(blob, fileName);
+    if (saved) return;
+  } catch (err) {
+    const text = String(err?.message || err || "").toLowerCase();
+    if (text.includes("save-cancelled")) return;
+    console.warn("trySaveZipViaNativeBridge failed, fallback:", err);
+  }
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{
+          description: "ZIP backup",
+          accept: { "application/zip": [".zip"] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      alert("備份 ZIP 已儲存完成。");
+      return;
+    } catch (err) {
+      const text = String(err?.name || err?.message || err || "").toLowerCase();
+      if (text.includes("abort") || text.includes("cancel")) return;
+      console.warn("showSaveFilePicker failed, fallback to download link:", err);
+    }
+  }
+  const url = URL.createObjectURL(blob);
   a.href = url;
-  a.download = `spark-wear-backup-${y}-${m}-${day}.zip`;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+async function trySaveZipViaNativeBridge(blob, fileName) {
+  const bridge = getNativePhotoBridge();
+  if (!bridge?.saveBackupZip) return false;
+  const dataUrl = await blobToDataUrl(blob);
+  const base64 = dataUrlToBase64(dataUrl);
+  if (!base64) return false;
+  const result = await bridge.saveBackupZip({
+    fileName,
+    mimeType: "application/zip",
+    base64,
+  });
+  if (result?.saved) {
+    alert("備份 ZIP 已儲存完成。");
+    return true;
+  }
+  return false;
 }
 
 async function onImportFilePicked() {

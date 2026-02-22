@@ -21,6 +21,7 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -36,6 +37,8 @@ import java.util.UUID;
 public class PhotoStorageBridgePlugin extends Plugin {
   private static final String PHOTOS_DIR = "photos";
   private static final String PICK_TMP_DIR = "pick_tmp";
+  private byte[] pendingBackupBytes = null;
+  private String pendingBackupMimeType = "application/zip";
 
   @PluginMethod
   public void pickImages(PluginCall call) {
@@ -249,6 +252,67 @@ public class PhotoStorageBridgePlugin extends Plugin {
       call.resolve(res);
     } catch (Exception err) {
       call.reject("cleanupOrphans failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
+  public void saveBackupZip(PluginCall call) {
+    try {
+      String base64 = call.getString("base64", "");
+      if (base64 == null || base64.isEmpty()) {
+        call.reject("base64 is required");
+        return;
+      }
+      String fileName = call.getString("fileName", "spark-wear-backup.zip");
+      String mimeType = call.getString("mimeType", "application/zip");
+      pendingBackupBytes = Base64.decode(base64, Base64.DEFAULT);
+      pendingBackupMimeType = mimeType;
+      Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+      intent.addCategory(Intent.CATEGORY_OPENABLE);
+      intent.setType(mimeType);
+      intent.putExtra(Intent.EXTRA_TITLE, fileName);
+      startActivityForResult(call, intent, "saveBackupZipResult");
+    } catch (Exception err) {
+      pendingBackupBytes = null;
+      call.reject("saveBackupZip failed: " + err.getMessage());
+    }
+  }
+
+  @ActivityCallback
+  private void saveBackupZipResult(PluginCall call, ActivityResult result) {
+    if (call == null) return;
+    try {
+      if (result == null || result.getResultCode() != android.app.Activity.RESULT_OK) {
+        pendingBackupBytes = null;
+        call.reject("save-cancelled");
+        return;
+      }
+      Intent data = result.getData();
+      Uri uri = data != null ? data.getData() : null;
+      if (uri == null || pendingBackupBytes == null) {
+        pendingBackupBytes = null;
+        call.reject("save-backup-uri-missing");
+        return;
+      }
+      ContentResolver resolver = getContext().getContentResolver();
+      OutputStream out = resolver.openOutputStream(uri, "w");
+      if (out == null) {
+        pendingBackupBytes = null;
+        call.reject("cannot-open-output-stream");
+        return;
+      }
+      out.write(pendingBackupBytes);
+      out.flush();
+      out.close();
+      pendingBackupBytes = null;
+      JSObject res = new JSObject();
+      res.put("saved", true);
+      res.put("uri", uri.toString());
+      res.put("mimeType", pendingBackupMimeType);
+      call.resolve(res);
+    } catch (Exception err) {
+      pendingBackupBytes = null;
+      call.reject("saveBackupZipResult failed: " + err.getMessage());
     }
   }
 

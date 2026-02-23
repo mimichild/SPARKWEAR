@@ -27,6 +27,7 @@
       <div class="home-tools">
         <button id="exportDataBtn" class="mini-action" type="button">匯出資料</button>
         <button id="importDataBtn" class="mini-action" type="button">匯入資料</button>
+        <button id="openSettingsBtn" class="mini-action" type="button">設定</button>
       </div>
       <input id="importFileInput" type="file" accept="application/zip,.zip" class="hidden" />
     </section>
@@ -35,6 +36,8 @@
       <header class="page-head">
         <h1>我的衣櫃</h1>
         <div class="head-actions">
+          <button id="bulkMoveClosetBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span class="icon-folder" aria-hidden="true"></span></button>
+          <button id="bulkDeleteClosetBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
           <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
           <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
@@ -100,6 +103,7 @@
       <header class="page-head">
         <h1>穿搭紀錄</h1>
         <div class="head-actions">
+          <button id="bulkDeleteOutfitBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
           <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
           <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
@@ -288,6 +292,8 @@
     <header class="page-head">
       <h1 id="categoryItemsTitle">分類</h1>
       <div class="head-actions">
+        <button id="bulkMoveCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span class="icon-folder" aria-hidden="true"></span></button>
+        <button id="bulkDeleteCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
         <button id="toggleCategoryItemsSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
         <button id="closeCategoryItemsPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
       </div>
@@ -370,6 +376,70 @@
         <button id="importMergeBtn" type="button">合併匯入</button>
         <button id="importReplaceBtn" type="button">覆蓋匯入</button>
         <button id="cancelImportBtn" type="button">取消</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="bulkCategoryDialog">
+    <form id="bulkCategoryForm" class="dialog-card" method="dialog">
+      <h2>批次分類</h2>
+      <p id="bulkCategoryText" class="meta"></p>
+      <label>目標分類
+        <select id="bulkCategorySelect" required></select>
+      </label>
+      <div class="actions">
+        <button id="cancelBulkCategory" type="button">取消</button>
+        <button id="confirmBulkCategory" type="submit">確認</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bulkDeleteDialog">
+    <article class="dialog-card">
+      <h2>批次刪除</h2>
+      <p id="bulkDeleteText" class="meta"></p>
+      <div class="actions">
+        <button id="cancelBulkDelete" type="button">取消</button>
+        <button id="confirmBulkDelete" class="danger-btn" type="button">確認刪除</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm" class="dialog-card" method="dialog">
+      <h2>設定</h2>
+      <section class="theme-presets">
+        <p class="meta">修改主題顏色</p>
+        <p class="meta">熱門色</p>
+        <div id="themePresetList" class="theme-preset-list">
+          <button type="button" class="theme-preset" data-theme-color="#f1aba7" aria-label="櫻花粉 #F1ABA7" title="#F1ABA7" style="--preset:#f1aba7;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#ef9a9a" aria-label="珊瑚粉 #EF9A9A" title="#EF9A9A" style="--preset:#ef9a9a;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#d9b8a7" aria-label="奶茶棕 #D9B8A7" title="#D9B8A7" style="--preset:#d9b8a7;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#cbb7a0" aria-label="燕麥棕 #CBB7A0" title="#CBB7A0" style="--preset:#cbb7a0;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#f3e8a4" aria-label="鵝黃色 #F3E8A4" title="#F3E8A4" style="--preset:#f3e8a4;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#d7c4e8" aria-label="霧感薰衣 #D7C4E8" title="#D7C4E8" style="--preset:#d7c4e8;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#bcd7f1" aria-label="雲霧藍 #BCD7F1" title="#BCD7F1" style="--preset:#bcd7f1;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#7c2d40" aria-label="酒紅色 #7C2D40" title="#7C2D40" style="--preset:#7c2d40;"></button>
+        </div>
+      </section>
+      <section class="theme-presets">
+        <p class="meta">調色盤</p>
+        <div id="themePaletteGrid" class="theme-palette-grid"></div>
+      </section>
+      <div class="actions">
+        <button id="cancelSettings" type="button">取消</button>
+        <button id="saveSettings" type="submit">確定</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bulkDeleteOutfitDialog">
+    <article class="dialog-card">
+      <h2>刪除穿搭</h2>
+      <p id="bulkDeleteOutfitText" class="meta"></p>
+      <div class="actions">
+        <button id="cancelBulkDeleteOutfit" type="button">取消</button>
+        <button id="confirmBulkDeleteOutfit" class="danger-btn" type="button">確認刪除</button>
       </div>
     </article>
   </dialog>

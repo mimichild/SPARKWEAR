@@ -39,6 +39,7 @@ public class PhotoStorageBridgePlugin extends Plugin {
   private static final String PICK_TMP_DIR = "pick_tmp";
   private byte[] pendingBackupBytes = null;
   private String pendingBackupMimeType = "application/zip";
+  private Uri pendingBackupUri = null;
 
   @PluginMethod
   public void pickImages(PluginCall call) {
@@ -267,6 +268,7 @@ public class PhotoStorageBridgePlugin extends Plugin {
       String mimeType = call.getString("mimeType", "application/zip");
       pendingBackupBytes = Base64.decode(base64, Base64.DEFAULT);
       pendingBackupMimeType = mimeType;
+      pendingBackupUri = null;
       Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
       intent.addCategory(Intent.CATEGORY_OPENABLE);
       intent.setType(mimeType);
@@ -284,6 +286,7 @@ public class PhotoStorageBridgePlugin extends Plugin {
     try {
       if (result == null || result.getResultCode() != android.app.Activity.RESULT_OK) {
         pendingBackupBytes = null;
+        pendingBackupUri = null;
         call.reject("save-cancelled");
         return;
       }
@@ -291,13 +294,40 @@ public class PhotoStorageBridgePlugin extends Plugin {
       Uri uri = data != null ? data.getData() : null;
       if (uri == null || pendingBackupBytes == null) {
         pendingBackupBytes = null;
+        pendingBackupUri = null;
         call.reject("save-backup-uri-missing");
         return;
       }
+      pendingBackupUri = uri;
+      JSObject res = new JSObject();
+      res.put("saved", false);
+      res.put("pending", true);
+      res.put("uri", uri.toString());
+      res.put("mimeType", pendingBackupMimeType);
+      call.resolve(res);
+    } catch (Exception err) {
+      pendingBackupBytes = null;
+      pendingBackupUri = null;
+      call.reject("saveBackupZipResult failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
+  public void confirmSaveBackupZip(PluginCall call) {
+    try {
+      if (pendingBackupBytes == null || pendingBackupUri == null) {
+        call.reject("no-pending-backup");
+        return;
+      }
+      String requestedUri = call.getString("uri", pendingBackupUri.toString());
+      if (requestedUri == null || requestedUri.isEmpty()) {
+        call.reject("uri is required");
+        return;
+      }
+      Uri uri = Uri.parse(requestedUri);
       ContentResolver resolver = getContext().getContentResolver();
       OutputStream out = resolver.openOutputStream(uri, "w");
       if (out == null) {
-        pendingBackupBytes = null;
         call.reject("cannot-open-output-stream");
         return;
       }
@@ -305,15 +335,24 @@ public class PhotoStorageBridgePlugin extends Plugin {
       out.flush();
       out.close();
       pendingBackupBytes = null;
+      pendingBackupUri = null;
       JSObject res = new JSObject();
       res.put("saved", true);
       res.put("uri", uri.toString());
       res.put("mimeType", pendingBackupMimeType);
       call.resolve(res);
     } catch (Exception err) {
-      pendingBackupBytes = null;
-      call.reject("saveBackupZipResult failed: " + err.getMessage());
+      call.reject("confirmSaveBackupZip failed: " + err.getMessage());
     }
+  }
+
+  @PluginMethod
+  public void cancelSaveBackupZip(PluginCall call) {
+    pendingBackupBytes = null;
+    pendingBackupUri = null;
+    JSObject res = new JSObject();
+    res.put("cancelled", true);
+    call.resolve(res);
   }
 
   private static byte[] decodeDataUrl(String dataUrl) {

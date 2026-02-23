@@ -4,7 +4,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.9+10";
+const APP_VERSION_LABEL = "v1.0.20+21";
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
 const LOADING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#f5f1e9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9f9689" font-size="30">LOADING</text></svg>');
 
@@ -29,6 +29,7 @@ const closetPage = document.getElementById("closetPage");
 const outfitPage = document.getElementById("outfitPage");
 const exportDataBtn = document.getElementById("exportDataBtn");
 const importDataBtn = document.getElementById("importDataBtn");
+const openSettingsBtn = document.getElementById("openSettingsBtn");
 const importFileInput = document.getElementById("importFileInput");
 const storageStatsText = null;
 const appVersionText = document.getElementById("appVersionText");
@@ -53,10 +54,13 @@ const purchaseSortSelect = document.getElementById("purchaseSortSelect");
 const outfitSortSelect = document.getElementById("outfitSortSelect");
 const tagUsageSortSelect = document.getElementById("tagUsageSortSelect");
 const toggleClosetSearch = document.getElementById("toggleClosetSearch");
+const bulkMoveClosetBtn = document.getElementById("bulkMoveClosetBtn");
+const bulkDeleteClosetBtn = document.getElementById("bulkDeleteClosetBtn");
 const closetSearchBar = document.getElementById("closetSearchBar");
 const closetSearchInput = document.getElementById("closetSearchInput");
 const clearClosetSearch = document.getElementById("clearClosetSearch");
 const toggleOutfitSearch = document.getElementById("toggleOutfitSearch");
+const bulkDeleteOutfitBtn = document.getElementById("bulkDeleteOutfitBtn");
 const outfitSearchBar = document.getElementById("outfitSearchBar");
 const outfitSearchInput = document.getElementById("outfitSearchInput");
 const clearOutfitSearch = document.getElementById("clearOutfitSearch");
@@ -136,6 +140,8 @@ const categoryItemsPhotosTab = document.getElementById("categoryItemsPhotosTab")
 const categoryItemsList = document.getElementById("categoryItemsList");
 const closeCategoryItemsPage = document.getElementById("closeCategoryItemsPage");
 const toggleCategoryItemsSearch = document.getElementById("toggleCategoryItemsSearch");
+const bulkMoveCategoryItemsBtn = document.getElementById("bulkMoveCategoryItemsBtn");
+const bulkDeleteCategoryItemsBtn = document.getElementById("bulkDeleteCategoryItemsBtn");
 const categoryItemsSearchBar = document.getElementById("categoryItemsSearchBar");
 const categoryItemsSearchInput = document.getElementById("categoryItemsSearchInput");
 const clearCategoryItemsSearch = document.getElementById("clearCategoryItemsSearch");
@@ -165,6 +171,24 @@ const photoCropViewport = document.getElementById("photoCropViewport");
 const photoCropImage = document.getElementById("photoCropImage");
 const cancelPhotoCrop = document.getElementById("cancelPhotoCrop");
 const confirmPhotoCrop = document.getElementById("confirmPhotoCrop");
+const bulkCategoryDialog = document.getElementById("bulkCategoryDialog");
+const bulkCategoryForm = document.getElementById("bulkCategoryForm");
+const bulkCategoryText = document.getElementById("bulkCategoryText");
+const bulkCategorySelect = document.getElementById("bulkCategorySelect");
+const cancelBulkCategory = document.getElementById("cancelBulkCategory");
+const bulkDeleteDialog = document.getElementById("bulkDeleteDialog");
+const bulkDeleteText = document.getElementById("bulkDeleteText");
+const cancelBulkDelete = document.getElementById("cancelBulkDelete");
+const confirmBulkDelete = document.getElementById("confirmBulkDelete");
+const settingsDialog = document.getElementById("settingsDialog");
+const settingsForm = document.getElementById("settingsForm");
+const themeColorInput = document.getElementById("themeColorInput");
+const themePaletteGrid = document.getElementById("themePaletteGrid");
+const cancelSettings = document.getElementById("cancelSettings");
+const bulkDeleteOutfitDialog = document.getElementById("bulkDeleteOutfitDialog");
+const bulkDeleteOutfitText = document.getElementById("bulkDeleteOutfitText");
+const cancelBulkDeleteOutfit = document.getElementById("cancelBulkDeleteOutfit");
+const confirmBulkDeleteOutfit = document.getElementById("confirmBulkDeleteOutfit");
 
 let detailItemPhotos = [];
 let detailPhotoIndex = 0;
@@ -187,6 +211,19 @@ let cropSession = null;
 let stagedItemUploadFiles = null;
 let stagedOutfitUploadFiles = null;
 let cropDialogProgrammaticClose = false;
+let selectionContext = "";
+let selectedItemIds = new Set();
+const LONG_PRESS_MS = 1000;
+let suppressSelectionClickUntil = 0;
+const ACTIVE_THEME_COLOR_KEY = "spark_theme_color";
+const ACTIVE_VIEW_STATE_KEY = "spark_active_view_state";
+let restoringViewState = false;
+let pendingThemeColor = "#f1aba7";
+const PULL_REFRESH_MIN_DISTANCE = 64;
+let pullRefreshStartY = 0;
+let pullRefreshTracking = false;
+let pullRefreshTriggered = false;
+let pullRefreshing = false;
 
 if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
 if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
@@ -202,6 +239,10 @@ tagUsageSortSelect.value = state.tagUsageSort;
 const platform = typeof window !== "undefined" ? window.Capacitor?.getPlatform?.() || "web" : "web";
 document.body.classList.add(`platform-${platform}`);
 
+applyThemeColor(loadThemeColor());
+pendingThemeColor = loadThemeColor();
+renderThemePalette();
+
 // 初始化狀態列
 const initStatusBar = async () => {
   const { StatusBar } = window.Capacitor?.Plugins || {};
@@ -209,8 +250,7 @@ const initStatusBar = async () => {
     try {
       // 強制 Webview 延伸到狀態列下方（以便我們用 CSS 位移內容）
       await StatusBar.setOverlaysWebView({ overlay: true });
-      // 設定狀態列背景顏色為粉紅色
-      await StatusBar.setBackgroundColor({ color: "#f1aba7" });
+      await StatusBar.setBackgroundColor({ color: loadThemeColor() });
       // 設定圖示顏色為白色 (Style.LIGHT)
       await StatusBar.setStyle({ style: "LIGHT" });
     } catch (e) {
@@ -240,7 +280,10 @@ recomputeWearCounts();
 
 for (const btn of openPageBtns) btn.addEventListener("click", () => openPage(btn.dataset.openPage));
 for (const btn of backBtns) btn.addEventListener("click", showHome);
-for (const btn of subTabs) btn.addEventListener("click", () => switchSub(btn.dataset.subTab));
+for (const btn of subTabs) btn.addEventListener("click", () => {
+  clearSelectionMode();
+  switchSub(btn.dataset.subTab);
+});
 
 openItemForm.addEventListener("click", () => openNewItemForm());
 closeItemBtn.addEventListener("click", () => {
@@ -293,27 +336,39 @@ editItemDetail.addEventListener("click", () => openItemEditForm());
 deleteItemDetail.addEventListener("click", () => openDeleteItemConfirm());
 closeItemDetail.addEventListener("click", () => itemDetailDialog.close());
 closeCategoryItemsPage.addEventListener("click", () => {
+  clearSelectionMode();
   categoryItemsPage.classList.remove("active");
+  document.body.classList.remove("category-items-open");
   categoryItemsSearchBar.classList.add("hidden");
   state.categoryItemsQuery = "";
   categoryItemsSearchInput.value = "";
+  saveActiveViewState();
 });
 itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
 itemDetailNext.addEventListener("click", () => stepDetailPhoto(1));
 outfitDetailPrev.addEventListener("click", () => stepOutfitDetailPhoto(-1));
 outfitDetailNext.addEventListener("click", () => stepOutfitDetailPhoto(1));
 categoryItemsLatestTab.addEventListener("click", () => {
+  clearSelectionMode();
   categoryItemsView = "latest";
   renderCategoryItemsPage();
+  saveActiveViewState();
 });
 categoryItemsPhotosTab.addEventListener("click", () => {
+  clearSelectionMode();
   categoryItemsView = "photos";
   renderCategoryItemsPage();
+  saveActiveViewState();
 });
 toggleCategoryItemsSearch.addEventListener("click", () => {
   categoryItemsSearchBar.classList.toggle("hidden");
   if (!categoryItemsSearchBar.classList.contains("hidden")) categoryItemsSearchInput.focus();
 });
+bulkMoveClosetBtn.addEventListener("click", () => openBulkCategoryDialog("closet"));
+bulkDeleteClosetBtn.addEventListener("click", () => openBulkDeleteDialog("closet"));
+bulkMoveCategoryItemsBtn.addEventListener("click", () => openBulkCategoryDialog("categoryItems"));
+bulkDeleteCategoryItemsBtn.addEventListener("click", () => openBulkDeleteDialog("categoryItems"));
+bulkDeleteOutfitBtn.addEventListener("click", () => openBulkDeleteOutfitDialog());
 categoryItemsSearchInput.addEventListener("input", () => {
   state.categoryItemsQuery = categoryItemsSearchInput.value.trim().toLowerCase();
   renderCategoryItemsPage();
@@ -398,6 +453,44 @@ document.addEventListener("touchend", (e) => {
   }
 });
 
+document.addEventListener("touchstart", (e) => {
+  if (hasBlockingDialogOpenForPullRefresh()) {
+    pullRefreshTracking = false;
+    return;
+  }
+  if ((e.touches?.length || 0) !== 1) {
+    pullRefreshTracking = false;
+    return;
+  }
+  const target = e.target;
+  if (isSwipeNavBlockedTarget(target)) {
+    pullRefreshTracking = false;
+    return;
+  }
+  pullRefreshStartY = e.touches[0]?.clientY || 0;
+  pullRefreshTriggered = false;
+  pullRefreshTracking = isAtTopForPullRefresh();
+}, { passive: true });
+
+document.addEventListener("touchmove", (e) => {
+  if (!pullRefreshTracking || pullRefreshTriggered) return;
+  const currentY = e.touches[0]?.clientY || 0;
+  const dy = currentY - pullRefreshStartY;
+  if (dy >= PULL_REFRESH_MIN_DISTANCE) {
+    pullRefreshTriggered = true;
+  }
+}, { passive: true });
+
+document.addEventListener("touchend", () => {
+  if (!pullRefreshTracking) return;
+  const shouldRefresh = pullRefreshTriggered;
+  pullRefreshTracking = false;
+  pullRefreshTriggered = false;
+  if (shouldRefresh) {
+    refreshCurrentView();
+  }
+}, { passive: true });
+
 document.addEventListener("gesturestart", (e) => e.preventDefault());
 document.addEventListener("gesturechange", (e) => e.preventDefault());
 document.addEventListener("gestureend", (e) => e.preventDefault());
@@ -442,6 +535,15 @@ clearOutfitSearch.addEventListener("click", () => clearSearch("outfit"));
 clearCategoryItemsSearch.addEventListener("click", () => clearSearch("categoryItems"));
 exportDataBtn.addEventListener("click", exportDataAsJson);
 importDataBtn.addEventListener("click", () => importFileInput.click());
+openSettingsBtn.addEventListener("click", () => openSettingsDialog());
+settingsDialog.addEventListener("click", (e) => {
+  const btn = e.target instanceof Element ? e.target.closest("[data-theme-color]") : null;
+  if (!btn) return;
+  const color = normalizeThemeHex(btn.dataset.themeColor || "#f1aba7");
+  pendingThemeColor = color;
+  if (themeColorInput) themeColorInput.value = color;
+  updateThemeColorActive(color);
+});
 importFileInput.addEventListener("change", onImportFilePicked);
 importMergeBtn.addEventListener("click", () => applyImportedData("merge"));
 importReplaceBtn.addEventListener("click", () => applyImportedData("replace"));
@@ -451,6 +553,18 @@ cancelImportBtn.addEventListener("click", () => {
 });
 cancelPhotoCrop.addEventListener("click", () => cancelCropSession());
 confirmPhotoCrop.addEventListener("click", () => confirmCropFrame());
+cancelBulkCategory.addEventListener("click", () => bulkCategoryDialog.close());
+bulkCategoryForm.addEventListener("submit", (e) => onConfirmBulkCategory(e));
+cancelBulkDelete.addEventListener("click", () => bulkDeleteDialog.close());
+confirmBulkDelete.addEventListener("click", () => onConfirmBulkDelete());
+cancelBulkDeleteOutfit.addEventListener("click", () => bulkDeleteOutfitDialog.close());
+confirmBulkDeleteOutfit.addEventListener("click", () => onConfirmBulkDeleteOutfit());
+cancelSettings.addEventListener("click", () => settingsDialog.close());
+settingsForm.addEventListener("submit", (e) => onSaveSettings(e));
+themeColorInput?.addEventListener("input", () => {
+  pendingThemeColor = normalizeThemeHex(themeColorInput.value);
+  updateThemeColorActive(themeColorInput.value);
+});
 photoCropDialog.addEventListener("cancel", (e) => {
   e.preventDefault();
   cancelCropSession();
@@ -477,6 +591,10 @@ cancelDeleteItem.addEventListener("click", () => confirmDeleteItemDialog.close()
 cancelDeleteOutfit.addEventListener("click", () => confirmDeleteOutfitDialog.close());
 confirmDeleteItem.addEventListener("click", () => deleteCurrentItem());
 confirmDeleteOutfit.addEventListener("click", () => deleteCurrentOutfit());
+window.addEventListener("pagehide", () => saveActiveViewState());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveActiveViewState();
+});
 
 initApp();
 
@@ -487,18 +605,25 @@ async function initApp() {
     console.warn("warmupInitialPhotos failed:", err);
   }
   renderAll();
+  restoreActiveViewState();
 }
 
 function showHome() {
+  clearSelectionMode();
+  document.body.classList.remove("category-items-open");
   homePage.classList.add("active");
   closetPage.classList.remove("active");
   outfitPage.classList.remove("active");
+  saveActiveViewState();
 }
 
 function openPage(type) {
+  clearSelectionMode();
+  if (type !== "closet") document.body.classList.remove("category-items-open");
   homePage.classList.remove("active");
   closetPage.classList.toggle("active", type === "closet");
   outfitPage.classList.toggle("active", type === "outfit");
+  saveActiveViewState();
 }
 
 function switchSub(tab) {
@@ -510,6 +635,60 @@ function switchSub(tab) {
   const sortBar = document.querySelector(".sort-bar");
   const showPurchaseSort = tab === "latest" || tab === "photos";
   if (sortBar) sortBar.classList.toggle("hidden", !showPurchaseSort);
+  saveActiveViewState();
+}
+
+function loadActiveViewState() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_VIEW_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveActiveViewState() {
+  if (restoringViewState) return;
+  const payload = {
+    main: currentMainPage(),
+    closetSub: activeClosetSubTab(),
+    categoryItemsOpen: categoryItemsPage.classList.contains("active"),
+    categoryName: currentCategoryItemsName || "",
+    categoryItemsView,
+  };
+  try {
+    localStorage.setItem(ACTIVE_VIEW_STATE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function restoreActiveViewState() {
+  const snapshot = loadActiveViewState();
+  if (!snapshot) {
+    saveActiveViewState();
+    return;
+  }
+  restoringViewState = true;
+  try {
+    const main = String(snapshot.main || "home");
+    if (main === "closet") openPage("closet");
+    else if (main === "outfit") openPage("outfit");
+    else showHome();
+
+    const sub = String(snapshot.closetSub || "latest");
+    if (["latest", "photos", "category", "tags"].includes(sub)) switchSub(sub);
+
+    if (snapshot.categoryItemsOpen && snapshot.categoryName && main === "closet") {
+      openCategoryItemsPage(String(snapshot.categoryName), String(snapshot.categoryItemsView || "latest"));
+    }
+  } finally {
+    restoringViewState = false;
+    saveActiveViewState();
+  }
 }
 
 function openNewItemForm() {
@@ -554,6 +733,7 @@ function closeTopOverlay() {
   const dialogs = [
     confirmDeleteItemDialog,
     confirmDeleteOutfitDialog,
+    bulkDeleteOutfitDialog,
     outfitDetailDialog,
     itemDetailDialog,
     voteDialog,
@@ -562,6 +742,9 @@ function closeTopOverlay() {
     itemDialog,
     categoryEditDialog,
     photoCropDialog,
+    bulkCategoryDialog,
+    bulkDeleteDialog,
+    settingsDialog,
   ];
   for (const dialog of dialogs) {
     if (dialog?.open) {
@@ -570,10 +753,13 @@ function closeTopOverlay() {
     }
   }
   if (categoryItemsPage.classList.contains("active")) {
+    clearSelectionMode();
     categoryItemsPage.classList.remove("active");
+    document.body.classList.remove("category-items-open");
     categoryItemsSearchBar.classList.add("hidden");
     state.categoryItemsQuery = "";
     categoryItemsSearchInput.value = "";
+    saveActiveViewState();
     return true;
   }
   return false;
@@ -581,6 +767,26 @@ function closeTopOverlay() {
 
 function hasOpenOverlay() {
   if (categoryItemsPage.classList.contains("active")) return true;
+  return [
+    confirmDeleteItemDialog,
+    confirmDeleteOutfitDialog,
+    bulkDeleteOutfitDialog,
+    outfitDetailDialog,
+    itemDetailDialog,
+    voteDialog,
+    outfitFormDialog,
+    outfitMenuDialog,
+    itemDialog,
+    categoryEditDialog,
+    photoCropDialog,
+    bulkCategoryDialog,
+    bulkDeleteDialog,
+    settingsDialog,
+  ]
+    .some((dialog) => Boolean(dialog?.open));
+}
+
+function hasBlockingDialogOpenForPullRefresh() {
   return [
     confirmDeleteItemDialog,
     confirmDeleteOutfitDialog,
@@ -592,14 +798,43 @@ function hasOpenOverlay() {
     itemDialog,
     categoryEditDialog,
     photoCropDialog,
-  ]
-    .some((dialog) => Boolean(dialog?.open));
+    bulkCategoryDialog,
+    bulkDeleteDialog,
+    bulkDeleteOutfitDialog,
+    settingsDialog,
+  ].some((dialog) => Boolean(dialog?.open));
 }
 
 function currentMainPage() {
   if (closetPage.classList.contains("active")) return "closet";
   if (outfitPage.classList.contains("active")) return "outfit";
   return "home";
+}
+
+function isAtTopForPullRefresh() {
+  if ((window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0) > 0) return false;
+  if (categoryItemsPage.classList.contains("active")) {
+    return categoryItemsPage.scrollTop <= 0;
+  }
+  const main = currentMainPage();
+  if (main === "closet") return closetPage.scrollTop <= 0;
+  if (main === "outfit") return outfitPage.scrollTop <= 0;
+  return homePage.scrollTop <= 0;
+}
+
+async function refreshCurrentView() {
+  if (pullRefreshing) return;
+  pullRefreshing = true;
+  startUploadProgress("更新中...");
+  try {
+    await warmupInitialPhotos();
+  } catch (err) {
+    console.warn("refreshCurrentView warmupInitialPhotos failed:", err);
+  } finally {
+    renderAll();
+    finishUploadProgress();
+    pullRefreshing = false;
+  }
 }
 
 function activeClosetSubTab() {
@@ -1209,6 +1444,7 @@ function renderAll() {
   }
   const activeSub = document.querySelector(".sub-btn.active")?.dataset.subTab || "latest";
   switchSub(activeSub);
+  updateBulkActionButtons();
 }
 
 function normalizeCategoryOrder() {
@@ -1405,6 +1641,295 @@ function clearSearch(type) {
   renderOutfitGrid();
 }
 
+function normalizeThemeHex(value) {
+  const text = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(text)) return text.toLowerCase();
+  return "#f1aba7";
+}
+
+function loadThemeColor() {
+  try {
+    return normalizeThemeHex(localStorage.getItem(ACTIVE_THEME_COLOR_KEY));
+  } catch {
+    return "#f1aba7";
+  }
+}
+
+function applyThemeColor(hex) {
+  const color = normalizeThemeHex(hex);
+  document.documentElement.style.setProperty("--theme", color);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", color);
+}
+
+function renderThemePalette() {
+  if (!themePaletteGrid) return;
+  const palette = [
+    "#f4b2c2", "#ec9bb0", "#e4829a", "#da6a86", "#c45072", "#a33b5a",
+    "#f27a82", "#e9646d", "#cd3f4a", "#912b34",
+    "#f5e9aa", "#efdf95", "#e7d47f", "#ddc66a", "#d1b856", "#bea247",
+    "#bcd7f1", "#a6c8ea", "#79a8d8", "#4f82bb",
+    "#d7c4e8", "#c7afe0", "#a488ca", "#7c62a9",
+    "#c5dfc8", "#add3b2", "#7fb988", "#4e925d",
+    "#d8c0ad", "#bfa48e", "#a68872", "#8d6f5a",
+    "#ffffff", "#f2f0ec", "#e3e0da", "#d2cfc8", "#b8b3ab", "#989289", "#6f6961", "#1f1f1f",
+  ];
+  themePaletteGrid.innerHTML = palette
+    .map(
+      (hex) =>
+        `<button type="button" class="theme-palette-swatch" data-theme-color="${hex}" title="${hex.toUpperCase()}" style="--preset:${hex};" aria-label="選擇顏色 ${hex.toUpperCase()}"></button>`
+    )
+    .join("");
+}
+
+function openSettingsDialog() {
+  const color = loadThemeColor();
+  pendingThemeColor = color;
+  if (themeColorInput) themeColorInput.value = color;
+  updateThemeColorActive(color);
+  settingsDialog.showModal();
+}
+
+async function onSaveSettings(e) {
+  e.preventDefault();
+  const color = normalizeThemeHex(pendingThemeColor || themeColorInput?.value || "#f1aba7");
+  try {
+    localStorage.setItem(ACTIVE_THEME_COLOR_KEY, color);
+  } catch {
+    // ignore storage failures
+  }
+  applyThemeColor(color);
+  await initStatusBar();
+  updateThemeColorActive(color);
+  settingsDialog.close();
+}
+
+function updateThemeColorActive(hex) {
+  const active = normalizeThemeHex(hex);
+  for (const btn of document.querySelectorAll("[data-theme-color]")) {
+    btn.classList.toggle("is-active", normalizeThemeHex(btn.dataset.themeColor || "") === active);
+  }
+}
+
+function clearSelectionMode() {
+  selectionContext = "";
+  selectedItemIds.clear();
+  updateBulkActionButtons();
+}
+
+function activeSelectionContext() {
+  if (categoryItemsPage.classList.contains("active")) return "categoryItems";
+  if (outfitPage.classList.contains("active")) return "outfit";
+  return "closet";
+}
+
+function updateBulkActionButtons() {
+  const hasSelection = selectedItemIds.size > 0;
+  const context = activeSelectionContext();
+  bulkMoveClosetBtn.classList.toggle("hidden", !(hasSelection && context === "closet"));
+  bulkDeleteClosetBtn.classList.toggle("hidden", !(hasSelection && context === "closet"));
+  bulkMoveCategoryItemsBtn.classList.toggle("hidden", !(hasSelection && context === "categoryItems"));
+  bulkDeleteCategoryItemsBtn.classList.toggle("hidden", !(hasSelection && context === "categoryItems"));
+  bulkDeleteOutfitBtn.classList.toggle("hidden", !(hasSelection && context === "outfit"));
+}
+
+function toggleItemSelection(itemId, context) {
+  if (!itemId) return;
+  if (!selectionContext || selectionContext !== context) {
+    selectionContext = context;
+    selectedItemIds = new Set();
+  }
+  if (selectedItemIds.has(itemId)) selectedItemIds.delete(itemId);
+  else selectedItemIds.add(itemId);
+  if (!selectedItemIds.size) selectionContext = "";
+  updateBulkActionButtons();
+  renderAll();
+}
+
+function onItemTap(itemId, context, openDetailFn) {
+  if (selectedItemIds.size > 0 && selectionContext === context) {
+    return;
+  }
+  openDetailFn();
+}
+
+function bindSelectionCheckboxes(root, context) {
+  if (!root) return;
+  for (const box of root.querySelectorAll("[data-select-item]")) {
+    const itemId = String(box.getAttribute("data-select-item") || "");
+    const toggle = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!itemId) return;
+      toggleItemSelection(itemId, context);
+    };
+    box.addEventListener("click", toggle);
+    box.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    box.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false });
+  }
+}
+
+function bindLongPressSelectable(button, itemId, context, openDetailFn) {
+  if (!button) return;
+  let timer = null;
+  let longPressed = false;
+  let touchMoved = false;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let suppressNextClick = false;
+  const MOVE_TOLERANCE = 12;
+  const start = () => {
+    longPressed = false;
+    timer = setTimeout(() => {
+      if (longPressed) return;
+      longPressed = true;
+      suppressNextClick = true;
+      suppressSelectionClickUntil = Date.now() + 700;
+      toggleItemSelection(itemId, context);
+    }, LONG_PRESS_MS);
+  };
+  const clear = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  const cancel = () => {
+    clear();
+    longPressed = false;
+  };
+  button.classList.add("selectable-item");
+  if (selectedItemIds.has(itemId) && selectionContext === context) button.classList.add("is-selected");
+  button.addEventListener("pointerdown", start);
+  button.addEventListener("pointerup", clear);
+  button.addEventListener("pointerleave", cancel);
+  button.addEventListener("pointercancel", cancel);
+  button.addEventListener("touchstart", (e) => {
+    if (!e.touches?.length) return;
+    touchMoved = false;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    start();
+  }, { passive: true });
+  button.addEventListener("touchmove", (e) => {
+    if (!e.touches?.length) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartX);
+    const dy = Math.abs(e.touches[0].clientY - touchStartY);
+    if (dx > MOVE_TOLERANCE || dy > MOVE_TOLERANCE) {
+      touchMoved = true;
+      cancel();
+    }
+  }, { passive: true });
+  button.addEventListener("touchend", () => {
+    if (touchMoved) cancel();
+    else clear();
+  }, { passive: true });
+  button.addEventListener("touchcancel", cancel, { passive: true });
+  button.addEventListener("contextmenu", (e) => e.preventDefault());
+  button.addEventListener("click", (e) => {
+    e.preventDefault();
+    clear();
+    if (Date.now() < suppressSelectionClickUntil) return;
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
+    if (longPressed) return;
+    onItemTap(itemId, context, openDetailFn);
+  });
+}
+
+function openBulkCategoryDialog(context) {
+  if (!selectedItemIds.size || selectionContext !== context) return;
+  bulkCategorySelect.innerHTML = state.categoryOrder.map((c) => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
+  bulkCategoryText.textContent = `將 ${selectedItemIds.size} 件商品批次移到指定分類。`;
+  bulkCategoryDialog.dataset.context = context;
+  bulkCategoryDialog.showModal();
+}
+
+function onConfirmBulkCategory(e) {
+  e.preventDefault();
+  const context = bulkCategoryDialog.dataset.context || "";
+  if (!selectedItemIds.size || selectionContext !== context) return;
+  const targetCategory = String(bulkCategorySelect.value || "").trim();
+  if (!targetCategory) return;
+  const selected = new Set(selectedItemIds);
+  for (const item of state.items) {
+    if (selected.has(item.id)) item.category = targetCategory;
+  }
+  normalizeCategoryOrder();
+  persistAll();
+  clearSelectionMode();
+  bulkCategoryDialog.close();
+  renderAll();
+}
+
+function openBulkDeleteDialog(context) {
+  if (!selectedItemIds.size || selectionContext !== context) return;
+  bulkDeleteText.textContent = `確定要刪除已選取的 ${selectedItemIds.size} 件商品嗎？`;
+  bulkDeleteDialog.dataset.context = context;
+  bulkDeleteDialog.showModal();
+}
+
+function onConfirmBulkDelete() {
+  const context = bulkDeleteDialog.dataset.context || "";
+  if (!selectedItemIds.size || selectionContext !== context) return;
+  const selected = new Set(selectedItemIds);
+  const remaining = [];
+  for (const item of state.items) {
+    if (selected.has(item.id)) {
+      cleanupDetachedPhotoRefs(item.itemPhotos || []);
+      delete state.manualVoteCounts[item.id];
+      for (const log of state.dailyLogs) {
+        log.wornItemIds = (log.wornItemIds || []).filter((id) => id !== item.id);
+      }
+      continue;
+    }
+    remaining.push(item);
+  }
+  state.items = remaining;
+  cleanupOrphanPhotos();
+  recomputeWearCounts();
+  normalizeCategoryOrder();
+  persistAll();
+  clearSelectionMode();
+  bulkDeleteDialog.close();
+  renderAll();
+}
+
+function openBulkDeleteOutfitDialog() {
+  if (!selectedItemIds.size || selectionContext !== "outfit") return;
+  const count = selectedItemIds.size;
+  bulkDeleteOutfitText.textContent = count > 1
+    ? `確定要批次刪除已選取的 ${count} 筆穿搭紀錄嗎？`
+    : "確定要刪除此筆穿搭紀錄嗎？";
+  bulkDeleteOutfitDialog.showModal();
+}
+
+function onConfirmBulkDeleteOutfit() {
+  if (!selectedItemIds.size || selectionContext !== "outfit") return;
+  const selected = new Set(selectedItemIds);
+  const remaining = [];
+  for (const log of state.dailyLogs) {
+    if (selected.has(log.id)) {
+      cleanupDetachedPhotoRefs(log.outfitPhotos || []);
+      continue;
+    }
+    remaining.push(log);
+  }
+  state.dailyLogs = remaining;
+  cleanupOrphanPhotos();
+  recomputeWearCounts();
+  persistAll();
+  clearSelectionMode();
+  bulkDeleteOutfitDialog.close();
+  renderAll();
+}
+
 function emptyResultBlock(type) {
   const label = type === "closet" ? "衣櫃" : "穿搭";
   return `<div class="empty-block">找不到符合條件的${label}資料。<br /><button type="button" data-clear-search="${type}">一鍵清除搜尋</button></div>`;
@@ -1424,6 +1949,7 @@ function renderItemCategoryOptions() {
 
 function renderLatest() {
   const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
+  const selectionVisible = selectionContext === "closet" && selectedItemIds.size > 0;
   queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
   if (!items.length) {
     closetLatest.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">目前沒有資料。</p>';
@@ -1435,26 +1961,35 @@ function renderLatest() {
     <div class="latest-list">
       ${items
       .map(
-        (item) => `
+        (item) => {
+          const selected = selectionVisible && selectedItemIds.has(item.id);
+          return `
             <article class="latest-row">
-              <button type="button" class="latest-open-btn" data-open-item-detail="${item.id}">
-                <div class="latest-title"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+              <button type="button" class="latest-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "selected-lines" : ""}" data-open-item-detail="${item.id}">
+                <div class="latest-title">
+                  ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                  <span class="latest-title-text"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</span>
+                </div>
                 <p class="latest-category meta">${escapeHtml(item.category || "未分類")}</p>
                 <img class="latest-thumb" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
               </button>
-            </article>`
+            </article>`;
+        }
       )
       .join("")}
     </div>
   `;
 
   for (const btn of closetLatest.querySelectorAll("[data-open-item-detail]")) {
-    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, "closet", () => openItemDetail(itemId));
   }
+  bindSelectionCheckboxes(closetLatest, "closet");
 }
 
 function renderPhotosWall() {
   const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
+  const selectionVisible = selectionContext === "closet" && selectedItemIds.size > 0;
   queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
   if (!items.length) {
     closetPhotos.innerHTML = state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">目前沒有照片。</p>';
@@ -1466,16 +2001,23 @@ function renderPhotosWall() {
     <div class="photo-grid">
       ${items
       .map(
-        (item) =>
-          `<button type="button" class="photo-open-btn" data-open-item-detail="${item.id}"><img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" /></button>`
+        (item) => {
+          const selected = selectionVisible && selectedItemIds.has(item.id);
+          return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${item.id}">
+            ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+            <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+          </button>`;
+        }
       )
       .join("")}
     </div>
   `;
 
   for (const btn of closetPhotos.querySelectorAll("[data-open-item-detail]")) {
-    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, "closet", () => openItemDetail(itemId));
   }
+  bindSelectionCheckboxes(closetPhotos, "closet");
 }
 
 function openItemDetail(itemId) {
@@ -1750,19 +2292,23 @@ function renderCategoryTab() {
   }
 }
 
-function openCategoryItemsPage(category) {
+function openCategoryItemsPage(category, preferredView = "latest") {
+  clearSelectionMode();
   currentCategoryItemsName = category;
-  categoryItemsView = "latest";
+  categoryItemsView = preferredView === "photos" ? "photos" : "latest";
   state.categoryItemsQuery = "";
   categoryItemsSearchInput.value = "";
   categoryItemsSearchBar.classList.add("hidden");
+  document.body.classList.add("category-items-open");
   renderCategoryItemsPage();
   categoryItemsPage.classList.add("active");
+  saveActiveViewState();
 }
 
 function renderCategoryItemsPage() {
   if (!currentCategoryItemsName) return;
   const category = currentCategoryItemsName;
+  const selectionVisible = selectionContext === "categoryItems" && selectedItemIds.size > 0;
   const items = sortedByPurchase(state.items).filter((x) => x.category === category && matchesCategoryItemsQuery(x));
   queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
   categoryItemsTitle.textContent = category;
@@ -1780,8 +2326,13 @@ function renderCategoryItemsPage() {
       <div class="photo-grid">
         ${items
         .map(
-          (item) =>
-            `<button type="button" class="photo-open-btn" data-open-item-detail="${item.id}"><img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" /></button>`
+          (item) => {
+            const selected = selectionVisible && selectedItemIds.has(item.id);
+            return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${item.id}">
+              ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+              <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+            </button>`;
+          }
         )
         .join("")}
       </div>
@@ -1791,14 +2342,20 @@ function renderCategoryItemsPage() {
       <div class="latest-list">
         ${items
         .map(
-          (item) => `
+          (item) => {
+            const selected = selectionVisible && selectedItemIds.has(item.id);
+            return `
               <article class="latest-row">
-                <button type="button" class="latest-open-btn" data-open-item-detail="${item.id}">
-                  <div class="latest-title"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                <button type="button" class="latest-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "selected-lines" : ""}" data-open-item-detail="${item.id}">
+                  <div class="latest-title">
+                    ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                    <span class="latest-title-text"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</span>
+                  </div>
                   <p class="latest-category meta">${escapeHtml(item.category || "未分類")}</p>
                   <img class="latest-thumb" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
                 </button>
-              </article>`
+              </article>`;
+          }
         )
         .join("")}
       </div>
@@ -1806,8 +2363,10 @@ function renderCategoryItemsPage() {
   }
 
   for (const btn of categoryItemsList.querySelectorAll("[data-open-item-detail]")) {
-    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, "categoryItems", () => openItemDetail(itemId));
   }
+  bindSelectionCheckboxes(categoryItemsList, "categoryItems");
 }
 
 function renderTagTab() {
@@ -2012,16 +2571,23 @@ function renderOutfitGrid() {
     return;
   }
   queuePhotoRefs(logs.map((log) => log.outfitPhotos?.[0]));
-
-  outfitGrid.innerHTML = "";
-  for (const log of logs) {
-    const img = document.createElement("img");
-    img.className = "cover-grid";
-    img.src = photoSrc(log.outfitPhotos?.[0]);
-    img.alt = log.date;
-    img.addEventListener("click", () => openOutfitDetail(log.id));
-    outfitGrid.appendChild(img);
+  const selectionVisible = selectionContext === "outfit" && selectedItemIds.size > 0;
+  outfitGrid.innerHTML = logs
+    .map(
+      (log) => {
+        const selected = selectionVisible && selectedItemIds.has(log.id);
+        return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-outfit-detail="${log.id}">
+          ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${log.id}" aria-label="選取穿搭"></span>` : ""}
+          <img class="cover-grid" src="${photoSrc(log.outfitPhotos?.[0])}" alt="${escapeAttr(log.date || "穿搭照片")}" />
+        </button>`;
+      }
+    )
+    .join("");
+  for (const btn of outfitGrid.querySelectorAll("[data-open-outfit-detail]")) {
+    const logId = String(btn.dataset.openOutfitDetail || "");
+    bindLongPressSelectable(btn, logId, "outfit", () => openOutfitDetail(logId));
   }
+  bindSelectionCheckboxes(outfitGrid, "outfit");
 }
 
 function openOutfitDetail(logId) {
@@ -2135,133 +2701,137 @@ function renderOutfitDetailPhoto() {
 }
 
 async function exportDataAsJson() {
-  const exportItems = state.items.map((item) => ({
-    ...item,
-    itemPhotos: sanitizePhotosForExport(item.itemPhotos),
-  }));
-  const exportLogs = state.dailyLogs.map((log) => ({
-    ...log,
-    outfitPhotos: sanitizePhotosForExport(log.outfitPhotos),
-  }));
-  const mediaPhotos = await collectExportPhotoBundle([...exportItems, ...exportLogs]);
-  const payload = {
-    app: "SPARK WEAR",
-    version: 2,
-    exportedAt: new Date().toISOString(),
-    format: {
-      itemFields: [
-        "id",
-        "brand",
-        "name",
-        "purchaseDate",
-        "category",
-        "originalPrice",
-        "specialPrice",
-        "discountPrice",
-        "size",
-        "weight",
-        "bodyType",
-        "suggestedWeight",
-        "grade",
-        "origin",
-        "seasons",
-        "miniNote",
-        "pros",
-        "cons",
-        "remark",
-        "itemPhotos",
-        "wearCountTotal",
-        "createdAt",
-      ],
-    },
-    data: {
-      items: exportItems,
-      dailyLogs: exportLogs,
-      manualVoteCounts: state.manualVoteCounts,
-      categoryOrder: state.categoryOrder,
-      categoryColors: state.categoryColors,
-      purchaseSort: state.purchaseSort,
-      outfitSort: state.outfitSort,
-      tagUsageSort: state.tagUsageSort,
-    },
-    media: {
-      photos: [],
-    },
-  };
-  const zipEntries = [];
-  const mediaManifest = [];
-  for (let i = 0; i < mediaPhotos.length; i += 1) {
-    const photo = mediaPhotos[i];
-    const dataUrl = String(photo?.dataUrl || "");
-    if (!dataUrl) continue;
-    const base64 = dataUrlToBase64(dataUrl);
-    if (!base64) continue;
-    const ext = mimeToExtension(photo?.mimeType || extractMimeFromDataUrl(dataUrl) || "image/jpeg");
-    const safeKey = sanitizeFileName(photo.key || `photo-${i + 1}`);
-    const fileName = `photos/${String(i + 1).padStart(5, "0")}-${safeKey}.${ext}`;
-    zipEntries.push({ name: fileName, base64 });
-    mediaManifest.push({
-      key: String(photo.key || ""),
-      profile: String(photo.profile || "grid"),
-      mimeType: String(photo.mimeType || extractMimeFromDataUrl(dataUrl) || "image/jpeg"),
-      file: fileName,
-    });
-  }
-  payload.media.photos = mediaManifest;
-  const JSZipCtor = getJSZipConstructor();
-  const zip = new JSZipCtor();
-  zip.file("manifest.json", JSON.stringify(payload, null, 2));
-  for (const entry of zipEntries) {
-    zip.file(entry.name, entry.base64, { base64: true });
-  }
-  const blob = await zip.generateAsync({
-    type: "blob",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
-  const a = document.createElement("a");
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const fileName = `spark-wear-backup-${y}-${m}-${day}-${hh}${mm}.zip`;
+  startUploadProgress("準備匯出中...");
   try {
-    const saved = await trySaveZipViaNativeBridge(blob, fileName);
-    if (saved) return;
-  } catch (err) {
-    const text = String(err?.message || err || "").toLowerCase();
-    if (text.includes("save-cancelled")) return;
-    console.warn("trySaveZipViaNativeBridge failed, fallback:", err);
-  }
-  if (typeof window.showSaveFilePicker === "function") {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: fileName,
-        types: [{
-          description: "ZIP backup",
-          accept: { "application/zip": [".zip"] },
-        }],
+    const exportItems = state.items.map((item) => ({
+      ...item,
+      itemPhotos: sanitizePhotosForExport(item.itemPhotos),
+    }));
+    const exportLogs = state.dailyLogs.map((log) => ({
+      ...log,
+      outfitPhotos: sanitizePhotosForExport(log.outfitPhotos),
+    }));
+    setUploadProgress(20, "整理照片資料...");
+    const mediaPhotos = await collectExportPhotoBundle([...exportItems, ...exportLogs]);
+    const payload = {
+      app: "SPARK WEAR",
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      format: {
+        itemFields: [
+          "id",
+          "brand",
+          "name",
+          "purchaseDate",
+          "category",
+          "originalPrice",
+          "specialPrice",
+          "discountPrice",
+          "size",
+          "weight",
+          "bodyType",
+          "suggestedWeight",
+          "grade",
+          "origin",
+          "seasons",
+          "miniNote",
+          "pros",
+          "cons",
+          "remark",
+          "itemPhotos",
+          "wearCountTotal",
+          "createdAt",
+        ],
+      },
+      data: {
+        items: exportItems,
+        dailyLogs: exportLogs,
+        manualVoteCounts: state.manualVoteCounts,
+        categoryOrder: state.categoryOrder,
+        categoryColors: state.categoryColors,
+        purchaseSort: state.purchaseSort,
+        outfitSort: state.outfitSort,
+        tagUsageSort: state.tagUsageSort,
+      },
+      media: {
+        photos: [],
+      },
+    };
+    const zipEntries = [];
+    const mediaManifest = [];
+    for (let i = 0; i < mediaPhotos.length; i += 1) {
+      const photo = mediaPhotos[i];
+      const dataUrl = String(photo?.dataUrl || "");
+      if (!dataUrl) continue;
+      const base64 = dataUrlToBase64(dataUrl);
+      if (!base64) continue;
+      const ext = mimeToExtension(photo?.mimeType || extractMimeFromDataUrl(dataUrl) || "image/jpeg");
+      const safeKey = sanitizeFileName(photo.key || `photo-${i + 1}`);
+      const fileName = `photos/${String(i + 1).padStart(5, "0")}-${safeKey}.${ext}`;
+      zipEntries.push({ name: fileName, base64 });
+      mediaManifest.push({
+        key: String(photo.key || ""),
+        profile: String(photo.profile || "grid"),
+        mimeType: String(photo.mimeType || extractMimeFromDataUrl(dataUrl) || "image/jpeg"),
+        file: fileName,
       });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      alert("備份 ZIP 已儲存完成。");
-      return;
-    } catch (err) {
-      const text = String(err?.name || err?.message || err || "").toLowerCase();
-      if (text.includes("abort") || text.includes("cancel")) return;
-      console.warn("showSaveFilePicker failed, fallback to download link:", err);
     }
+    payload.media.photos = mediaManifest;
+    const JSZipCtor = getJSZipConstructor();
+    const zip = new JSZipCtor();
+    zip.file("manifest.json", JSON.stringify(payload, null, 2));
+    for (const entry of zipEntries) {
+      zip.file(entry.name, entry.base64, { base64: true });
+    }
+    setUploadProgress(60, "壓縮 ZIP...");
+    const blob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const fileName = `spark-wear-backup-${y}-${m}-${day}-${hh}${mm}.zip`;
+    setUploadProgress(80, "呼叫儲存...");
+    try {
+      const saved = await trySaveZipViaNativeBridge(blob, fileName);
+      if (saved) return;
+    } catch (err) {
+      const text = String(err?.message || err || "").toLowerCase();
+      if (text.includes("save-cancelled")) return;
+      console.warn("trySaveZipViaNativeBridge failed, fallback:", err);
+    }
+    if (typeof window.showSaveFilePicker === "function") {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{
+            description: "ZIP backup",
+            accept: { "application/zip": [".zip"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        alert("備份 ZIP 已儲存完成。");
+        return;
+      } catch (err) {
+        const text = String(err?.name || err?.message || err || "").toLowerCase();
+        if (text.includes("abort") || text.includes("cancel")) return;
+        console.warn("showSaveFilePicker failed, fallback to download link:", err);
+      }
+    }
+    alert("無法開啟儲存位置對話框，請在支援檔案儲存對話框的裝置上匯出。");
+  } catch (err) {
+    console.error("exportDataAsJson failed:", err);
+    alert("匯出失敗，請重試。若仍失敗請回報此錯誤。");
+  } finally {
+    finishUploadProgress();
   }
-  const url = URL.createObjectURL(blob);
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 async function trySaveZipViaNativeBridge(blob, fileName) {
@@ -2270,14 +2840,35 @@ async function trySaveZipViaNativeBridge(blob, fileName) {
   const dataUrl = await blobToDataUrl(blob);
   const base64 = dataUrlToBase64(dataUrl);
   if (!base64) return false;
-  const result = await bridge.saveBackupZip({
+  const picked = await bridge.saveBackupZip({
     fileName,
     mimeType: "application/zip",
     base64,
   });
-  if (result?.saved) {
+  if (picked?.saved) {
     alert("備份 ZIP 已儲存完成。");
     return true;
+  }
+  const uri = String(picked?.uri || "");
+  if (!uri) return false;
+  const shouldSave = window.confirm(`將備份儲存到：\n${uri}\n\n按「確定」立即儲存 ZIP。`);
+  if (!shouldSave) {
+    if (typeof bridge.cancelSaveBackupZip === "function") {
+      try {
+        await bridge.cancelSaveBackupZip();
+      } catch {
+        // ignore cancellation failure
+      }
+    }
+    throw new Error("save-cancelled");
+  }
+  if (typeof bridge.confirmSaveBackupZip === "function") {
+    const result = await bridge.confirmSaveBackupZip({ uri });
+    if (result?.saved) {
+      alert("備份 ZIP 已儲存完成。");
+      return true;
+    }
+    return false;
   }
   return false;
 }
@@ -2868,8 +3459,7 @@ async function cleanupNativeOrphanPhotos() {
 function getNativePhotoBridge() {
   if (typeof window === "undefined") return null;
   const plugins = window.Capacitor?.Plugins;
-  if (!plugins) return null;
-  return plugins[NATIVE_PHOTO_BRIDGE] || null;
+  return (plugins && plugins[NATIVE_PHOTO_BRIDGE]) || window[NATIVE_PHOTO_BRIDGE] || null;
 }
 
 function startUploadProgress(title) {

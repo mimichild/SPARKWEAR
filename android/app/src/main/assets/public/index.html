@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <title>SPARK WEAR</title>
   <meta name="theme-color" content="#f1aba7" />
   <link rel="manifest" href="manifest.webmanifest?v=20260220-2012" />
@@ -27,10 +27,8 @@
       <div class="home-tools">
         <button id="exportDataBtn" class="mini-action" type="button">匯出資料</button>
         <button id="importDataBtn" class="mini-action" type="button">匯入資料</button>
-        <button id="showStorageStatsBtn" class="mini-action" type="button">儲存統計</button>
-        <button id="cleanupPhotosBtn" class="mini-action" type="button">清理照片</button>
+        <button id="openSettingsBtn" class="mini-action" type="button">設定</button>
       </div>
-      <p id="storageStatsText" class="meta home-meta"></p>
       <input id="importFileInput" type="file" accept="application/zip,.zip" class="hidden" />
     </section>
 
@@ -38,8 +36,10 @@
       <header class="page-head">
         <h1>我的衣櫃</h1>
         <div class="head-actions">
-          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋">🔍</button>
-          <button class="back-btn" data-back-home>返回</button>
+          <button id="bulkMoveClosetBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span class="icon-folder" aria-hidden="true"></span></button>
+          <button id="bulkDeleteClosetBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
+          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
+          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
       </header>
       <div id="closetSearchBar" class="search-bar hidden">
@@ -103,8 +103,9 @@
       <header class="page-head">
         <h1>穿搭紀錄</h1>
         <div class="head-actions">
-          <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋">🔍</button>
-          <button class="back-btn" data-back-home>返回</button>
+          <button id="bulkDeleteOutfitBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
+          <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
+          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
       </header>
       <div id="outfitSearchBar" class="search-bar hidden">
@@ -135,6 +136,7 @@
         <label>品牌名稱<input name="brand" /></label>
         <label>商品名稱<input name="name" required /></label>
         <label>購買日期<input type="date" name="purchaseDate" required /></label>
+        <label>購買時間<input type="time" name="purchaseTime" /></label>
         <label>
           分類
           <select id="itemCategorySelect" name="category" required></select>
@@ -159,15 +161,17 @@
         </label>
         <label>
           來源
-          <select name="origin">
-            <option value="">未設定</option>
-            <option>日貨</option>
-            <option>韓貨</option>
-            <option>品牌</option>
-            <option>蝦皮</option>
-            <option>淘寶</option>
-            <option>其他</option>
-          </select>
+          <div class="origin-field-row">
+            <select id="itemOriginSelect" name="origin">
+              <option value="">未設定</option>
+              <option>日貨</option>
+              <option>韓貨</option>
+              <option>品牌</option>
+              <option>蝦皮</option>
+              <option>其他</option>
+            </select>
+            <button id="openOriginDialogBtn" class="origin-add-btn" type="button">編輯</button>
+          </div>
         </label>
       </div>
 
@@ -196,6 +200,38 @@
     </form>
   </dialog>
 
+  <dialog id="originDialog">
+    <article class="dialog-card">
+      <h2>編輯來源</h2>
+      <div class="origin-mode-row">
+        <button id="originModeAddBtn" class="origin-mode-btn is-active" type="button">新增</button>
+        <button id="originModeDeleteBtn" class="origin-mode-btn" type="button">刪除</button>
+      </div>
+
+      <form id="originForm" class="origin-panel" method="dialog">
+        <label>來源名稱<input id="newOriginInput" name="originName" maxlength="20" required placeholder="例如：官網 / 社團" /></label>
+        <p class="meta">確認後會同步新增到「來源」與「標籤」。</p>
+        <div class="actions">
+          <button id="cancelOriginDialog" type="button">取消</button>
+          <button type="submit">確認新增</button>
+        </div>
+      </form>
+
+      <section id="originDeletePanel" class="origin-panel hidden">
+        <p class="meta">點選一個來源後，按下刪除會同步移除來源與標籤。已有單品會改成「未設定」。</p>
+        <div id="originDeleteList" class="chip-row"></div>
+        <div class="actions">
+          <button id="cancelOriginDelete" type="button">取消</button>
+          <button id="confirmOriginDelete" class="danger-btn" type="button">刪除來源</button>
+        </div>
+      </section>
+      <div id="originDeleteEmpty" class="meta hidden">目前沒有可刪除的來源。</div>
+      <div class="actions hidden" id="originDeleteCloseOnly">
+        <button id="closeOriginDeleteOnly" type="button">關閉</button>
+      </div>
+    </article>
+  </dialog>
+
   <dialog id="outfitMenuDialog">
     <article class="dialog-card">
       <h2>穿搭筆記本</h2>
@@ -212,13 +248,14 @@
       <h2 id="outfitFormTitle">新增穿搭</h2>
       <div class="grid-2">
         <label>日期<input type="date" name="date" required /></label>
+        <label>時間<input type="time" name="time" /></label>
         <label>天氣<input name="weather" placeholder="例如：24°C 陰" /></label>
       </div>
+      <label>氣溫<input name="temperature" placeholder="例如：24°C" /></label>
       <div class="grid-2">
         <label>縣市<input name="county" placeholder="例如：台北市" /></label>
         <label>地點<input name="place" placeholder="例如：信義區" /></label>
       </div>
-      <label>氣溫<input name="temperature" placeholder="例如：24°C" /></label>
       <label>穿搭想法<textarea name="note" rows="3"></textarea></label>
       <label>穿搭照片（1~20 張，第一張主圖）<input type="file" name="outfitPhotos" accept="image/*" multiple /></label>
       <div>
@@ -266,7 +303,7 @@
       <div class="detail-top-actions">
         <button id="editOutfitDetail" class="secondary-btn" type="button">編輯</button>
         <button id="deleteOutfitDetail" class="danger-btn" type="button">刪除</button>
-        <button id="closeDetail" class="close-btn" type="button">關閉</button>
+        <button id="closeDetail" class="close-btn" type="button" aria-label="回上一頁">←</button>
       </div>
       <h2 id="detailDate"></h2>
       <section class="carousel">
@@ -278,6 +315,7 @@
       <section class="detail-records">
         <div id="detailMeta"></div>
         <div id="detailTemp"></div>
+        <div id="detailLocation"></div>
         <div id="detailNote"></div>
         <div id="detailItems"></div>
       </section>
@@ -287,8 +325,19 @@
   <section id="categoryItemsPage" class="overlay-page">
     <header class="page-head">
       <h1 id="categoryItemsTitle">分類</h1>
-      <button id="closeCategoryItemsPage" class="back-btn" type="button">關閉</button>
+      <div class="head-actions">
+        <button id="bulkMoveCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span class="icon-folder" aria-hidden="true"></span></button>
+        <button id="bulkDeleteCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
+        <button id="toggleCategoryItemsSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
+        <button id="closeCategoryItemsPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
+      </div>
     </header>
+    <div id="categoryItemsSearchBar" class="search-bar hidden">
+      <div class="search-row">
+        <input id="categoryItemsSearchInput" placeholder="搜尋關鍵字（品牌/名稱/介紹）" />
+        <button id="clearCategoryItemsSearch" type="button">清除</button>
+      </div>
+    </div>
     <nav class="sub-tabs category-inner-tabs">
       <button id="categoryItemsLatestTab" class="sub-btn active" type="button">最新</button>
       <button id="categoryItemsPhotosTab" class="sub-btn" type="button">照片</button>
@@ -301,7 +350,7 @@
       <div class="detail-top-actions">
         <button id="editItemDetail" class="secondary-btn" type="button">編輯</button>
         <button id="deleteItemDetail" class="danger-btn" type="button">刪除</button>
-        <button id="closeItemDetail" class="close-btn" type="button">關閉</button>
+        <button id="closeItemDetail" class="close-btn" type="button" aria-label="回上一頁">←</button>
       </div>
       <h2 id="itemDetailTitle"></h2>
       <section class="carousel">
@@ -361,6 +410,85 @@
         <button id="importMergeBtn" type="button">合併匯入</button>
         <button id="importReplaceBtn" type="button">覆蓋匯入</button>
         <button id="cancelImportBtn" type="button">取消</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="bulkCategoryDialog">
+    <form id="bulkCategoryForm" class="dialog-card" method="dialog">
+      <h2>批次分類</h2>
+      <p id="bulkCategoryText" class="meta"></p>
+      <label>目標分類
+        <select id="bulkCategorySelect" required></select>
+      </label>
+      <div class="actions">
+        <button id="cancelBulkCategory" type="button">取消</button>
+        <button id="confirmBulkCategory" type="submit">確認</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bulkDeleteDialog">
+    <article class="dialog-card">
+      <h2>批次刪除</h2>
+      <p id="bulkDeleteText" class="meta"></p>
+      <div class="actions">
+        <button id="cancelBulkDelete" type="button">取消</button>
+        <button id="confirmBulkDelete" class="danger-btn" type="button">確認刪除</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm" class="dialog-card" method="dialog">
+      <h2>設定</h2>
+      <section class="theme-presets">
+        <p class="meta">修改主題顏色</p>
+        <p class="meta">熱門色</p>
+        <div id="themePresetList" class="theme-preset-list">
+          <button type="button" class="theme-preset" data-theme-color="#f1aba7" aria-label="櫻花粉 #F1ABA7" title="#F1ABA7" style="--preset:#f1aba7;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#ef9a9a" aria-label="珊瑚粉 #EF9A9A" title="#EF9A9A" style="--preset:#ef9a9a;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#d9b8a7" aria-label="奶茶棕 #D9B8A7" title="#D9B8A7" style="--preset:#d9b8a7;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#cbb7a0" aria-label="燕麥棕 #CBB7A0" title="#CBB7A0" style="--preset:#cbb7a0;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#f3e8a4" aria-label="鵝黃色 #F3E8A4" title="#F3E8A4" style="--preset:#f3e8a4;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#d7c4e8" aria-label="霧感薰衣 #D7C4E8" title="#D7C4E8" style="--preset:#d7c4e8;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#bcd7f1" aria-label="雲霧藍 #BCD7F1" title="#BCD7F1" style="--preset:#bcd7f1;"></button>
+          <button type="button" class="theme-preset" data-theme-color="#7c2d40" aria-label="酒紅色 #7C2D40" title="#7C2D40" style="--preset:#7c2d40;"></button>
+        </div>
+      </section>
+      <section class="theme-presets">
+        <p class="meta">調色盤</p>
+        <div id="themePaletteGrid" class="theme-palette-grid"></div>
+      </section>
+      <div class="actions">
+        <button id="cancelSettings" type="button">取消</button>
+        <button id="saveSettings" type="submit">確定</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bulkDeleteOutfitDialog">
+    <article class="dialog-card">
+      <h2>刪除穿搭</h2>
+      <p id="bulkDeleteOutfitText" class="meta"></p>
+      <div class="actions">
+        <button id="cancelBulkDeleteOutfit" type="button">取消</button>
+        <button id="confirmBulkDeleteOutfit" class="danger-btn" type="button">確認刪除</button>
+      </div>
+    </article>
+  </dialog>
+
+  <dialog id="photoCropDialog">
+    <article class="dialog-card">
+      <h2>裁切照片</h2>
+      <p id="photoCropMeta" class="meta"></p>
+      <div id="photoCropViewport" class="photo-crop-viewport">
+        <img id="photoCropImage" class="photo-crop-image" alt="裁切預覽" />
+      </div>
+      <p class="meta">可用雙指縮放、單指拖拉調整位置，按「確定」後會自動進入下一張。</p>
+      <div class="actions">
+        <button id="cancelPhotoCrop" type="button">取消</button>
+        <button id="confirmPhotoCrop" type="button">確定</button>
       </div>
     </article>
   </dialog>

@@ -1,5 +1,8 @@
 const DEFAULT_CATEGORY_ORDER = ["上衣", "裙裝", "褲裝", "洋裝", "外套", "套裝", "日常", "鞋類", "包包", "猶豫", "留校", "冷凍", "未分類"];
-const TAG_OPTIONS = ["春季", "夏季", "秋季", "冬季", "日貨", "韓貨", "品牌", "蝦皮", "淘寶", "其他"];
+const SEASON_TAG_OPTIONS = ["春季", "夏季", "秋季", "冬季"];
+const DEFAULT_ORIGIN_OPTIONS = ["日貨", "韓貨", "品牌", "蝦皮", "其他"];
+const CUSTOM_ORIGINS_KEY = "closet_custom_origins";
+const DELETED_ORIGINS_KEY = "closet_deleted_origins";
 const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
@@ -17,6 +20,8 @@ const state = {
   purchaseSort: load("closet_purchase_sort", "desc"),
   outfitSort: load("closet_outfit_sort", "desc"),
   tagUsageSort: load("closet_tag_usage_sort", "none"),
+  customOrigins: load(CUSTOM_ORIGINS_KEY, []),
+  deletedOrigins: load(DELETED_ORIGINS_KEY, []),
   selectedCategory: "",
   selectedTags: [],
   closetQuery: "",
@@ -89,6 +94,21 @@ const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
 const openItemForm = document.getElementById("openItemForm");
 const closeItemBtn = document.querySelector("[data-close-item]");
 const itemCategorySelect = document.getElementById("itemCategorySelect");
+const itemOriginSelect = document.getElementById("itemOriginSelect");
+const openOriginDialogBtn = document.getElementById("openOriginDialogBtn");
+const originDialog = document.getElementById("originDialog");
+const originForm = document.getElementById("originForm");
+const newOriginInput = document.getElementById("newOriginInput");
+const cancelOriginDialog = document.getElementById("cancelOriginDialog");
+const originModeAddBtn = document.getElementById("originModeAddBtn");
+const originModeDeleteBtn = document.getElementById("originModeDeleteBtn");
+const originDeletePanel = document.getElementById("originDeletePanel");
+const originDeleteList = document.getElementById("originDeleteList");
+const cancelOriginDelete = document.getElementById("cancelOriginDelete");
+const confirmOriginDelete = document.getElementById("confirmOriginDelete");
+const originDeleteEmpty = document.getElementById("originDeleteEmpty");
+const originDeleteCloseOnly = document.getElementById("originDeleteCloseOnly");
+const closeOriginDeleteOnly = document.getElementById("closeOriginDeleteOnly");
 const existingItemPhotosSection = document.getElementById("existingItemPhotosSection");
 const existingItemPhotosList = document.getElementById("existingItemPhotosList");
 
@@ -210,6 +230,8 @@ const detailPhotoZoomStates = new WeakMap();
 let cropSession = null;
 let stagedItemUploadFiles = null;
 let stagedOutfitUploadFiles = null;
+let originDialogMode = "add";
+let selectedDeleteOriginKey = "";
 let cropDialogProgrammaticClose = false;
 let selectionContext = "";
 let selectedItemIds = new Set();
@@ -274,6 +296,8 @@ state.dailyLogs = state.dailyLogs.map((log) => ({
   time: normalizeTimeText(log?.time, log?.createdAt),
   outfitPhotos: normalizePhotoList(log?.outfitPhotos),
 }));
+state.customOrigins = normalizeOriginList(state.customOrigins);
+state.deletedOrigins = normalizeDeletedOriginList(state.deletedOrigins);
 
 normalizeCategoryOrder();
 recomputeWearCounts();
@@ -292,6 +316,14 @@ closeItemBtn.addEventListener("click", () => {
   if (itemPhotosInput) itemPhotosInput.value = "";
   itemDialog.close();
 });
+openOriginDialogBtn?.addEventListener("click", () => openOriginDialogForm());
+cancelOriginDialog?.addEventListener("click", () => originDialog?.close());
+originForm?.addEventListener("submit", (e) => onSaveOrigin(e));
+originModeAddBtn?.addEventListener("click", () => setOriginDialogMode("add"));
+originModeDeleteBtn?.addEventListener("click", () => setOriginDialogMode("delete"));
+cancelOriginDelete?.addEventListener("click", () => originDialog?.close());
+confirmOriginDelete?.addEventListener("click", () => onDeleteOrigin());
+closeOriginDeleteOnly?.addEventListener("click", () => originDialog?.close());
 openCategoryEdit.addEventListener("click", () => {
   renderCategoryEditRows();
   categoryEditDialog.showModal();
@@ -583,6 +615,11 @@ itemDialog.addEventListener("close", () => {
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
 });
+originDialog?.addEventListener("close", () => {
+  if (newOriginInput) newOriginInput.value = "";
+  selectedDeleteOriginKey = "";
+  originDialogMode = "add";
+});
 outfitFormDialog.addEventListener("close", () => {
   stagedOutfitUploadFiles = null;
   if (outfitPhotosInput) outfitPhotosInput.value = "";
@@ -695,6 +732,7 @@ function openNewItemForm() {
   editingItemId = null;
   itemFormTitle.textContent = "記錄新品";
   itemForm.reset();
+  renderItemOriginOptions("");
   stagedItemUploadFiles = null;
   if (itemPhotosInput) itemPhotosInput.value = "";
   if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
@@ -702,6 +740,121 @@ function openNewItemForm() {
   existingItemPhotosSection.classList.add("hidden");
   existingItemPhotosList.innerHTML = "";
   itemDialog.showModal();
+}
+
+function openOriginDialogForm() {
+  if (!itemDialog?.open) return;
+  if (newOriginInput) newOriginInput.value = "";
+  selectedDeleteOriginKey = "";
+  setOriginDialogMode("add");
+  originDialog?.showModal();
+}
+
+function setOriginDialogMode(mode) {
+  originDialogMode = mode === "delete" ? "delete" : "add";
+  const isAdd = originDialogMode === "add";
+  originForm?.classList.toggle("hidden", !isAdd);
+  originDeletePanel?.classList.toggle("hidden", isAdd);
+  originModeAddBtn?.classList.toggle("is-active", isAdd);
+  originModeDeleteBtn?.classList.toggle("is-active", !isAdd);
+  if (isAdd) {
+    originDeleteEmpty?.classList.add("hidden");
+    originDeleteCloseOnly?.classList.add("hidden");
+    newOriginInput?.focus();
+    return;
+  }
+  renderOriginDeleteOptions();
+}
+
+function onSaveOrigin(e) {
+  e.preventDefault();
+  const name = normalizeOriginName(newOriginInput?.value || "");
+  if (!name) {
+    alert("請輸入來源名稱");
+    return;
+  }
+  if (SEASON_TAG_OPTIONS.includes(name)) {
+    alert("來源名稱不能與季節標籤重複");
+    return;
+  }
+  const key = normalizeLookupKey(name);
+  const exists = buildOriginOptions().some((origin) => normalizeLookupKey(origin) === key);
+  if (exists) {
+    renderItemOriginOptions(name);
+    selectedDeleteOriginKey = "";
+    renderOriginDeleteOptions();
+    originDialog?.close();
+    return;
+  }
+  state.deletedOrigins = normalizeDeletedOriginList((state.deletedOrigins || []).filter((origin) => normalizeLookupKey(origin) !== key));
+  state.customOrigins = normalizeOriginList([...(state.customOrigins || []), name]);
+  if (!persistAll()) return;
+  renderItemOriginOptions(name);
+  renderAll();
+  selectedDeleteOriginKey = "";
+  renderOriginDeleteOptions();
+  originDialog?.close();
+}
+
+function renderOriginDeleteOptions() {
+  const options = buildOriginOptions();
+  if (!originDeleteList) return;
+  if (!options.length) {
+    originDeleteList.innerHTML = "";
+    originDeleteEmpty?.classList.remove("hidden");
+    originDeleteCloseOnly?.classList.remove("hidden");
+    originDeletePanel?.classList.add("hidden");
+    return;
+  }
+  originDeleteEmpty?.classList.add("hidden");
+  originDeleteCloseOnly?.classList.add("hidden");
+  originDeletePanel?.classList.remove("hidden");
+  if (!options.some((origin) => normalizeLookupKey(origin) === selectedDeleteOriginKey)) {
+    selectedDeleteOriginKey = normalizeLookupKey(options[0] || "");
+  }
+  originDeleteList.innerHTML = options
+    .map((origin) => {
+      const key = normalizeLookupKey(origin);
+      const selected = key === selectedDeleteOriginKey;
+      return `<button type="button" class="chip ${selected ? "is-selected" : ""}" data-origin-delete-key="${escapeAttr(key)}">${escapeHtml(origin)}</button>`;
+    })
+    .join("");
+  for (const btn of originDeleteList.querySelectorAll("[data-origin-delete-key]")) {
+    btn.addEventListener("click", () => {
+      selectedDeleteOriginKey = String(btn.dataset.originDeleteKey || "");
+      renderOriginDeleteOptions();
+    });
+  }
+}
+
+function onDeleteOrigin() {
+  const key = normalizeLookupKey(selectedDeleteOriginKey);
+  if (!key) {
+    alert("請先選擇要刪除的來源");
+    return;
+  }
+  const options = buildOriginOptions();
+  const target = options.find((origin) => normalizeLookupKey(origin) === key);
+  if (!target) {
+    alert("找不到要刪除的來源");
+    return;
+  }
+
+  state.customOrigins = normalizeOriginList((state.customOrigins || []).filter((origin) => normalizeLookupKey(origin) !== key));
+  state.deletedOrigins = normalizeDeletedOriginList([...(state.deletedOrigins || []), target]);
+  for (const item of state.items) {
+    if (normalizeLookupKey(item?.origin) === key) item.origin = "";
+  }
+
+  if (!persistAll()) return;
+  if (normalizeLookupKey(itemOriginSelect?.value || "") === key) {
+    renderItemOriginOptions("");
+  } else {
+    renderItemOriginOptions(itemOriginSelect?.value || "");
+  }
+  selectedDeleteOriginKey = "";
+  renderOriginDeleteOptions();
+  renderAll();
 }
 
 function renderExistingItemPhotos(photos) {
@@ -740,6 +893,7 @@ function closeTopOverlay() {
     outfitFormDialog,
     outfitMenuDialog,
     itemDialog,
+    originDialog,
     categoryEditDialog,
     photoCropDialog,
     bulkCategoryDialog,
@@ -1430,6 +1584,7 @@ function renderAll() {
   outfitSortSelect.value = state.outfitSort;
   tagUsageSortSelect.value = state.tagUsageSort;
   renderItemCategoryOptions();
+  renderItemOriginOptions(itemOriginSelect?.value || "");
   renderLatest();
   renderPhotosWall();
   renderCategoryTab();
@@ -1485,11 +1640,15 @@ function recomputeWearCounts() {
 
 function persistAll() {
   try {
+    state.customOrigins = normalizeOriginList(state.customOrigins);
+    state.deletedOrigins = normalizeDeletedOriginList(state.deletedOrigins);
     save("closet_items", state.items);
     save("closet_daily_logs", state.dailyLogs);
     save("closet_category_order", state.categoryOrder);
     save("closet_category_colors", state.categoryColors);
     save("closet_manual_vote_counts", state.manualVoteCounts);
+    save(CUSTOM_ORIGINS_KEY, state.customOrigins);
+    save(DELETED_ORIGINS_KEY, state.deletedOrigins);
     return true;
   } catch (err) {
     console.error("persistAll failed:", err);
@@ -1947,6 +2106,83 @@ function renderItemCategoryOptions() {
     .join("");
 }
 
+function normalizeOriginName(value) {
+  return String(value || "").trim();
+}
+
+function normalizeLookupKey(value) {
+  return normalizeOriginName(value).toLocaleLowerCase();
+}
+
+function normalizeOriginList(values) {
+  const list = Array.isArray(values) ? values : [];
+  const seen = new Set();
+  const result = [];
+  for (const row of list) {
+    const name = normalizeOriginName(row);
+    if (!name) continue;
+    if (SEASON_TAG_OPTIONS.includes(name)) continue;
+    const key = normalizeLookupKey(name);
+    if (seen.has(key)) continue;
+    if (DEFAULT_ORIGIN_OPTIONS.some((origin) => normalizeLookupKey(origin) === key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+function normalizeDeletedOriginList(values) {
+  const list = Array.isArray(values) ? values : [];
+  const seen = new Set();
+  const result = [];
+  for (const row of list) {
+    const name = normalizeOriginName(row);
+    if (!name) continue;
+    const key = normalizeLookupKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+function buildOriginOptions() {
+  const merged = [];
+  const seen = new Set();
+  const deleted = new Set((state.deletedOrigins || []).map((origin) => normalizeLookupKey(origin)));
+  const add = (value) => {
+    const name = normalizeOriginName(value);
+    if (!name) return;
+    const key = normalizeLookupKey(name);
+    if (deleted.has(key)) return;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(name);
+  };
+  for (const origin of DEFAULT_ORIGIN_OPTIONS) add(origin);
+  for (const origin of state.customOrigins || []) add(origin);
+  for (const item of state.items || []) add(item?.origin);
+  return merged;
+}
+
+function buildTagOptions() {
+  return [...SEASON_TAG_OPTIONS, ...buildOriginOptions()];
+}
+
+function renderItemOriginOptions(selectedValue = "") {
+  if (!itemOriginSelect) return;
+  const options = buildOriginOptions();
+  itemOriginSelect.innerHTML = ['<option value="">未設定</option>', ...options.map((origin) => `<option value="${escapeAttr(origin)}">${escapeHtml(origin)}</option>`)]
+    .join("");
+  const expectedKey = normalizeLookupKey(selectedValue || "");
+  if (!expectedKey) {
+    itemOriginSelect.value = "";
+    return;
+  }
+  const matched = options.find((origin) => normalizeLookupKey(origin) === expectedKey);
+  itemOriginSelect.value = matched || "";
+}
+
 function renderLatest() {
   const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
   const selectionVisible = selectionContext === "closet" && selectedItemIds.size > 0;
@@ -2081,7 +2317,7 @@ function openItemEditForm() {
   if (bodyTypeInput) bodyTypeInput.value = item.bodyType || "";
   if (suggestedWeightInput) suggestedWeightInput.value = item.suggestedWeight || "";
   itemForm.grade.value = item.grade || "";
-  itemForm.origin.value = item.origin || "";
+  renderItemOriginOptions(item.origin || "");
   itemForm.miniNote.value = item.miniNote || "";
   itemForm.pros.value = item.pros || "";
   itemForm.cons.value = item.cons || "";
@@ -2370,7 +2606,9 @@ function renderCategoryItemsPage() {
 }
 
 function renderTagTab() {
-  tagChips.innerHTML = TAG_OPTIONS.map((tag) => {
+  const tagOptions = buildTagOptions();
+  state.selectedTags = state.selectedTags.filter((tag) => tagOptions.includes(tag));
+  tagChips.innerHTML = tagOptions.map((tag) => {
     const active = state.selectedTags.includes(tag);
     return `<button class="chip ${active ? "active" : ""}" data-tag-chip="${escapeAttr(tag)}">${escapeHtml(tag)}</button>`;
   }).join("");
@@ -2391,7 +2629,7 @@ function renderTagTab() {
 
   let result = state.items.filter(matchesClosetQuery);
   for (const tag of filterTags) {
-    if (["春季", "夏季", "秋季", "冬季"].includes(tag)) {
+    if (SEASON_TAG_OPTIONS.includes(tag)) {
       result = result.filter((item) => (item.seasons || []).includes(tag));
     } else {
       result = result.filter((item) => item.origin === tag);
@@ -2752,6 +2990,8 @@ async function exportDataAsJson() {
         purchaseSort: state.purchaseSort,
         outfitSort: state.outfitSort,
         tagUsageSort: state.tagUsageSort,
+        customOrigins: state.customOrigins,
+        deletedOrigins: state.deletedOrigins,
       },
       media: {
         photos: [],
@@ -2912,6 +3152,8 @@ function normalizeImportedData(source) {
     purchaseSort: data.purchaseSort === "asc" ? "asc" : "desc",
     outfitSort: data.outfitSort === "asc" ? "asc" : "desc",
     tagUsageSort: ["none", "asc", "desc"].includes(data.tagUsageSort) ? data.tagUsageSort : "none",
+    customOrigins: normalizeOriginList(data.customOrigins),
+    deletedOrigins: normalizeDeletedOriginList(data.deletedOrigins),
   };
 }
 
@@ -2948,6 +3190,8 @@ async function applyImportedData(mode) {
     state.purchaseSort = incoming.purchaseSort;
     state.outfitSort = incoming.outfitSort;
     state.tagUsageSort = incoming.tagUsageSort;
+    state.customOrigins = normalizeOriginList(incoming.customOrigins);
+    state.deletedOrigins = normalizeDeletedOriginList(incoming.deletedOrigins);
   } else {
     state.items = mergeById(state.items, incoming.items);
     state.dailyLogs = mergeById(state.dailyLogs, incoming.dailyLogs);
@@ -2957,6 +3201,8 @@ async function applyImportedData(mode) {
     state.purchaseSort = incoming.purchaseSort || state.purchaseSort;
     state.outfitSort = incoming.outfitSort || state.outfitSort;
     state.tagUsageSort = incoming.tagUsageSort || state.tagUsageSort;
+    state.customOrigins = normalizeOriginList([...(state.customOrigins || []), ...(incoming.customOrigins || [])]);
+    state.deletedOrigins = normalizeDeletedOriginList([...(state.deletedOrigins || []), ...(incoming.deletedOrigins || [])]);
   }
 
   pendingImportData = null;

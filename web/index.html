@@ -161,15 +161,17 @@
         </label>
         <label>
           來源
-          <select name="origin">
-            <option value="">未設定</option>
-            <option>日貨</option>
-            <option>韓貨</option>
-            <option>品牌</option>
-            <option>蝦皮</option>
-            <option>淘寶</option>
-            <option>其他</option>
-          </select>
+          <div class="origin-field-row">
+            <select id="itemOriginSelect" name="origin">
+              <option value="">未設定</option>
+              <option>日貨</option>
+              <option>韓貨</option>
+              <option>品牌</option>
+              <option>蝦皮</option>
+              <option>其他</option>
+            </select>
+            <button id="openOriginDialogBtn" class="origin-add-btn" type="button">編輯</button>
+          </div>
         </label>
       </div>
 
@@ -196,6 +198,38 @@
         <button type="submit">儲存</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="originDialog">
+    <article class="dialog-card">
+      <h2>編輯來源</h2>
+      <div class="origin-mode-row">
+        <button id="originModeAddBtn" class="origin-mode-btn is-active" type="button">新增</button>
+        <button id="originModeDeleteBtn" class="origin-mode-btn" type="button">刪除</button>
+      </div>
+
+      <form id="originForm" class="origin-panel" method="dialog">
+        <label>來源名稱<input id="newOriginInput" name="originName" maxlength="20" required placeholder="例如：官網 / 社團" /></label>
+        <p class="meta">確認後會同步新增到「來源」與「標籤」。</p>
+        <div class="actions">
+          <button id="cancelOriginDialog" type="button">取消</button>
+          <button type="submit">確認新增</button>
+        </div>
+      </form>
+
+      <section id="originDeletePanel" class="origin-panel hidden">
+        <p class="meta">點選一個來源後，按下刪除會同步移除來源與標籤。已有單品會改成「未設定」。</p>
+        <div id="originDeleteList" class="chip-row"></div>
+        <div class="actions">
+          <button id="cancelOriginDelete" type="button">取消</button>
+          <button id="confirmOriginDelete" class="danger-btn" type="button">刪除來源</button>
+        </div>
+      </section>
+      <div id="originDeleteEmpty" class="meta hidden">目前沒有可刪除的來源。</div>
+      <div class="actions hidden" id="originDeleteCloseOnly">
+        <button id="closeOriginDeleteOnly" type="button">關閉</button>
+      </div>
+    </article>
   </dialog>
 
   <dialog id="outfitMenuDialog">

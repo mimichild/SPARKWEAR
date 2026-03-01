@@ -822,6 +822,48 @@ fieldset label {
   margin-top: 12px;
 }
 
+.origin-field-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.origin-field-row select {
+  flex: 1;
+}
+
+.origin-add-btn {
+  width: auto;
+  white-space: nowrap;
+  padding-inline: 12px;
+}
+
+.origin-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.origin-mode-btn.is-active {
+  border-color: var(--theme);
+  background: color-mix(in srgb, var(--theme) 18%, #fff);
+}
+
+.origin-panel {
+  margin-top: 10px;
+}
+
+#originDeleteList .chip {
+  width: auto;
+}
+
+#originDeleteList .chip.is-selected {
+  border-color: #c86a6a;
+  background: #fff1f1;
+  color: #8d3030;
+}
+
 .single-col {
   grid-template-columns: 1fr;
 }

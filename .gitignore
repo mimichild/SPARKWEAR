@@ -18,6 +18,9 @@ android/app/build/
 android/app/release/
 android/build/
 android/.gradle/
+android/.gradle-home/
+android/.gradle-home-rebuild/
+android/.android-sdk/
 android/local.properties
 android/.idea/
 android/captures/
@@ -25,6 +28,9 @@ android/app/google-services.json
 android/*/build/
 *.apk
 *.aab
+
+# Android generated assets
+android/app/src/main/assets/public/
 
 # iOS
 ios/App/Pods/

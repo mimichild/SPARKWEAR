@@ -235,7 +235,7 @@ let selectedDeleteOriginKey = "";
 let cropDialogProgrammaticClose = false;
 let selectionContext = "";
 let selectedItemIds = new Set();
-const LONG_PRESS_MS = 1000;
+const LONG_PRESS_MS = 700;
 let suppressSelectionClickUntil = 0;
 const ACTIVE_THEME_COLOR_KEY = "spark_theme_color";
 const ACTIVE_VIEW_STATE_KEY = "spark_active_view_state";
@@ -1907,6 +1907,7 @@ function toggleItemSelection(itemId, context) {
 
 function onItemTap(itemId, context, openDetailFn) {
   if (selectedItemIds.size > 0 && selectionContext === context) {
+    toggleItemSelection(itemId, context);
     return;
   }
   openDetailFn();
@@ -1949,7 +1950,7 @@ function bindLongPressSelectable(button, itemId, context, openDetailFn) {
       if (longPressed) return;
       longPressed = true;
       suppressNextClick = true;
-      suppressSelectionClickUntil = Date.now() + 700;
+      suppressSelectionClickUntil = Date.now() + 120;
       toggleItemSelection(itemId, context);
     }, LONG_PRESS_MS);
   };

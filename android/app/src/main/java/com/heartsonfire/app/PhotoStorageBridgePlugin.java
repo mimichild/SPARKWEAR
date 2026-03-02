@@ -7,9 +7,15 @@ import android.net.Uri;
 import android.util.Base64;
 import android.content.Intent;
 import android.content.ContentResolver;
+import android.content.pm.PackageManager;
+import android.content.ContentValues;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
 import androidx.activity.result.ActivityResult;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.exifinterface.media.ExifInterface;
 
 import com.getcapacitor.JSObject;
@@ -37,9 +43,12 @@ import java.util.UUID;
 public class PhotoStorageBridgePlugin extends Plugin {
   private static final String PHOTOS_DIR = "photos";
   private static final String PICK_TMP_DIR = "pick_tmp";
+  private static final int BACKUP_CHUNK_MAX_BYTES = 512 * 1024;
   private byte[] pendingBackupBytes = null;
   private String pendingBackupMimeType = "application/zip";
   private Uri pendingBackupUri = null;
+  private Uri pendingBackupTreeUri = null;
+  private File pendingBackupTempFile = null;
 
   @PluginMethod
   public void pickImages(PluginCall call) {
@@ -257,23 +266,239 @@ public class PhotoStorageBridgePlugin extends Plugin {
   }
 
   @PluginMethod
+  public void pickBackupFolder(PluginCall call) {
+    try {
+      Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+      intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+      intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+      startActivityForResult(call, intent, "pickBackupFolderResult");
+    } catch (Exception err) {
+      call.reject("pickBackupFolder failed: " + err.getMessage());
+    }
+  }
+
+  @ActivityCallback
+  private void pickBackupFolderResult(PluginCall call, ActivityResult result) {
+    if (call == null) return;
+    try {
+      if (result == null || result.getResultCode() != android.app.Activity.RESULT_OK) {
+        call.reject("save-cancelled");
+        return;
+      }
+      Intent data = result.getData();
+      Uri treeUri = data != null ? data.getData() : null;
+      if (treeUri == null) {
+        call.reject("backup-tree-uri-missing");
+        return;
+      }
+      final int takeFlags = (data.getFlags()
+        & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
+      try {
+        getContext().getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+      } catch (Exception ignored) {
+        // Not all providers support persistable permissions.
+      }
+      pendingBackupTreeUri = treeUri;
+      JSObject res = new JSObject();
+      res.put("picked", true);
+      res.put("treeUri", treeUri.toString());
+      call.resolve(res);
+    } catch (Exception err) {
+      call.reject("pickBackupFolderResult failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
+  public void createBackupZipInTree(PluginCall call) {
+    try {
+      String requestedTreeUri = call.getString("treeUri", pendingBackupTreeUri != null ? pendingBackupTreeUri.toString() : "");
+      String fileName = call.getString("fileName", "spark-wear-backup.zip");
+      String mimeType = call.getString("mimeType", "application/zip");
+      if (requestedTreeUri == null || requestedTreeUri.isEmpty()) {
+        call.reject("treeUri is required");
+        return;
+      }
+      Uri treeUri = Uri.parse(requestedTreeUri);
+      DocumentFile tree = DocumentFile.fromTreeUri(getContext(), treeUri);
+      if (tree == null || !tree.canWrite()) {
+        call.reject("backup-tree-not-writable");
+        return;
+      }
+      DocumentFile outFile = tree.createFile(mimeType, fileName);
+      if (outFile == null || outFile.getUri() == null) {
+        call.reject("create-backup-tree-file-failed");
+        return;
+      }
+      File cacheDir = getContext().getCacheDir();
+      pendingBackupTempFile = File.createTempFile("backup-", ".zip", cacheDir);
+      pendingBackupTreeUri = treeUri;
+      pendingBackupUri = outFile.getUri();
+      pendingBackupMimeType = mimeType;
+      pendingBackupBytes = null;
+      JSObject res = new JSObject();
+      res.put("saved", false);
+      res.put("pending", true);
+      res.put("uri", pendingBackupUri.toString());
+      res.put("treeUri", treeUri.toString());
+      res.put("mimeType", mimeType);
+      call.resolve(res);
+    } catch (Exception err) {
+      call.reject("createBackupZipInTree failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
+  public void finalizeBackupZipWrite(PluginCall call) {
+    try {
+      String requestedUri = call.getString("uri", pendingBackupUri != null ? pendingBackupUri.toString() : "");
+      if (requestedUri == null || requestedUri.isEmpty()) {
+        call.reject("uri is required");
+        return;
+      }
+      Uri uri = Uri.parse(requestedUri);
+      if (pendingBackupTempFile == null || !pendingBackupTempFile.exists()) {
+        call.reject("pending-backup-temp-missing");
+        return;
+      }
+      ContentResolver resolver = getContext().getContentResolver();
+      InputStream in = new FileInputStream(pendingBackupTempFile);
+      OutputStream out = resolver.openOutputStream(uri, "w");
+      if (out == null) {
+        in.close();
+        call.reject("cannot-open-output-stream");
+        return;
+      }
+      byte[] buffer = new byte[64 * 1024];
+      int n;
+      while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+      out.flush();
+      out.close();
+      in.close();
+
+      pendingBackupBytes = null;
+      pendingBackupUri = null;
+      pendingBackupTreeUri = null;
+      if (pendingBackupTempFile != null && pendingBackupTempFile.exists()) {
+        pendingBackupTempFile.delete();
+      }
+      pendingBackupTempFile = null;
+      JSObject res = new JSObject();
+      res.put("saved", true);
+      res.put("uri", uri.toString());
+      res.put("mimeType", pendingBackupMimeType);
+      call.resolve(res);
+    } catch (Exception err) {
+      call.reject("finalizeBackupZipWrite failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
+  public void createBackupZipInDownloads(PluginCall call) {
+    try {
+      String fileName = call.getString("fileName", "spark-wear-backup.zip");
+      String mimeType = call.getString("mimeType", "application/zip");
+      ContentResolver resolver = getContext().getContentResolver();
+      ContentValues values = new ContentValues();
+      values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+      values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+      }
+      Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+      Uri uri = resolver.insert(collection, values);
+      if (uri == null) {
+        call.reject("create-backup-download-uri-failed");
+        return;
+      }
+      File cacheDir = getContext().getCacheDir();
+      pendingBackupTempFile = File.createTempFile("backup-", ".zip", cacheDir);
+      pendingBackupBytes = null;
+      pendingBackupMimeType = mimeType;
+      pendingBackupUri = uri;
+      JSObject res = new JSObject();
+      res.put("saved", false);
+      res.put("pending", true);
+      res.put("uri", uri.toString());
+      res.put("mimeType", mimeType);
+      call.resolve(res);
+    } catch (Exception err) {
+      call.reject("createBackupZipInDownloads failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
+  public void finalizeBackupZipInDownloads(PluginCall call) {
+    try {
+      String defaultUri = pendingBackupUri != null ? pendingBackupUri.toString() : "";
+      String requestedUri = call.getString("uri", defaultUri);
+      if (requestedUri == null || requestedUri.isEmpty()) {
+        call.reject("uri is required");
+        return;
+      }
+      Uri uri = Uri.parse(requestedUri);
+      if (pendingBackupTempFile == null || !pendingBackupTempFile.exists()) {
+        call.reject("pending-backup-temp-missing");
+        return;
+      }
+      ContentResolver resolver = getContext().getContentResolver();
+      InputStream in = new FileInputStream(pendingBackupTempFile);
+      OutputStream out = resolver.openOutputStream(uri, "w");
+      if (out == null) {
+        in.close();
+        call.reject("cannot-open-output-stream");
+        return;
+      }
+      byte[] buffer = new byte[64 * 1024];
+      int n;
+      while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+      out.flush();
+      out.close();
+      in.close();
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+        resolver.update(uri, values, null, null);
+      }
+      pendingBackupUri = null;
+      pendingBackupBytes = null;
+      if (pendingBackupTempFile != null && pendingBackupTempFile.exists()) {
+        pendingBackupTempFile.delete();
+      }
+      pendingBackupTempFile = null;
+      JSObject res = new JSObject();
+      res.put("saved", true);
+      res.put("uri", uri.toString());
+      res.put("mimeType", pendingBackupMimeType);
+      call.resolve(res);
+    } catch (Exception err) {
+      call.reject("finalizeBackupZipInDownloads failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
   public void saveBackupZip(PluginCall call) {
     try {
       String base64 = call.getString("base64", "");
-      if (base64 == null || base64.isEmpty()) {
-        call.reject("base64 is required");
-        return;
-      }
       String fileName = call.getString("fileName", "spark-wear-backup.zip");
       String mimeType = call.getString("mimeType", "application/zip");
-      pendingBackupBytes = Base64.decode(base64, Base64.DEFAULT);
+      pendingBackupBytes = null;
+      if (base64 != null && !base64.isEmpty()) {
+        pendingBackupBytes = Base64.decode(base64, Base64.DEFAULT);
+      }
       pendingBackupMimeType = mimeType;
       pendingBackupUri = null;
       Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
       intent.addCategory(Intent.CATEGORY_OPENABLE);
       intent.setType(mimeType);
       intent.putExtra(Intent.EXTRA_TITLE, fileName);
-      startActivityForResult(call, intent, "saveBackupZipResult");
+      PackageManager pm = getContext().getPackageManager();
+      if (intent.resolveActivity(pm) == null) {
+        call.reject("save-picker-unavailable");
+        return;
+      }
+      Intent chooser = Intent.createChooser(intent, "選擇儲存位置");
+      startActivityForResult(call, chooser, "saveBackupZipResult");
     } catch (Exception err) {
       pendingBackupBytes = null;
       call.reject("saveBackupZip failed: " + err.getMessage());
@@ -292,8 +517,7 @@ public class PhotoStorageBridgePlugin extends Plugin {
       }
       Intent data = result.getData();
       Uri uri = data != null ? data.getData() : null;
-      if (uri == null || pendingBackupBytes == null) {
-        pendingBackupBytes = null;
+      if (uri == null) {
         pendingBackupUri = null;
         call.reject("save-backup-uri-missing");
         return;
@@ -315,13 +539,19 @@ public class PhotoStorageBridgePlugin extends Plugin {
   @PluginMethod
   public void confirmSaveBackupZip(PluginCall call) {
     try {
-      if (pendingBackupBytes == null || pendingBackupUri == null) {
-        call.reject("no-pending-backup");
-        return;
-      }
-      String requestedUri = call.getString("uri", pendingBackupUri.toString());
+      String defaultUri = pendingBackupUri != null ? pendingBackupUri.toString() : "";
+      String requestedUri = call.getString("uri", defaultUri);
       if (requestedUri == null || requestedUri.isEmpty()) {
         call.reject("uri is required");
+        return;
+      }
+      byte[] bytes = pendingBackupBytes;
+      String inlineBase64 = call.getString("base64", "");
+      if ((bytes == null || bytes.length == 0) && inlineBase64 != null && !inlineBase64.isEmpty()) {
+        bytes = Base64.decode(inlineBase64, Base64.DEFAULT);
+      }
+      if (bytes == null || bytes.length == 0) {
+        call.reject("no-pending-backup");
         return;
       }
       Uri uri = Uri.parse(requestedUri);
@@ -331,7 +561,7 @@ public class PhotoStorageBridgePlugin extends Plugin {
         call.reject("cannot-open-output-stream");
         return;
       }
-      out.write(pendingBackupBytes);
+      out.write(bytes);
       out.flush();
       out.close();
       pendingBackupBytes = null;
@@ -347,9 +577,57 @@ public class PhotoStorageBridgePlugin extends Plugin {
   }
 
   @PluginMethod
+  public void writeBackupZipChunk(PluginCall call) {
+    try {
+      if (pendingBackupTempFile == null) {
+        call.reject("pending-backup-temp-missing");
+        return;
+      }
+      String base64 = call.getString("base64", "");
+      if (base64 == null || base64.isEmpty()) {
+        call.reject("base64 is required");
+        return;
+      }
+      byte[] chunk = Base64.decode(base64, Base64.DEFAULT);
+      if (chunk.length > BACKUP_CHUNK_MAX_BYTES) {
+        call.reject("backup-chunk-too-large");
+        return;
+      }
+      boolean append = call.getBoolean("append", false);
+      OutputStream out = new FileOutputStream(pendingBackupTempFile, append);
+      out.write(chunk);
+      out.flush();
+      out.close();
+      JSObject res = new JSObject();
+      res.put("written", true);
+      res.put("bytes", chunk.length);
+      res.put("uri", pendingBackupUri != null ? pendingBackupUri.toString() : "");
+      call.resolve(res);
+    } catch (Exception err) {
+      call.reject("writeBackupZipChunk failed: " + err.getMessage());
+    }
+  }
+
+  @PluginMethod
   public void cancelSaveBackupZip(PluginCall call) {
+    if (pendingBackupUri != null) {
+      try {
+        getContext().getContentResolver().delete(pendingBackupUri, null, null);
+      } catch (Exception ignored) {
+        // ignore cleanup errors
+      }
+    }
+    if (pendingBackupTempFile != null && pendingBackupTempFile.exists()) {
+      try {
+        pendingBackupTempFile.delete();
+      } catch (Exception ignored) {
+        // ignore cleanup errors
+      }
+    }
     pendingBackupBytes = null;
     pendingBackupUri = null;
+    pendingBackupTreeUri = null;
+    pendingBackupTempFile = null;
     JSObject res = new JSObject();
     res.put("cancelled", true);
     call.resolve(res);

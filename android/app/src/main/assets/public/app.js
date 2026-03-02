@@ -7,7 +7,9 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.20+21";
+const APP_VERSION_LABEL = "v1.0.19+20";
+const NATIVE_BACKUP_CHUNK_BYTES = 256 * 1024;
+const NATIVE_BACKUP_BASE64_BLOCK = 0x8000;
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
 const LOADING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#f5f1e9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9f9689" font-size="30">LOADING</text></svg>');
 
@@ -235,7 +237,7 @@ let selectedDeleteOriginKey = "";
 let cropDialogProgrammaticClose = false;
 let selectionContext = "";
 let selectedItemIds = new Set();
-const LONG_PRESS_MS = 1000;
+const LONG_PRESS_MS = 700;
 let suppressSelectionClickUntil = 0;
 const ACTIVE_THEME_COLOR_KEY = "spark_theme_color";
 const ACTIVE_VIEW_STATE_KEY = "spark_active_view_state";
@@ -1907,6 +1909,7 @@ function toggleItemSelection(itemId, context) {
 
 function onItemTap(itemId, context, openDetailFn) {
   if (selectedItemIds.size > 0 && selectionContext === context) {
+    toggleItemSelection(itemId, context);
     return;
   }
   openDetailFn();
@@ -1949,7 +1952,7 @@ function bindLongPressSelectable(button, itemId, context, openDetailFn) {
       if (longPressed) return;
       longPressed = true;
       suppressNextClick = true;
-      suppressSelectionClickUntil = Date.now() + 700;
+      suppressSelectionClickUntil = Date.now() + 120;
       toggleItemSelection(itemId, context);
     }, LONG_PRESS_MS);
   };
@@ -3043,7 +3046,20 @@ async function exportDataAsJson() {
     } catch (err) {
       const text = String(err?.message || err || "").toLowerCase();
       if (text.includes("save-cancelled")) return;
+      if (text.includes("save-picker-unavailable")) {
+        alert("此手機沒有可用的檔案管理器（Documents Provider），無法開啟儲存位置選擇器。請啟用/安裝「檔案」App 後再試。");
+        return;
+      }
+      if (text.includes("save-picker-not-returned-uri")) {
+        alert("匯出流程未取得儲存位置，未執行儲存。請確認檔案管理器可正常開啟後重試。");
+        return;
+      }
+      const bridge = getNativePhotoBridge();
+      alert(`原生匯出失敗：${String(err?.message || err || "unknown")}\n\n${formatNativeExportDebug(bridge)}`);
       console.warn("trySaveZipViaNativeBridge failed, fallback:", err);
+    }
+    if (!getNativePhotoBridge()) {
+      alert("目前不是原生 App 匯出模式（找不到 PhotoStorageBridge），請確認是安裝後從 APK 開啟，而非瀏覽器。");
     }
     if (typeof window.showSaveFilePicker === "function") {
       try {
@@ -3068,7 +3084,8 @@ async function exportDataAsJson() {
     alert("無法開啟儲存位置對話框，請在支援檔案儲存對話框的裝置上匯出。");
   } catch (err) {
     console.error("exportDataAsJson failed:", err);
-    alert("匯出失敗，請重試。若仍失敗請回報此錯誤。");
+    const message = String(err?.message || err || "unknown");
+    alert(`匯出失敗：${message}`);
   } finally {
     finishUploadProgress();
   }
@@ -3076,22 +3093,41 @@ async function exportDataAsJson() {
 
 async function trySaveZipViaNativeBridge(blob, fileName) {
   const bridge = getNativePhotoBridge();
-  if (!bridge?.saveBackupZip) return false;
-  const dataUrl = await blobToDataUrl(blob);
-  const base64 = dataUrlToBase64(dataUrl);
-  if (!base64) return false;
+  if (!bridge) return false;
+  if (
+    typeof bridge.pickBackupFolder === "function"
+    && typeof bridge.createBackupZipInTree === "function"
+    && typeof bridge.writeBackupZipChunk === "function"
+    && typeof bridge.finalizeBackupZipWrite === "function"
+  ) {
+    const picked = await bridge.pickBackupFolder();
+    const treeUri = String(picked?.treeUri || "");
+    if (!treeUri) throw new Error("backup-tree-uri-missing");
+    const created = await bridge.createBackupZipInTree({
+      treeUri,
+      fileName,
+      mimeType: "application/zip",
+    });
+    const uri = String(created?.uri || "");
+    if (!uri) throw new Error("create-backup-tree-file-failed");
+    await writeBlobToNativeUriInChunks(blob, uri, bridge);
+    const done = await bridge.finalizeBackupZipWrite({ uri });
+    if (done?.saved) {
+      alert("備份 ZIP 已儲存完成。");
+      return true;
+    }
+    throw new Error("finalize-backup-write-failed");
+  }
+  if (typeof bridge.saveBackupZip !== "function") return false;
   const picked = await bridge.saveBackupZip({
     fileName,
     mimeType: "application/zip",
-    base64,
   });
-  if (picked?.saved) {
-    alert("備份 ZIP 已儲存完成。");
-    return true;
-  }
   const uri = String(picked?.uri || "");
-  if (!uri) return false;
-  const shouldSave = window.confirm(`將備份儲存到：\n${uri}\n\n按「確定」立即儲存 ZIP。`);
+  if (!uri) {
+    throw new Error("save-picker-not-returned-uri");
+  }
+  const shouldSave = window.confirm(`已選擇儲存位置：\n${uri}\n\n按「確定」開始儲存，按「取消」則不儲存。`);
   if (!shouldSave) {
     if (typeof bridge.cancelSaveBackupZip === "function") {
       try {
@@ -3102,8 +3138,20 @@ async function trySaveZipViaNativeBridge(blob, fileName) {
     }
     throw new Error("save-cancelled");
   }
+  if (typeof bridge.writeBackupZipChunk === "function") {
+    await writeBlobToNativeUriInChunks(blob, uri, bridge);
+    alert("備份 ZIP 已儲存完成。");
+    return true;
+  }
   if (typeof bridge.confirmSaveBackupZip === "function") {
-    const result = await bridge.confirmSaveBackupZip({ uri });
+    const dataUrl = await blobToDataUrl(blob);
+    const base64 = dataUrlToBase64(dataUrl);
+    if (!base64) return false;
+    const result = await bridge.confirmSaveBackupZip({
+      uri,
+      mimeType: "application/zip",
+      base64,
+    });
     if (result?.saved) {
       alert("備份 ZIP 已儲存完成。");
       return true;
@@ -3111,6 +3159,56 @@ async function trySaveZipViaNativeBridge(blob, fileName) {
     return false;
   }
   return false;
+}
+
+async function writeBlobToNativeUriInChunks(blob, uri, bridge) {
+  if (typeof blob?.arrayBuffer !== "function") throw new Error("blob-arraybuffer-unavailable");
+  if (typeof bridge?.writeBackupZipChunk !== "function") throw new Error("chunk-writer-unavailable");
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (!bytes.length) throw new Error("backup-blob-empty");
+  let append = false;
+  let offset = 0;
+  while (offset < bytes.length) {
+    const end = Math.min(offset + NATIVE_BACKUP_CHUNK_BYTES, bytes.length);
+    const chunkBase64 = uint8ToBase64(bytes.subarray(offset, end));
+    const result = await bridge.writeBackupZipChunk({
+      uri,
+      mimeType: "application/zip",
+      base64: chunkBase64,
+      append,
+    });
+    if (result?.written === false) throw new Error("write-backup-chunk-failed");
+    append = true;
+    offset = end;
+    const progress = 82 + Math.floor((offset / bytes.length) * 16);
+    setUploadProgress(progress, "儲存中...");
+  }
+}
+
+function uint8ToBase64(bytes) {
+  if (typeof btoa !== "function") throw new Error("btoa-unavailable");
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += NATIVE_BACKUP_BASE64_BLOCK) {
+    const chunk = bytes.subarray(i, i + NATIVE_BACKUP_BASE64_BLOCK);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function formatNativeExportDebug(bridge) {
+  if (!bridge) {
+    return "bridge: missing";
+  }
+  return [
+    "bridge: found",
+    `pickBackupFolder: ${typeof bridge.pickBackupFolder}`,
+    `createBackupZipInTree: ${typeof bridge.createBackupZipInTree}`,
+    `writeBackupZipChunk: ${typeof bridge.writeBackupZipChunk}`,
+    `finalizeBackupZipWrite: ${typeof bridge.finalizeBackupZipWrite}`,
+    `saveBackupZip: ${typeof bridge.saveBackupZip}`,
+    `confirmSaveBackupZip: ${typeof bridge.confirmSaveBackupZip}`,
+    `platform: ${typeof window !== "undefined" ? (window.Capacitor?.getPlatform?.() || "unknown") : "unknown"}`,
+  ].join("\n");
 }
 
 async function onImportFilePicked() {
@@ -3262,6 +3360,7 @@ function averageUsePriceText(item) {
 
 let photoDbPromise = null;
 const NATIVE_PHOTO_BRIDGE = "PhotoStorageBridge";
+let nativePhotoBridgeProxy = null;
 
 function normalizePhotoList(photos) {
   if (!Array.isArray(photos)) return [];
@@ -3704,8 +3803,21 @@ async function cleanupNativeOrphanPhotos() {
 
 function getNativePhotoBridge() {
   if (typeof window === "undefined") return null;
-  const plugins = window.Capacitor?.Plugins;
-  return (plugins && plugins[NATIVE_PHOTO_BRIDGE]) || window[NATIVE_PHOTO_BRIDGE] || null;
+  const capacitor = window.Capacitor;
+  const plugins = capacitor?.Plugins;
+  const bridge = (plugins && plugins[NATIVE_PHOTO_BRIDGE]) || window[NATIVE_PHOTO_BRIDGE] || null;
+  if (bridge) return bridge;
+  if (typeof capacitor?.registerPlugin === "function") {
+    try {
+      if (!nativePhotoBridgeProxy) {
+        nativePhotoBridgeProxy = capacitor.registerPlugin(NATIVE_PHOTO_BRIDGE);
+      }
+      return nativePhotoBridgeProxy;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function startUploadProgress(title) {

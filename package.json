@@ -1,11 +1,11 @@
 {
   "name": "heartsonfire",
-  "version": "1.0.7",
+  "version": "1.0.19",
   "private": true,
   "description": "",
   "main": "app.js",
   "scripts": {
-    "prepare:web": "mkdir -p web web/assets web/assets/vendor && cp -f index.html app.js styles.css manifest.webmanifest favicon.ico favicon-2.png web/ && cp -f assets/*.png web/assets/ && cp -f assets/vendor/* web/assets/vendor/",
+    "prepare:web": "mkdir -p web web/assets web/assets/vendor && cp -f index.html app.js styles.css manifest.webmanifest favicon.ico favicon-2.png web/ && cp -f node_modules/@capacitor/core/dist/capacitor.js web/capacitor.js && cp -f assets/*.png web/assets/ && cp -f assets/vendor/* web/assets/vendor/",
     "cap:doctor": "npx cap doctor",
     "cap:sync": "npm run prepare:web && npx cap sync",
     "cap:open:android": "npx cap open android",

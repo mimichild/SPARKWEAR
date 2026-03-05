@@ -9,6 +9,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --photo-edge-safe: 14px;
+  --bottom-ad-height: 0px;
 }
 
 * {
@@ -47,8 +48,12 @@ html {
   margin: 0 auto;
   min-height: 100vh;
   background: #fff;
-  padding: 0 14px calc(14px + var(--safe-bottom));
+  padding: 0 14px calc(14px + var(--safe-bottom) + var(--bottom-ad-height));
   overflow-x: hidden;
+}
+
+body.with-bottom-ad {
+  --bottom-ad-height: clamp(58px, 10vh, 92px);
 }
 
 /* 移除平台特定，直接用全域 env */
@@ -674,6 +679,14 @@ html {
   cursor: pointer;
 }
 
+.photo-open-btn .cover-grid,
+.latest-open-btn .latest-thumb,
+.item-open-btn .cover-sm {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -744,7 +757,7 @@ html {
 .fab {
   position: fixed;
   right: 18px;
-  bottom: calc(18px + var(--safe-bottom));
+  bottom: calc(18px + var(--safe-bottom) + var(--bottom-ad-height));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -753,6 +766,49 @@ html {
   background: var(--theme);
   color: #fff;
   cursor: pointer;
+}
+
+.bottom-ad {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: var(--bottom-ad-height);
+  padding: 6px 14px calc(6px + var(--safe-bottom));
+  border-top: 1px solid #ececec;
+  background: rgba(255, 255, 255, 0.96);
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.bottom-ad .adsbygoogle {
+  width: min(952px, 100%);
+  min-height: 50px;
+  max-height: calc(var(--bottom-ad-height) - 12px);
+  pointer-events: auto;
+}
+
+.bottom-ad-placeholder {
+  width: min(952px, 100%);
+  min-height: 50px;
+  border: 1px dashed #d8d8d8;
+  color: #8a8a8a;
+  font-size: 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.bottom-ad.placeholder-mode .adsbygoogle {
+  display: none !important;
+}
+
+.bottom-ad.placeholder-mode .bottom-ad-placeholder {
+  display: flex;
 }
 
 .fab .pencil-icon {

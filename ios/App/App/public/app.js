@@ -7,7 +7,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.19+20";
+const APP_VERSION_LABEL = "v1.0.23+24";
 const NATIVE_BACKUP_CHUNK_BYTES = 256 * 1024;
 const NATIVE_BACKUP_BASE64_BLOCK = 0x8000;
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
@@ -48,6 +48,11 @@ const importModeDialog = document.getElementById("importModeDialog");
 const importMergeBtn = document.getElementById("importMergeBtn");
 const importReplaceBtn = document.getElementById("importReplaceBtn");
 const cancelImportBtn = document.getElementById("cancelImportBtn");
+const bottomAdBanner = document.getElementById("bottomAdBanner");
+const bottomAdsenseSlot = document.getElementById("bottomAdsenseSlot");
+
+const ADSENSE_CLIENT_ID = "ca-pub-xxxxxxxxxxxxxxxx";
+const ADSENSE_BOTTOM_SLOT_ID = "0000000000";
 
 const openPageBtns = document.querySelectorAll("[data-open-page]");
 const backBtns = document.querySelectorAll("[data-back-home]");
@@ -248,6 +253,7 @@ let pullRefreshStartY = 0;
 let pullRefreshTracking = false;
 let pullRefreshTriggered = false;
 let pullRefreshing = false;
+let bottomAdRendered = false;
 
 if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
 if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
@@ -638,6 +644,7 @@ document.addEventListener("visibilitychange", () => {
 initApp();
 
 async function initApp() {
+  initBottomAd();
   try {
     await warmupInitialPhotos();
   } catch (err) {
@@ -645,6 +652,7 @@ async function initApp() {
   }
   renderAll();
   restoreActiveViewState();
+  updateBottomAdVisibility();
 }
 
 function showHome() {
@@ -653,6 +661,7 @@ function showHome() {
   homePage.classList.add("active");
   closetPage.classList.remove("active");
   outfitPage.classList.remove("active");
+  updateBottomAdVisibility();
   saveActiveViewState();
 }
 
@@ -662,7 +671,53 @@ function openPage(type) {
   homePage.classList.remove("active");
   closetPage.classList.toggle("active", type === "closet");
   outfitPage.classList.toggle("active", type === "outfit");
+  updateBottomAdVisibility();
   saveActiveViewState();
+}
+
+function hasValidAdsenseConfig() {
+  return /^ca-pub-\d{16}$/.test(ADSENSE_CLIENT_ID) && /^\d+$/.test(ADSENSE_BOTTOM_SLOT_ID);
+}
+
+function initBottomAd() {
+  if (!bottomAdBanner || !bottomAdsenseSlot) return;
+  if (!hasValidAdsenseConfig()) {
+    bottomAdBanner.classList.add("placeholder-mode");
+    return;
+  }
+  bottomAdBanner.classList.remove("placeholder-mode");
+  bottomAdsenseSlot.dataset.adClient = ADSENSE_CLIENT_ID;
+  bottomAdsenseSlot.dataset.adSlot = ADSENSE_BOTTOM_SLOT_ID;
+  if (!document.querySelector('script[data-role="adsense-loader"]')) {
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(ADSENSE_CLIENT_ID)}`;
+    script.crossOrigin = "anonymous";
+    script.dataset.role = "adsense-loader";
+    document.head.appendChild(script);
+  }
+}
+
+function renderBottomAdOnce() {
+  if (bottomAdRendered || !bottomAdsenseSlot || !hasValidAdsenseConfig()) return;
+  try {
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+    bottomAdRendered = true;
+  } catch (err) {
+    console.warn("renderBottomAdOnce failed:", err);
+  }
+}
+
+function updateBottomAdVisibility() {
+  if (!bottomAdBanner) return;
+  const shouldShow = currentMainPage() !== "home";
+  bottomAdBanner.classList.toggle("hidden", !shouldShow);
+  bottomAdBanner.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  document.body.classList.toggle("with-bottom-ad", shouldShow);
+  if (shouldShow) {
+    bottomAdBanner.classList.toggle("placeholder-mode", !hasValidAdsenseConfig());
+    renderBottomAdOnce();
+  }
 }
 
 function switchSub(tab) {
@@ -1919,26 +1974,35 @@ function bindSelectionCheckboxes(root, context) {
   if (!root) return;
   for (const box of root.querySelectorAll("[data-select-item]")) {
     const itemId = String(box.getAttribute("data-select-item") || "");
+    let toggledAt = 0;
     const toggle = (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (!itemId) return;
+      toggledAt = Date.now();
       toggleItemSelection(itemId, context);
     };
-    box.addEventListener("click", toggle);
     box.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
       e.stopPropagation();
     });
+    box.addEventListener("pointerup", toggle);
     box.addEventListener("touchstart", (e) => {
-      e.preventDefault();
       e.stopPropagation();
-    }, { passive: false });
+    }, { passive: true });
+    box.addEventListener("click", (e) => {
+      if (Date.now() - toggledAt < 320) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      toggle(e);
+    });
   }
 }
 
 function bindLongPressSelectable(button, itemId, context, openDetailFn) {
   if (!button) return;
+  const supportsPointer = typeof window !== "undefined" && "PointerEvent" in window;
   let timer = null;
   let longPressed = false;
   let touchMoved = false;
@@ -1966,11 +2030,14 @@ function bindLongPressSelectable(button, itemId, context, openDetailFn) {
   };
   button.classList.add("selectable-item");
   if (selectedItemIds.has(itemId) && selectionContext === context) button.classList.add("is-selected");
-  button.addEventListener("pointerdown", start);
-  button.addEventListener("pointerup", clear);
-  button.addEventListener("pointerleave", cancel);
-  button.addEventListener("pointercancel", cancel);
+  if (supportsPointer) {
+    button.addEventListener("pointerdown", start);
+    button.addEventListener("pointerup", clear);
+    button.addEventListener("pointerleave", cancel);
+    button.addEventListener("pointercancel", cancel);
+  }
   button.addEventListener("touchstart", (e) => {
+    if (supportsPointer) return;
     if (!e.touches?.length) return;
     touchMoved = false;
     touchStartX = e.touches[0].clientX;
@@ -1978,6 +2045,7 @@ function bindLongPressSelectable(button, itemId, context, openDetailFn) {
     start();
   }, { passive: true });
   button.addEventListener("touchmove", (e) => {
+    if (supportsPointer) return;
     if (!e.touches?.length) return;
     const dx = Math.abs(e.touches[0].clientX - touchStartX);
     const dy = Math.abs(e.touches[0].clientY - touchStartY);
@@ -1987,10 +2055,14 @@ function bindLongPressSelectable(button, itemId, context, openDetailFn) {
     }
   }, { passive: true });
   button.addEventListener("touchend", () => {
+    if (supportsPointer) return;
     if (touchMoved) cancel();
     else clear();
   }, { passive: true });
-  button.addEventListener("touchcancel", cancel, { passive: true });
+  button.addEventListener("touchcancel", (e) => {
+    if (supportsPointer) return;
+    cancel(e);
+  }, { passive: true });
   button.addEventListener("contextmenu", (e) => e.preventDefault());
   button.addEventListener("click", (e) => {
     e.preventDefault();
@@ -2648,26 +2720,33 @@ function renderTagTab() {
   }
   queuePhotoRefs(result.map((item) => item.itemPhotos?.[0]));
 
+  const selectionVisible = selectionContext === "closet" && selectedItemIds.size > 0;
   tagResult.innerHTML = result.length
     ? result
-      .map(
-        (item) => `
-          <button type="button" class="item-open-btn" data-open-item-detail="${item.id}">
-            <article class="item-row">
+      .map((item) => {
+        const selected = selectionVisible && selectedItemIds.has(item.id);
+        return `
+          <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" data-open-item-detail="${item.id}">
+            <article class="item-row ${selected ? "selected-lines" : ""}">
               <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
               <div>
-                <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</div>
+                <div>
+                  ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                  <strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}
+                </div>
                 <p class="meta">使用次數：${item.wearCountTotal || 0}</p>
               </div>
             </article>
-          </button>`
-      )
+          </button>`;
+      })
       .join("")
     : state.closetQuery ? emptyResultBlock("closet") : '<p class="meta">此標籤條件沒有商品。</p>';
 
   for (const btn of tagResult.querySelectorAll("[data-open-item-detail]")) {
-    btn.addEventListener("click", () => openItemDetail(btn.dataset.openItemDetail));
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, "closet", () => openItemDetail(itemId));
   }
+  bindSelectionCheckboxes(tagResult, "closet");
   bindClearSearchButtons(tagResult);
 }
 

@@ -10,6 +10,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --photo-edge-safe: 14px;
   --bottom-ad-height: 0px;
+  --app-font: "PMingLiU", "MingLiU", "Noto Sans TC", "PingFang TC", sans-serif;
 }
 
 * {
@@ -18,7 +19,7 @@
 
 body {
   margin: 0;
-  font-family: "Noto Sans TC", "PingFang TC", sans-serif;
+  font-family: var(--app-font);
   color: var(--ink);
   background: #ffffff;
   touch-action: manipulation;
@@ -292,6 +293,38 @@ body.with-bottom-ad {
   transform: rotate(45deg);
 }
 
+.icon-store {
+  width: 14px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  display: inline-block;
+  position: relative;
+  margin-top: 2px;
+}
+
+.icon-store::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -7px;
+  width: 14px;
+  height: 4px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+}
+
+.icon-store::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 5px;
+  width: 2px;
+  height: 6px;
+  background: currentColor;
+}
+
 .icon-folder {
   width: 16px;
   height: 12px;
@@ -437,6 +470,63 @@ body.with-bottom-ad {
   width: auto;
   white-space: nowrap;
   padding: 7px 10px;
+}
+
+.unlock-feature-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.unlock-feature-list li {
+  margin-bottom: 10px;
+}
+
+.unlock-feature-list p {
+  margin: 4px 0 0;
+}
+
+.unlock-feature-price {
+  margin: 8px 0 0;
+  font-weight: 600;
+  color: var(--theme);
+}
+
+.unlock-vip-section {
+  margin-top: 10px;
+}
+
+.unlock-vip-section label {
+  margin-bottom: 8px;
+  color: #bdbdbd;
+}
+
+.unlock-vip-section input {
+  text-transform: uppercase;
+  color: #bdbdbd;
+}
+
+.unlock-vip-section input::placeholder {
+  color: #bdbdbd;
+}
+
+.unlock-vip-section .unlock-action-btn {
+  width: 100%;
+}
+
+#applyVipCodeBtn {
+  background: #d3d3d3;
+  border-color: #d3d3d3;
+  color: #fff;
+}
+
+.unlock-feature-title {
+  color: var(--theme);
+}
+
+.unlock-action-btn {
+  background: var(--theme);
+  border-color: var(--theme);
+  color: #fff;
 }
 
 .pencil-icon {

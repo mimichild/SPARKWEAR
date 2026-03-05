@@ -28,6 +28,7 @@
         <button id="exportDataBtn" class="mini-action" type="button">匯出資料</button>
         <button id="importDataBtn" class="mini-action" type="button">匯入資料</button>
         <button id="openSettingsBtn" class="mini-action" type="button">設定</button>
+        <button id="openUnlockFeatureBtn" class="mini-action" type="button">解鎖功能</button>
       </div>
       <input id="importFileInput" type="file" accept="application/zip,.zip" class="hidden" />
     </section>
@@ -38,6 +39,7 @@
         <div class="head-actions">
           <button id="bulkMoveClosetBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span class="icon-folder" aria-hidden="true"></span></button>
           <button id="bulkDeleteClosetBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
+          <button id="openUnlockClosetBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span class="icon-store" aria-hidden="true"></span></button>
           <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
           <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
@@ -104,6 +106,7 @@
         <h1>穿搭紀錄</h1>
         <div class="head-actions">
           <button id="bulkDeleteOutfitBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
+          <button id="openUnlockOutfitBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span class="icon-store" aria-hidden="true"></span></button>
           <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
           <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
@@ -337,6 +340,7 @@
       <div class="head-actions">
         <button id="bulkMoveCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span class="icon-folder" aria-hidden="true"></span></button>
         <button id="bulkDeleteCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span class="icon-trash" aria-hidden="true"></span></button>
+        <button id="openUnlockCategoryItemsBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span class="icon-store" aria-hidden="true"></span></button>
         <button id="toggleCategoryItemsSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search" aria-hidden="true"></span></button>
         <button id="closeCategoryItemsPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
       </div>
@@ -469,11 +473,57 @@
         <p class="meta">調色盤</p>
         <div id="themePaletteGrid" class="theme-palette-grid"></div>
       </section>
+      <section class="theme-presets">
+        <p class="meta">文字格式</p>
+        <label>
+          字體樣式
+          <select id="fontFamilySelect">
+            <option value="default">新細明體（預設）</option>
+            <option value="noto">思源黑體</option>
+            <option value="jhenghei">微軟正黑體</option>
+            <option value="kai">標楷體</option>
+          </select>
+        </label>
+        <p id="fontFeatureHint" class="meta hidden">解鎖進階功能後即可切換文字格式。</p>
+      </section>
       <div class="actions">
         <button id="cancelSettings" type="button">取消</button>
         <button id="saveSettings" type="submit">確定</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="unlockFeatureDialog">
+    <article class="dialog-card">
+      <h2 class="unlock-feature-title">解鎖進階功能</h2>
+      <p>解鎖進階功能可以改善使用方便性，歡迎升級。</p>
+      <ol class="unlock-feature-list">
+        <li>
+          <strong>移除所有廣告</strong>
+          <p>購買一次就再也不用看廣告囉</p>
+        </li>
+        <li>
+          <strong>增加更多附件檔案</strong>
+          <p>一次最多可以新增20張照片</p>
+        </li>
+        <li>
+          <strong>改變文字的精緻度</strong>
+          <p>改變所選的文字格式，讓文字更精美</p>
+        </li>
+      </ol>
+      <p class="unlock-feature-price">一次性計費，$30元，即可永久升級</p>
+      <section class="unlock-vip-section">
+        <label>
+          VIP CODE
+          <input id="vipCodeInput" type="text" placeholder="輸入 VIP CODE" autocomplete="off" />
+        </label>
+        <button id="applyVipCodeBtn" class="unlock-action-btn" type="button">使用 VIP CODE 解鎖</button>
+      </section>
+      <div class="actions">
+        <button id="closeUnlockFeatureDialog" class="unlock-action-btn" type="button">稍後再說</button>
+        <button id="confirmUnlockFeature" class="unlock-action-btn" type="button">立即解鎖</button>
+      </div>
+    </article>
   </dialog>
 
   <dialog id="bulkDeleteOutfitDialog">

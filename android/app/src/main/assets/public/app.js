@@ -7,7 +7,10 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.23+24";
+const APP_VERSION_LABEL = "v1.0.28+29";
+const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
+const APP_FONT_KEY = "spark_app_font";
+const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
 const NATIVE_BACKUP_CHUNK_BYTES = 256 * 1024;
 const NATIVE_BACKUP_BASE64_BLOCK = 0x8000;
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
@@ -37,6 +40,7 @@ const outfitPage = document.getElementById("outfitPage");
 const exportDataBtn = document.getElementById("exportDataBtn");
 const importDataBtn = document.getElementById("importDataBtn");
 const openSettingsBtn = document.getElementById("openSettingsBtn");
+const openUnlockFeatureBtn = document.getElementById("openUnlockFeatureBtn");
 const importFileInput = document.getElementById("importFileInput");
 const storageStatsText = null;
 const appVersionText = document.getElementById("appVersionText");
@@ -211,11 +215,19 @@ const settingsDialog = document.getElementById("settingsDialog");
 const settingsForm = document.getElementById("settingsForm");
 const themeColorInput = document.getElementById("themeColorInput");
 const themePaletteGrid = document.getElementById("themePaletteGrid");
+const fontFamilySelect = document.getElementById("fontFamilySelect");
+const fontFeatureHint = document.getElementById("fontFeatureHint");
 const cancelSettings = document.getElementById("cancelSettings");
 const bulkDeleteOutfitDialog = document.getElementById("bulkDeleteOutfitDialog");
 const bulkDeleteOutfitText = document.getElementById("bulkDeleteOutfitText");
 const cancelBulkDeleteOutfit = document.getElementById("cancelBulkDeleteOutfit");
 const confirmBulkDeleteOutfit = document.getElementById("confirmBulkDeleteOutfit");
+const unlockFeatureDialog = document.getElementById("unlockFeatureDialog");
+const closeUnlockFeatureDialog = document.getElementById("closeUnlockFeatureDialog");
+const confirmUnlockFeature = document.getElementById("confirmUnlockFeature");
+const vipCodeInput = document.getElementById("vipCodeInput");
+const applyVipCodeBtn = document.getElementById("applyVipCodeBtn");
+const openUnlockEntryBtns = document.querySelectorAll("[data-open-unlock]");
 
 let detailItemPhotos = [];
 let detailPhotoIndex = 0;
@@ -254,6 +266,8 @@ let pullRefreshTracking = false;
 let pullRefreshTriggered = false;
 let pullRefreshing = false;
 let bottomAdRendered = false;
+let proUnlocked = loadUnlockFeatureState();
+let pendingFontFamily = loadAppFontKey();
 
 if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
 if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
@@ -271,6 +285,9 @@ document.body.classList.add(`platform-${platform}`);
 
 applyThemeColor(loadThemeColor());
 pendingThemeColor = loadThemeColor();
+const initialFontFamily = proUnlocked ? loadAppFontKey() : "default";
+applyAppFont(initialFontFamily);
+pendingFontFamily = initialFontFamily;
 renderThemePalette();
 
 // 初始化狀態列
@@ -576,6 +593,10 @@ clearCategoryItemsSearch.addEventListener("click", () => clearSearch("categoryIt
 exportDataBtn.addEventListener("click", exportDataAsJson);
 importDataBtn.addEventListener("click", () => importFileInput.click());
 openSettingsBtn.addEventListener("click", () => openSettingsDialog());
+openUnlockFeatureBtn?.addEventListener("click", () => openUnlockFeatureDialog());
+for (const btn of openUnlockEntryBtns) {
+  btn.addEventListener("click", () => openUnlockFeatureDialog());
+}
 settingsDialog.addEventListener("click", (e) => {
   const btn = e.target instanceof Element ? e.target.closest("[data-theme-color]") : null;
   if (!btn) return;
@@ -604,6 +625,17 @@ settingsForm.addEventListener("submit", (e) => onSaveSettings(e));
 themeColorInput?.addEventListener("input", () => {
   pendingThemeColor = normalizeThemeHex(themeColorInput.value);
   updateThemeColorActive(themeColorInput.value);
+});
+fontFamilySelect?.addEventListener("change", () => {
+  pendingFontFamily = normalizeAppFontKey(fontFamilySelect.value);
+});
+closeUnlockFeatureDialog?.addEventListener("click", () => unlockFeatureDialog?.close());
+confirmUnlockFeature?.addEventListener("click", () => onConfirmUnlockFeature());
+applyVipCodeBtn?.addEventListener("click", () => onApplyVipCode());
+vipCodeInput?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  onApplyVipCode();
 });
 photoCropDialog.addEventListener("cancel", (e) => {
   e.preventDefault();
@@ -645,6 +677,7 @@ initApp();
 
 async function initApp() {
   initBottomAd();
+  syncUnlockFeatureUi();
   try {
     await warmupInitialPhotos();
   } catch (err) {
@@ -710,7 +743,7 @@ function renderBottomAdOnce() {
 
 function updateBottomAdVisibility() {
   if (!bottomAdBanner) return;
-  const shouldShow = currentMainPage() !== "home";
+  const shouldShow = currentMainPage() !== "home" && !proUnlocked;
   bottomAdBanner.classList.toggle("hidden", !shouldShow);
   bottomAdBanner.setAttribute("aria-hidden", shouldShow ? "false" : "true");
   document.body.classList.toggle("with-bottom-ad", shouldShow);
@@ -956,6 +989,7 @@ function closeTopOverlay() {
     bulkCategoryDialog,
     bulkDeleteDialog,
     settingsDialog,
+    unlockFeatureDialog,
   ];
   for (const dialog of dialogs) {
     if (dialog?.open) {
@@ -993,6 +1027,7 @@ function hasOpenOverlay() {
     bulkCategoryDialog,
     bulkDeleteDialog,
     settingsDialog,
+    unlockFeatureDialog,
   ]
     .some((dialog) => Boolean(dialog?.open));
 }
@@ -1013,6 +1048,7 @@ function hasBlockingDialogOpenForPullRefresh() {
     bulkDeleteDialog,
     bulkDeleteOutfitDialog,
     settingsDialog,
+    unlockFeatureDialog,
   ].some((dialog) => Boolean(dialog?.open));
 }
 
@@ -1218,7 +1254,12 @@ async function onPhotoInputChanged(type) {
   const isItem = type === "item";
   const input = isItem ? itemPhotosInput : outfitPhotosInput;
   if (!input) return;
+  const limit = getPhotoUploadLimit();
   const files = Array.from(input.files || []).filter((file) => file && String(file.type || "").startsWith("image/"));
+  const limitedFiles = files.slice(0, limit);
+  if (files.length > limit) {
+    alert(`目前最多可上傳 ${limit} 張照片。`);
+  }
   if (!files.length) {
     if (isItem) stagedItemUploadFiles = null;
     else stagedOutfitUploadFiles = null;
@@ -1226,7 +1267,7 @@ async function onPhotoInputChanged(type) {
   }
   const profile = isItem ? "grid" : "detail";
   try {
-    const cropped = await cropFilesForUpload(files, profile);
+    const cropped = await cropFilesForUpload(limitedFiles, profile);
     if (isItem) stagedItemUploadFiles = cropped;
     else stagedOutfitUploadFiles = cropped;
   } catch (err) {
@@ -1239,8 +1280,8 @@ async function onPhotoInputChanged(type) {
       return;
     }
     console.warn("onPhotoInputChanged crop failed, fallback to original files:", err);
-    if (isItem) stagedItemUploadFiles = files;
-    else stagedOutfitUploadFiles = files;
+    if (isItem) stagedItemUploadFiles = limitedFiles;
+    else stagedOutfitUploadFiles = limitedFiles;
   }
 }
 
@@ -1460,12 +1501,17 @@ async function onSaveItem(e) {
   e.preventDefault();
   const fd = new FormData(itemForm);
   let newPhotos = [];
+  const photoLimit = getPhotoUploadLimit();
   const hasFileSelection = Boolean(itemPhotosInput?.files?.length);
   try {
     if (hasFileSelection) {
       startUploadProgress("照片壓縮中...");
       const uploadFiles = stagedItemUploadFiles?.length ? stagedItemUploadFiles : Array.from(itemPhotosInput?.files || []);
-      newPhotos = await filesToPhotoRefs(uploadFiles, "grid", (done, total) => {
+      const limitedUploadFiles = uploadFiles.slice(0, photoLimit);
+      if (uploadFiles.length > photoLimit) {
+        alert(`目前最多可上傳 ${photoLimit} 張照片。`);
+      }
+      newPhotos = await filesToPhotoRefs(limitedUploadFiles, "grid", (done, total) => {
         setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已處理 ${done}/${total} 張`);
       });
     }
@@ -1484,7 +1530,10 @@ async function onSaveItem(e) {
   const keptOldPhotos = editing
     ? (editing.itemPhotos || []).filter((_, idx) => !deletedIndexes.has(idx))
     : [];
-  const finalPhotos = editing ? [...keptOldPhotos, ...newPhotos] : newPhotos;
+  let finalPhotos = editing ? [...keptOldPhotos, ...newPhotos] : newPhotos;
+  if (finalPhotos.length > photoLimit && (!editing || newPhotos.length > 0)) {
+    finalPhotos = finalPhotos.slice(0, photoLimit);
+  }
   const detachedPhotos = editing ? diffRemovedPhotoRefs(editing.itemPhotos || [], finalPhotos) : [];
 
   const item = {
@@ -1545,16 +1594,21 @@ async function onSaveOutfit(e) {
   e.preventDefault();
   const fd = new FormData(outfitForm);
   let photos = [];
+  const photoLimit = getPhotoUploadLimit();
   const hasFileSelection = Boolean(outfitForm.outfitPhotos.files?.length);
   try {
     startUploadProgress(hasFileSelection ? "照片壓縮中..." : "挑選照片中...");
     if (hasFileSelection) {
       const uploadFiles = stagedOutfitUploadFiles?.length ? stagedOutfitUploadFiles : Array.from(outfitForm.outfitPhotos.files || []);
-      photos = await filesToPhotoRefs(uploadFiles, "detail", (done, total) => {
+      const limitedUploadFiles = uploadFiles.slice(0, photoLimit);
+      if (uploadFiles.length > photoLimit) {
+        alert(`目前最多可上傳 ${photoLimit} 張照片。`);
+      }
+      photos = await filesToPhotoRefs(limitedUploadFiles, "detail", (done, total) => {
         setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已處理 ${done}/${total} 張`);
       });
     } else if (!editingOutfitId) {
-      photos = await pickAndSavePhotosViaBridge(20, "detail", (done, total) => {
+      photos = await pickAndSavePhotosViaBridge(photoLimit, "detail", (done, total) => {
         setUploadProgress(20 + Math.round((done / Math.max(total, 1)) * 60), `已儲存 ${done}/${total} 張`);
       });
     }
@@ -1570,7 +1624,7 @@ async function onSaveOutfit(e) {
   }
 
   const editing = editingOutfitId ? state.dailyLogs.find((x) => x.id === editingOutfitId) : null;
-  const finalPhotos = photos.length ? photos.slice(0, 20) : editing?.outfitPhotos || [];
+  const finalPhotos = photos.length ? photos.slice(0, photoLimit) : editing?.outfitPhotos || [];
   const detachedPhotos = editing ? diffRemovedPhotoRefs(editing.outfitPhotos || [], finalPhotos) : [];
   const log = {
     id: editing?.id || crypto.randomUUID(),
@@ -1871,6 +1925,49 @@ function loadThemeColor() {
   }
 }
 
+function normalizeAppFontKey(value) {
+  const key = String(value || "default").trim().toLowerCase();
+  if (["default", "noto", "jhenghei", "kai"].includes(key)) return key;
+  return "default";
+}
+
+function loadAppFontKey() {
+  try {
+    return normalizeAppFontKey(localStorage.getItem(APP_FONT_KEY));
+  } catch {
+    return "default";
+  }
+}
+
+function appFontCssValue(key) {
+  if (key === "noto") return '"Noto Sans TC", "PingFang TC", sans-serif';
+  if (key === "jhenghei") return '"Microsoft JhengHei", "PingFang TC", sans-serif';
+  if (key === "kai") return '"DFKai-SB", "BiauKai", serif';
+  return '"PMingLiU", "MingLiU", "Noto Sans TC", "PingFang TC", sans-serif';
+}
+
+function applyAppFont(key) {
+  const normalized = normalizeAppFontKey(key);
+  document.documentElement.style.setProperty("--app-font", appFontCssValue(normalized));
+}
+
+function loadUnlockFeatureState() {
+  try {
+    return localStorage.getItem(UNLOCK_FEATURE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setUnlockFeatureState(unlocked) {
+  proUnlocked = Boolean(unlocked);
+  try {
+    localStorage.setItem(UNLOCK_FEATURE_KEY, proUnlocked ? "1" : "0");
+  } catch {
+    // ignore storage failures
+  }
+}
+
 function applyThemeColor(hex) {
   const color = normalizeThemeHex(hex);
   document.documentElement.style.setProperty("--theme", color);
@@ -1901,7 +1998,10 @@ function renderThemePalette() {
 function openSettingsDialog() {
   const color = loadThemeColor();
   pendingThemeColor = color;
+  pendingFontFamily = loadAppFontKey();
   if (themeColorInput) themeColorInput.value = color;
+  if (fontFamilySelect) fontFamilySelect.value = pendingFontFamily;
+  syncUnlockFeatureUi();
   updateThemeColorActive(color);
   settingsDialog.showModal();
 }
@@ -1909,12 +2009,16 @@ function openSettingsDialog() {
 async function onSaveSettings(e) {
   e.preventDefault();
   const color = normalizeThemeHex(pendingThemeColor || themeColorInput?.value || "#f1aba7");
+  const nextFont = proUnlocked ? normalizeAppFontKey(pendingFontFamily || fontFamilySelect?.value) : "default";
   try {
     localStorage.setItem(ACTIVE_THEME_COLOR_KEY, color);
+    localStorage.setItem(APP_FONT_KEY, nextFont);
   } catch {
     // ignore storage failures
   }
   applyThemeColor(color);
+  applyAppFont(nextFont);
+  pendingFontFamily = nextFont;
   await initStatusBar();
   updateThemeColorActive(color);
   settingsDialog.close();
@@ -1925,6 +2029,79 @@ function updateThemeColorActive(hex) {
   for (const btn of document.querySelectorAll("[data-theme-color]")) {
     btn.classList.toggle("is-active", normalizeThemeHex(btn.dataset.themeColor || "") === active);
   }
+}
+
+function syncUnlockFeatureUi() {
+  if (openUnlockFeatureBtn) {
+    openUnlockFeatureBtn.textContent = proUnlocked ? "已解鎖進階" : "解鎖功能";
+  }
+  if (confirmUnlockFeature) {
+    confirmUnlockFeature.textContent = proUnlocked ? "已永久解鎖" : "立即解鎖";
+    confirmUnlockFeature.disabled = proUnlocked;
+  }
+  if (fontFamilySelect) {
+    fontFamilySelect.disabled = !proUnlocked;
+    if (!proUnlocked) fontFamilySelect.value = "default";
+  }
+  if (fontFeatureHint) {
+    fontFeatureHint.classList.toggle("hidden", proUnlocked);
+  }
+  if (vipCodeInput) {
+    vipCodeInput.disabled = proUnlocked;
+    if (proUnlocked) vipCodeInput.value = "";
+  }
+  if (applyVipCodeBtn) {
+    applyVipCodeBtn.disabled = proUnlocked;
+    applyVipCodeBtn.textContent = proUnlocked ? "VIP 已啟用" : "使用 VIP CODE 解鎖";
+  }
+}
+
+function openUnlockFeatureDialog() {
+  syncUnlockFeatureUi();
+  unlockFeatureDialog?.showModal();
+}
+
+function onConfirmUnlockFeature() {
+  if (proUnlocked) {
+    unlockFeatureDialog?.close();
+    return;
+  }
+  const approved = window.confirm("將以一次性 $30 元解鎖進階功能，確認要升級嗎？");
+  if (!approved) return;
+  setUnlockFeatureState(true);
+  syncUnlockFeatureUi();
+  updateBottomAdVisibility();
+  alert("已完成進階功能解鎖。");
+  unlockFeatureDialog?.close();
+}
+
+function normalizeVipCode(value) {
+  return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function onApplyVipCode() {
+  if (proUnlocked) {
+    unlockFeatureDialog?.close();
+    return;
+  }
+  const entered = normalizeVipCode(vipCodeInput?.value || "");
+  if (!entered) {
+    alert("請輸入 VIP CODE。");
+    return;
+  }
+  if (entered !== VIP_UNLOCK_CODE) {
+    alert("VIP CODE 錯誤，請重新輸入。");
+    return;
+  }
+  setUnlockFeatureState(true);
+  syncUnlockFeatureUi();
+  updateBottomAdVisibility();
+  alert("VIP CODE 驗證成功，已啟用全部進階功能。");
+  unlockFeatureDialog?.close();
+}
+
+function getPhotoUploadLimit() {
+  return proUnlocked ? 20 : 2;
 }
 
 function clearSelectionMode() {

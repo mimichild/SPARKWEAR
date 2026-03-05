@@ -475,20 +475,32 @@
       </section>
       <section class="theme-presets">
         <p class="meta">文字格式</p>
-        <label>
-          字體樣式
-          <select id="fontFamilySelect">
-            <option value="default">新細明體（預設）</option>
-            <option value="noto">思源黑體</option>
-            <option value="jhenghei">微軟正黑體</option>
-            <option value="kai">標楷體</option>
-          </select>
-        </label>
-        <p id="fontFeatureHint" class="meta hidden">解鎖進階功能後即可切換文字格式。</p>
+        <div id="fontFeatureControl" class="hidden">
+          <button id="openFontPickerBtn" class="mini-action" type="button">修改文字格式</button>
+          <p id="fontCurrentLabel" class="meta">目前字體：新細明體（預設）</p>
+        </div>
+        <p id="fontFeatureHint" class="meta">解鎖進階功能後即可切換文字格式。</p>
       </section>
       <div class="actions">
         <button id="cancelSettings" type="button">取消</button>
         <button id="saveSettings" type="submit">確定</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="fontPickerDialog">
+    <form id="fontPickerForm" class="dialog-card" method="dialog">
+      <h2>修改文字格式</h2>
+      <p class="meta">提供 50 種熱門字體供選擇，確認後會套用到 APP 全部頁面。</p>
+      <label>
+        字體樣式
+        <div id="fontPickerList" class="font-picker-list" role="listbox" aria-label="字體樣式"></div>
+      </label>
+      <p class="meta font-preview-label">字體預覽</p>
+      <p id="fontPickerPreview" class="meta font-preview-text">國字English123</p>
+      <div class="actions">
+        <button id="cancelFontPicker" type="button">取消</button>
+        <button id="confirmFontPicker" type="button">確認</button>
       </div>
     </form>
   </dialog>

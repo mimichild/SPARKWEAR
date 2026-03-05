@@ -7,10 +7,64 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.28+29";
+const APP_VERSION_LABEL = "v1.0.37+38";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
+const APP_FONT_PREVIEW_TEXT = "國字English123";
+const APP_FONT_OPTIONS = [
+  { key: "default", label: "新細明體（預設）", css: '"PMingLiU", "MingLiU", "Noto Sans TC", "PingFang TC", sans-serif' },
+  { key: "times_new_roman", label: "Times New Roman", css: '"Times New Roman", Times, serif' },
+  { key: "arial", label: "Arial", css: "Arial, Helvetica, sans-serif" },
+  { key: "helvetica", label: "Helvetica", css: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
+  { key: "georgia", label: "Georgia", css: "Georgia, serif" },
+  { key: "garamond", label: "Garamond", css: 'Garamond, "Times New Roman", serif' },
+  { key: "palatino", label: "Palatino", css: '"Palatino Linotype", Palatino, serif' },
+  { key: "bookman", label: "Bookman", css: '"Bookman Old Style", Bookman, serif' },
+  { key: "trebuchet_ms", label: "Trebuchet MS", css: '"Trebuchet MS", sans-serif' },
+  { key: "verdana", label: "Verdana", css: "Verdana, Geneva, sans-serif" },
+  { key: "tahoma", label: "Tahoma", css: "Tahoma, Geneva, sans-serif" },
+  { key: "courier_new", label: "Courier New", css: '"Courier New", Courier, monospace' },
+  { key: "consolas", label: "Consolas", css: "Consolas, monospace" },
+  { key: "monaco", label: "Monaco", css: "Monaco, monospace" },
+  { key: "lucida_console", label: "Lucida Console", css: '"Lucida Console", Monaco, monospace' },
+  { key: "segoe_ui", label: "Segoe UI", css: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif' },
+  { key: "calibri", label: "Calibri", css: 'Calibri, "Segoe UI", sans-serif' },
+  { key: "cambria", label: "Cambria", css: 'Cambria, Georgia, serif' },
+  { key: "optima", label: "Optima", css: "Optima, sans-serif" },
+  { key: "didot", label: "Didot", css: "Didot, serif" },
+  { key: "baskerville", label: "Baskerville", css: "Baskerville, serif" },
+  { key: "franklin_gothic", label: "Franklin Gothic", css: '"Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif' },
+  { key: "futura", label: "Futura", css: 'Futura, "Trebuchet MS", Arial, sans-serif' },
+  { key: "avenir", label: "Avenir", css: '"Avenir Next", Avenir, "Segoe UI", sans-serif' },
+  { key: "gill_sans", label: "Gill Sans", css: '"Gill Sans", "Gill Sans MT", Calibri, sans-serif' },
+  { key: "century_gothic", label: "Century Gothic", css: '"Century Gothic", sans-serif' },
+  { key: "rockwell", label: "Rockwell", css: "Rockwell, serif" },
+  { key: "bodoni_mt", label: "Bodoni MT", css: '"Bodoni MT", Didot, serif' },
+  { key: "impact", label: "Impact", css: "Impact, Charcoal, sans-serif" },
+  { key: "brush_script_mt", label: "Brush Script MT", css: '"Brush Script MT", cursive' },
+  { key: "comic_sans_ms", label: "Comic Sans MS", css: '"Comic Sans MS", cursive, sans-serif' },
+  { key: "candara", label: "Candara", css: "Candara, sans-serif" },
+  { key: "constantia", label: "Constantia", css: "Constantia, serif" },
+  { key: "corbel", label: "Corbel", css: "Corbel, sans-serif" },
+  { key: "hoefler_text", label: "Hoefler Text", css: '"Hoefler Text", "Baskerville Old Face", serif' },
+  { key: "perpetua", label: "Perpetua", css: "Perpetua, serif" },
+  { key: "copperplate", label: "Copperplate", css: '"Copperplate", "Copperplate Gothic Light", fantasy' },
+  { key: "noto_sans_tc", label: "Noto Sans TC", css: '"Noto Sans TC", "PingFang TC", sans-serif' },
+  { key: "noto_serif_tc", label: "Noto Serif TC", css: '"Noto Serif TC", "PMingLiU", serif' },
+  { key: "microsoft_jhenghei", label: "微軟正黑體", css: '"Microsoft JhengHei", "PingFang TC", sans-serif' },
+  { key: "pingfang_tc", label: "PingFang TC", css: '"PingFang TC", "Microsoft JhengHei", sans-serif' },
+  { key: "heiti_tc", label: "Heiti TC", css: '"Heiti TC", "PingFang TC", sans-serif' },
+  { key: "dfkai_sb", label: "標楷體", css: '"DFKai-SB", "BiauKai", serif' },
+  { key: "simsun", label: "SimSun", css: 'SimSun, "Songti SC", serif' },
+  { key: "microsoft_yahei", label: "微軟雅黑", css: '"Microsoft YaHei", "PingFang SC", sans-serif' },
+  { key: "source_sans_3", label: "Source Sans 3", css: '"Source Sans 3", "Segoe UI", sans-serif' },
+  { key: "source_serif_4", label: "Source Serif 4", css: '"Source Serif 4", Georgia, serif' },
+  { key: "roboto", label: "Roboto", css: 'Roboto, "Segoe UI", Arial, sans-serif' },
+  { key: "open_sans", label: "Open Sans", css: '"Open Sans", "Segoe UI", sans-serif' },
+  { key: "lato", label: "Lato", css: 'Lato, "Segoe UI", sans-serif' },
+];
+const APP_FONT_OPTION_MAP = new Map(APP_FONT_OPTIONS.map((option) => [option.key, option]));
 const NATIVE_BACKUP_CHUNK_BYTES = 256 * 1024;
 const NATIVE_BACKUP_BASE64_BLOCK = 0x8000;
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
@@ -215,8 +269,16 @@ const settingsDialog = document.getElementById("settingsDialog");
 const settingsForm = document.getElementById("settingsForm");
 const themeColorInput = document.getElementById("themeColorInput");
 const themePaletteGrid = document.getElementById("themePaletteGrid");
-const fontFamilySelect = document.getElementById("fontFamilySelect");
+const fontFeatureControl = document.getElementById("fontFeatureControl");
+const openFontPickerBtn = document.getElementById("openFontPickerBtn");
+const fontCurrentLabel = document.getElementById("fontCurrentLabel");
 const fontFeatureHint = document.getElementById("fontFeatureHint");
+const fontPickerDialog = document.getElementById("fontPickerDialog");
+const fontPickerForm = document.getElementById("fontPickerForm");
+const fontPickerList = document.getElementById("fontPickerList");
+const fontPickerPreview = document.getElementById("fontPickerPreview");
+const cancelFontPicker = document.getElementById("cancelFontPicker");
+const confirmFontPicker = document.getElementById("confirmFontPicker");
 const cancelSettings = document.getElementById("cancelSettings");
 const bulkDeleteOutfitDialog = document.getElementById("bulkDeleteOutfitDialog");
 const bulkDeleteOutfitText = document.getElementById("bulkDeleteOutfitText");
@@ -289,6 +351,9 @@ const initialFontFamily = proUnlocked ? loadAppFontKey() : "default";
 applyAppFont(initialFontFamily);
 pendingFontFamily = initialFontFamily;
 renderThemePalette();
+renderFontPickerOptions();
+updateCurrentFontLabel(initialFontFamily);
+updateFontPickerPreview(initialFontFamily);
 
 // 初始化狀態列
 const initStatusBar = async () => {
@@ -622,13 +687,15 @@ cancelBulkDeleteOutfit.addEventListener("click", () => bulkDeleteOutfitDialog.cl
 confirmBulkDeleteOutfit.addEventListener("click", () => onConfirmBulkDeleteOutfit());
 cancelSettings.addEventListener("click", () => settingsDialog.close());
 settingsForm.addEventListener("submit", (e) => onSaveSettings(e));
+fontPickerForm?.addEventListener("submit", (e) => e.preventDefault());
 themeColorInput?.addEventListener("input", () => {
   pendingThemeColor = normalizeThemeHex(themeColorInput.value);
   updateThemeColorActive(themeColorInput.value);
 });
-fontFamilySelect?.addEventListener("change", () => {
-  pendingFontFamily = normalizeAppFontKey(fontFamilySelect.value);
-});
+openFontPickerBtn?.addEventListener("click", () => openFontPickerDialog());
+cancelFontPicker?.addEventListener("click", () => fontPickerDialog?.close());
+confirmFontPicker?.addEventListener("click", () => onConfirmFontPicker());
+fontPickerList?.addEventListener("click", (e) => onSelectFontOption(e));
 closeUnlockFeatureDialog?.addEventListener("click", () => unlockFeatureDialog?.close());
 confirmUnlockFeature?.addEventListener("click", () => onConfirmUnlockFeature());
 applyVipCodeBtn?.addEventListener("click", () => onApplyVipCode());
@@ -1927,7 +1994,7 @@ function loadThemeColor() {
 
 function normalizeAppFontKey(value) {
   const key = String(value || "default").trim().toLowerCase();
-  if (["default", "noto", "jhenghei", "kai"].includes(key)) return key;
+  if (APP_FONT_OPTION_MAP.has(key)) return key;
   return "default";
 }
 
@@ -1940,10 +2007,98 @@ function loadAppFontKey() {
 }
 
 function appFontCssValue(key) {
-  if (key === "noto") return '"Noto Sans TC", "PingFang TC", sans-serif';
-  if (key === "jhenghei") return '"Microsoft JhengHei", "PingFang TC", sans-serif';
-  if (key === "kai") return '"DFKai-SB", "BiauKai", serif';
-  return '"PMingLiU", "MingLiU", "Noto Sans TC", "PingFang TC", sans-serif';
+  return APP_FONT_OPTION_MAP.get(normalizeAppFontKey(key))?.css || APP_FONT_OPTION_MAP.get("default")?.css || '"PMingLiU", "MingLiU", sans-serif';
+}
+
+function appFontLabel(key) {
+  return APP_FONT_OPTION_MAP.get(normalizeAppFontKey(key))?.label || "新細明體（預設）";
+}
+
+function appFontEnName(option) {
+  return option?.label || "";
+}
+
+function appFontZhName(option) {
+  const key = option?.key || "";
+  if (key === "default") return "新細明體";
+  if (key === "microsoft_jhenghei") return "微軟正黑體";
+  if (key === "pingfang_tc") return "蘋方體";
+  if (key === "heiti_tc") return "黑體";
+  if (key === "dfkai_sb") return "標楷體";
+  if (key === "simsun") return "宋體";
+  if (key === "microsoft_yahei") return "微軟雅黑";
+  if (key === "noto_sans_tc") return "思源黑體";
+  if (key === "noto_serif_tc") return "思源宋體";
+  if (/[\u4e00-\u9fff]/.test(option?.label || "")) return option.label;
+  return "英文字體";
+}
+
+function isChineseFontOption(option) {
+  const key = option?.key || "";
+  return ["default", "noto_sans_tc", "noto_serif_tc", "microsoft_jhenghei", "pingfang_tc", "heiti_tc", "dfkai_sb", "simsun", "microsoft_yahei"].includes(key);
+}
+
+function renderFontPickerOptions() {
+  if (!fontPickerList) return;
+  const enCollator = new Intl.Collator("en", { sensitivity: "base" });
+  const zhStrokeCollator = new Intl.Collator("zh-Hant-u-co-stroke");
+  const englishFonts = APP_FONT_OPTIONS.filter((option) => !isChineseFontOption(option)).sort((a, b) => enCollator.compare(appFontEnName(a), appFontEnName(b)));
+  const chineseFonts = APP_FONT_OPTIONS.filter((option) => isChineseFontOption(option)).sort((a, b) => zhStrokeCollator.compare(appFontZhName(a), appFontZhName(b)));
+  const renderSection = (list) =>
+    `<div class="font-picker-section">${list
+      .map(
+        (option) =>
+          `<button type="button" class="font-picker-option" data-font-key="${escapeAttr(option.key)}" style="font-family:${escapeAttr(option.css)};" role="option" aria-selected="false">${escapeHtml(isChineseFontOption(option) ? appFontZhName(option) : appFontEnName(option))}</button>`
+      )
+      .join("")}</div>`;
+  fontPickerList.innerHTML = [renderSection(englishFonts), renderSection(chineseFonts)].join("");
+}
+
+function syncFontPickerActive(key) {
+  const active = normalizeAppFontKey(key);
+  if (!fontPickerList) return;
+  for (const btn of fontPickerList.querySelectorAll(".font-picker-option")) {
+    const selected = normalizeAppFontKey(btn.getAttribute("data-font-key")) === active;
+    btn.classList.toggle("is-active", selected);
+    btn.setAttribute("aria-selected", selected ? "true" : "false");
+  }
+}
+
+function onSelectFontOption(e) {
+  const btn = e.target instanceof Element ? e.target.closest(".font-picker-option") : null;
+  if (!btn) return;
+  pendingFontFamily = normalizeAppFontKey(btn.getAttribute("data-font-key") || pendingFontFamily);
+  updateFontPickerPreview(pendingFontFamily);
+}
+
+function updateFontPickerPreview(key) {
+  const normalized = normalizeAppFontKey(key);
+  const cssFont = appFontCssValue(normalized);
+  syncFontPickerActive(normalized);
+  if (fontPickerPreview) {
+    fontPickerPreview.style.fontFamily = cssFont;
+    fontPickerPreview.textContent = APP_FONT_PREVIEW_TEXT;
+  }
+}
+
+function updateCurrentFontLabel(key) {
+  if (!fontCurrentLabel) return;
+  fontCurrentLabel.textContent = `目前字體：${appFontLabel(key)}`;
+}
+
+function openFontPickerDialog() {
+  if (!proUnlocked) {
+    alert("請先解鎖進階功能，才能修改文字格式。");
+    return;
+  }
+  updateFontPickerPreview(pendingFontFamily);
+  fontPickerDialog?.showModal();
+}
+
+function onConfirmFontPicker() {
+  pendingFontFamily = normalizeAppFontKey(pendingFontFamily);
+  updateCurrentFontLabel(pendingFontFamily);
+  fontPickerDialog?.close();
 }
 
 function applyAppFont(key) {
@@ -2000,7 +2155,8 @@ function openSettingsDialog() {
   pendingThemeColor = color;
   pendingFontFamily = loadAppFontKey();
   if (themeColorInput) themeColorInput.value = color;
-  if (fontFamilySelect) fontFamilySelect.value = pendingFontFamily;
+  updateCurrentFontLabel(pendingFontFamily);
+  updateFontPickerPreview(pendingFontFamily);
   syncUnlockFeatureUi();
   updateThemeColorActive(color);
   settingsDialog.showModal();
@@ -2009,7 +2165,7 @@ function openSettingsDialog() {
 async function onSaveSettings(e) {
   e.preventDefault();
   const color = normalizeThemeHex(pendingThemeColor || themeColorInput?.value || "#f1aba7");
-  const nextFont = proUnlocked ? normalizeAppFontKey(pendingFontFamily || fontFamilySelect?.value) : "default";
+  const nextFont = proUnlocked ? normalizeAppFontKey(pendingFontFamily) : "default";
   try {
     localStorage.setItem(ACTIVE_THEME_COLOR_KEY, color);
     localStorage.setItem(APP_FONT_KEY, nextFont);
@@ -2019,6 +2175,7 @@ async function onSaveSettings(e) {
   applyThemeColor(color);
   applyAppFont(nextFont);
   pendingFontFamily = nextFont;
+  updateCurrentFontLabel(nextFont);
   await initStatusBar();
   updateThemeColorActive(color);
   settingsDialog.close();
@@ -2039,9 +2196,8 @@ function syncUnlockFeatureUi() {
     confirmUnlockFeature.textContent = proUnlocked ? "已永久解鎖" : "立即解鎖";
     confirmUnlockFeature.disabled = proUnlocked;
   }
-  if (fontFamilySelect) {
-    fontFamilySelect.disabled = !proUnlocked;
-    if (!proUnlocked) fontFamilySelect.value = "default";
+  if (fontFeatureControl) {
+    fontFeatureControl.classList.toggle("hidden", !proUnlocked);
   }
   if (fontFeatureHint) {
     fontFeatureHint.classList.toggle("hidden", proUnlocked);

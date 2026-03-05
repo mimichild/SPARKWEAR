@@ -1019,6 +1019,51 @@ fieldset label {
   margin: 4px 0;
 }
 
+.font-preview-label {
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+
+.font-picker-list {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 240px;
+  overflow: auto;
+  background: #fff;
+}
+
+.font-picker-section + .font-picker-section {
+  border-top: 1px solid #eee7dc;
+}
+
+.font-picker-option {
+  border: 0;
+  border-bottom: 1px solid #f0ece5;
+  border-radius: 0;
+  background: #fff;
+  text-align: left;
+  padding: 8px 12px;
+}
+
+.font-picker-option:last-child {
+  border-bottom: 0;
+}
+
+.font-picker-option.is-active {
+  background: color-mix(in srgb, var(--theme) 14%, #fff);
+}
+
+.font-preview-text {
+  margin-top: 2px;
+  margin-bottom: 0;
+  font-size: 1.5em;
+  line-height: 1.4;
+  font-weight: 400;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
 .close-btn {
   width: auto;
   float: right;

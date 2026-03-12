@@ -3,11 +3,15 @@ const SEASON_TAG_OPTIONS = ["春季", "夏季", "秋季", "冬季"];
 const DEFAULT_ORIGIN_OPTIONS = ["日貨", "韓貨", "品牌", "蝦皮", "其他"];
 const CUSTOM_ORIGINS_KEY = "closet_custom_origins";
 const DELETED_ORIGINS_KEY = "closet_deleted_origins";
+const SELECTED_TABS_KEY = "closet_selected_tabs";
+const FEATURE_ORDER_KEY = "closet_feature_order";
+const FEATURE_ENABLED_KEY = "closet_feature_enabled";
+const FEATURE_DEFAULT_MIGRATION_KEY = "closet_feature_defaults_v2";
 const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.37+38";
+const APP_VERSION_LABEL = "v1.0.53+54";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -70,6 +74,16 @@ const NATIVE_BACKUP_BASE64_BLOCK = 0x8000;
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
 const LOADING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#f5f1e9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9f9689" font-size="30">LOADING</text></svg>');
 
+const DEFAULT_CLOSET_TAB_ORDER = ["items", "photos", "category", "ranking", "tags"];
+const DEFAULT_FEATURE_ENABLED = ["items", "photos", "category", "ranking"];
+const CLOSET_TAB_LABELS = {
+  items: "單品",
+  photos: "照片",
+  category: "分類",
+  tags: "標籤",
+  ranking: "排行",
+};
+
 const state = {
   items: load("closet_items", []),
   dailyLogs: load("closet_daily_logs", []),
@@ -79,6 +93,12 @@ const state = {
   purchaseSort: load("closet_purchase_sort", "desc"),
   outfitSort: load("closet_outfit_sort", "desc"),
   tagUsageSort: load("closet_tag_usage_sort", "none"),
+  rankingSort: load("closet_ranking_sort", "desc"),
+  rankingPeriod: load("closet_ranking_period", "month"),
+  closetTabOrder: load("closet_tab_order", []),
+  photoSort: load("closet_photo_sort", "desc"),
+  featureEnabled: load(FEATURE_ENABLED_KEY, []),
+  selectedTabs: load(SELECTED_TABS_KEY, []),
   customOrigins: load(CUSTOM_ORIGINS_KEY, []),
   deletedOrigins: load(DELETED_ORIGINS_KEY, []),
   selectedCategory: "",
@@ -116,14 +136,20 @@ const openPageBtns = document.querySelectorAll("[data-open-page]");
 const backBtns = document.querySelectorAll("[data-back-home]");
 
 const subTabs = document.querySelectorAll("[data-sub-tab]");
+const closetItems = document.getElementById("closetItems");
+const closetItemsTabs = document.querySelectorAll("[data-closet-items-tab]");
 const closetLatest = document.getElementById("closetLatest");
 const closetPhotos = document.getElementById("closetPhotos");
+const closetPhotosTab = document.getElementById("closetPhotosTab");
 const closetCategory = document.getElementById("closetCategory");
 const closetTags = document.getElementById("closetTags");
+const closetRanking = document.getElementById("closetRanking");
 const purchaseSortSelect = document.getElementById("purchaseSortSelect");
+const photoSortSelect = document.getElementById("photoSortSelect");
 const outfitSortSelect = document.getElementById("outfitSortSelect");
 const tagUsageSortSelect = document.getElementById("tagUsageSortSelect");
 const toggleClosetSearch = document.getElementById("toggleClosetSearch");
+const toggleClosetPhotoSearch = document.getElementById("toggleClosetPhotoSearch");
 const bulkMoveClosetBtn = document.getElementById("bulkMoveClosetBtn");
 const bulkDeleteClosetBtn = document.getElementById("bulkDeleteClosetBtn");
 const closetSearchBar = document.getElementById("closetSearchBar");
@@ -230,6 +256,16 @@ const bulkDeleteCategoryItemsBtn = document.getElementById("bulkDeleteCategoryIt
 const categoryItemsSearchBar = document.getElementById("categoryItemsSearchBar");
 const categoryItemsSearchInput = document.getElementById("categoryItemsSearchInput");
 const clearCategoryItemsSearch = document.getElementById("clearCategoryItemsSearch");
+const rankingList = document.getElementById("rankingList");
+const closetMainTabs = document.querySelector(".closet-main-tabs");
+const closetTabOrderList = document.getElementById("closetTabOrderList");
+const rankingDetailPage = document.getElementById("rankingDetailPage");
+const rankingDetailTitle = document.getElementById("rankingDetailTitle");
+const rankingDetailStats = document.getElementById("rankingDetailStats");
+const rankingDetailPhotos = document.getElementById("rankingDetailPhotos");
+const rankingDetailTabs = document.querySelectorAll("[data-ranking-detail-tab]");
+const rankingPeriodSelect = document.getElementById("rankingPeriodSelect");
+const closeRankingDetailPage = document.getElementById("closeRankingDetailPage");
 
 const itemDetailDialog = document.getElementById("itemDetailDialog");
 const editItemDetail = document.getElementById("editItemDetail");
@@ -270,6 +306,7 @@ const settingsForm = document.getElementById("settingsForm");
 const themeColorInput = document.getElementById("themeColorInput");
 const themePaletteGrid = document.getElementById("themePaletteGrid");
 const fontFeatureControl = document.getElementById("fontFeatureControl");
+const fontLockIcon = document.getElementById("fontLockIcon");
 const openFontPickerBtn = document.getElementById("openFontPickerBtn");
 const fontCurrentLabel = document.getElementById("fontCurrentLabel");
 const fontFeatureHint = document.getElementById("fontFeatureHint");
@@ -302,6 +339,9 @@ let currentOutfitDetailId = null;
 let currentItemDetailId = null;
 let currentCategoryItemsName = "";
 let categoryItemsView = "latest";
+let closetItemsView = "clothes";
+let rankingDetailMetric = "";
+let rankingDetailView = "clothes";
 let pendingImportData = null;
 const photoSrcCache = new Map();
 const photoSrcLoading = new Set();
@@ -316,8 +356,9 @@ let selectedDeleteOriginKey = "";
 let cropDialogProgrammaticClose = false;
 let selectionContext = "";
 let selectedItemIds = new Set();
-const LONG_PRESS_MS = 700;
+const LONG_PRESS_MS = 300;
 let suppressSelectionClickUntil = 0;
+let tabOrderDragState = null;
 const ACTIVE_THEME_COLOR_KEY = "spark_theme_color";
 const ACTIVE_VIEW_STATE_KEY = "spark_active_view_state";
 let restoringViewState = false;
@@ -337,10 +378,14 @@ outfitForm.date.valueAsDate = new Date();
 if (outfitTimeInput) outfitTimeInput.value = formatTimeNow();
 if (!["asc", "desc"].includes(state.purchaseSort)) state.purchaseSort = "desc";
 purchaseSortSelect.value = state.purchaseSort;
+if (!["asc", "desc"].includes(state.photoSort)) state.photoSort = "desc";
+if (photoSortSelect) photoSortSelect.value = state.photoSort;
 if (!["asc", "desc"].includes(state.outfitSort)) state.outfitSort = "desc";
 outfitSortSelect.value = state.outfitSort;
 if (!["none", "desc", "asc"].includes(state.tagUsageSort)) state.tagUsageSort = "none";
 tagUsageSortSelect.value = state.tagUsageSort;
+if (!["asc", "desc"].includes(state.rankingSort)) state.rankingSort = "desc";
+state.rankingPeriod = normalizeRankingPeriod(state.rankingPeriod);
 
 const platform = typeof window !== "undefined" ? window.Capacitor?.getPlatform?.() || "web" : "web";
 document.body.classList.add(`platform-${platform}`);
@@ -388,6 +433,14 @@ state.dailyLogs = state.dailyLogs.map((log) => ({
 }));
 state.customOrigins = normalizeOriginList(state.customOrigins);
 state.deletedOrigins = normalizeDeletedOriginList(state.deletedOrigins);
+state.closetTabOrder = normalizeClosetTabOrder(state.closetTabOrder);
+state.featureEnabled = normalizeFeatureEnabled(state.featureEnabled);
+if (Array.isArray(state.selectedTabs) && state.selectedTabs.length) {
+  state.selectedTabs = normalizeClosetTabOrder(state.selectedTabs);
+  state.closetTabOrder = state.selectedTabs.slice();
+} else {
+  state.selectedTabs = state.closetTabOrder.slice();
+}
 
 normalizeCategoryOrder();
 recomputeWearCounts();
@@ -397,6 +450,13 @@ for (const btn of backBtns) btn.addEventListener("click", showHome);
 for (const btn of subTabs) btn.addEventListener("click", () => {
   clearSelectionMode();
   switchSub(btn.dataset.subTab);
+});
+for (const btn of closetItemsTabs) btn.addEventListener("click", () => {
+  clearSelectionMode();
+  switchClosetItemsTab(btn.dataset.closetItemsTab);
+});
+for (const btn of rankingDetailTabs) btn.addEventListener("click", () => {
+  switchRankingDetailTab(btn.dataset.rankingDetailTab);
 });
 
 openItemForm.addEventListener("click", () => openNewItemForm());
@@ -501,6 +561,11 @@ purchaseSortSelect.addEventListener("change", () => {
   renderLatest();
   renderPhotosWall();
 });
+photoSortSelect?.addEventListener("change", () => {
+  state.photoSort = photoSortSelect.value === "asc" ? "asc" : "desc";
+  save("closet_photo_sort", state.photoSort);
+  renderPhotosWall();
+});
 outfitSortSelect.addEventListener("change", () => {
   state.outfitSort = outfitSortSelect.value === "asc" ? "asc" : "desc";
   save("closet_outfit_sort", state.outfitSort);
@@ -510,6 +575,58 @@ tagUsageSortSelect.addEventListener("change", () => {
   state.tagUsageSort = tagUsageSortSelect.value;
   save("closet_tag_usage_sort", state.tagUsageSort);
   renderTagTab();
+});
+rankingPeriodSelect?.addEventListener("change", () => {
+  state.rankingPeriod = normalizeRankingPeriod(rankingPeriodSelect.value);
+  save("closet_ranking_period", state.rankingPeriod);
+  if (rankingDetailPage?.classList.contains("active")) renderRankingDetailPage();
+});
+rankingList?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-open-ranking]");
+  if (!btn) return;
+  openRankingDetail(btn.dataset.openRanking, btn.dataset.rankingDir);
+});
+closeRankingDetailPage?.addEventListener("click", () => closeRankingDetail());
+closetTabOrderList?.addEventListener("pointerdown", (e) => startTabOrderPress(e));
+closetTabOrderList?.addEventListener("pointermove", (e) => moveTabOrderPress(e));
+closetTabOrderList?.addEventListener("pointerup", (e) => endTabOrderPress(e));
+closetTabOrderList?.addEventListener("pointercancel", (e) => endTabOrderPress(e));
+closetTabOrderList?.addEventListener("change", (e) => {
+  const input = e.target instanceof Element ? e.target.closest("[data-feature-toggle]") : null;
+  if (!input) return;
+  const key = String(input.getAttribute("data-feature-toggle") || "");
+  if (!DEFAULT_CLOSET_TAB_ORDER.includes(key)) return;
+  const enabled = new Set(normalizeFeatureEnabled(state.featureEnabled));
+  if (input.checked) {
+    enabled.add(key);
+    if (!state.closetTabOrder.includes(key)) {
+      state.closetTabOrder = normalizeClosetTabOrder([...state.closetTabOrder, key]);
+      save("closet_tab_order", state.closetTabOrder);
+      syncSelectedTabs(state.closetTabOrder);
+      void persistFeatureOrder(state.closetTabOrder);
+    }
+  } else {
+    enabled.delete(key);
+    if (!enabled.size) {
+      enabled.add("items");
+    }
+  }
+  state.featureEnabled = Array.from(enabled);
+  saveFeatureEnabled();
+  renderClosetTabOrderList();
+  applyClosetTabOrderAnimated();
+});
+closetTabOrderList?.addEventListener("click", (e) => {
+  const row = e.target instanceof Element ? e.target.closest(".sortable-row") : null;
+  if (!row) return;
+  if (e.target.closest("[data-drag-handle]")) return;
+  const input = row.querySelector("[data-feature-toggle]");
+  if (!input || e.target.closest("input")) return;
+  input.checked = !input.checked;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) cancelTabOrderDrag();
 });
 
 setupDetailPhotoZoom(itemDetailMainPhoto, itemDetailDialog);
@@ -637,6 +754,10 @@ toggleClosetSearch.addEventListener("click", () => {
   closetSearchBar.classList.toggle("hidden");
   if (!closetSearchBar.classList.contains("hidden")) closetSearchInput.focus();
 });
+toggleClosetPhotoSearch?.addEventListener("click", () => {
+  closetSearchBar.classList.toggle("hidden");
+  if (!closetSearchBar.classList.contains("hidden")) closetSearchInput.focus();
+});
 closetSearchInput.addEventListener("input", () => {
   state.closetQuery = closetSearchInput.value.trim().toLowerCase();
   renderLatest();
@@ -750,6 +871,8 @@ async function initApp() {
   } catch (err) {
     console.warn("warmupInitialPhotos failed:", err);
   }
+  await hydrateFeatureOrder();
+  applyFeatureDefaultsIfNeeded();
   renderAll();
   restoreActiveViewState();
   updateBottomAdVisibility();
@@ -822,14 +945,46 @@ function updateBottomAdVisibility() {
 
 function switchSub(tab) {
   for (const btn of subTabs) btn.classList.toggle("active", btn.dataset.subTab === tab);
-  closetLatest.classList.toggle("active", tab === "latest");
-  closetPhotos.classList.toggle("active", tab === "photos");
+  closetItems?.classList.toggle("active", tab === "items");
+  closetPhotosTab?.classList.toggle("active", tab === "photos");
   closetCategory.classList.toggle("active", tab === "category");
   closetTags.classList.toggle("active", tab === "tags");
+  closetRanking.classList.toggle("active", tab === "ranking");
+  if (tab === "items") switchClosetItemsTab(closetItemsView);
   const sortBar = document.querySelector(".sort-bar");
-  const showPurchaseSort = tab === "latest" || tab === "photos";
+  const showPurchaseSort = tab === "items";
   if (sortBar) sortBar.classList.toggle("hidden", !showPurchaseSort);
   saveActiveViewState();
+}
+
+function switchClosetItemsTab(view) {
+  if (!view) return;
+  if (closetPhotosTab) {
+    closetItemsView = "clothes";
+    closetLatest.classList.add("active");
+    if (closetPhotos) closetPhotos.classList.remove("active");
+    saveActiveViewState();
+    return;
+  }
+  closetItemsView = view === "photos" ? "photos" : "clothes";
+  for (const btn of closetItemsTabs) {
+    btn.classList.toggle("active", btn.dataset.closetItemsTab === closetItemsView);
+  }
+  closetLatest.classList.toggle("active", closetItemsView === "clothes");
+  if (!closetPhotosTab) {
+    closetPhotos.classList.toggle("active", closetItemsView === "photos");
+  }
+  saveActiveViewState();
+}
+
+function switchRankingDetailTab(view) {
+  if (!view) return;
+  rankingDetailView = view === "photos" ? "photos" : "clothes";
+  for (const btn of rankingDetailTabs) {
+    btn.classList.toggle("active", btn.dataset.rankingDetailTab === rankingDetailView);
+  }
+  if (rankingDetailStats) rankingDetailStats.classList.toggle("active", rankingDetailView === "clothes");
+  if (rankingDetailPhotos) rankingDetailPhotos.classList.toggle("active", rankingDetailView === "photos");
 }
 
 function loadActiveViewState() {
@@ -849,9 +1004,14 @@ function saveActiveViewState() {
   const payload = {
     main: currentMainPage(),
     closetSub: activeClosetSubTab(),
+    closetItemsTab: closetItemsView,
     categoryItemsOpen: categoryItemsPage.classList.contains("active"),
     categoryName: currentCategoryItemsName || "",
     categoryItemsView,
+    rankingDetailOpen: rankingDetailPage?.classList.contains("active") || false,
+    rankingMetric: rankingDetailMetric,
+    rankingPeriod: state.rankingPeriod,
+    rankingSort: state.rankingSort,
   };
   try {
     localStorage.setItem(ACTIVE_VIEW_STATE_KEY, JSON.stringify(payload));
@@ -873,11 +1033,25 @@ function restoreActiveViewState() {
     else if (main === "outfit") openPage("outfit");
     else showHome();
 
-    const sub = String(snapshot.closetSub || "latest");
-    if (["latest", "photos", "category", "tags"].includes(sub)) switchSub(sub);
+    let sub = ["items", "photos", "category", "tags", "ranking"].includes(snapshot.closetSub)
+      ? snapshot.closetSub
+      : "items";
+    const rawItemsTab = String(snapshot.closetItemsTab || "");
+    if (rawItemsTab) {
+      closetItemsView = rawItemsTab === "photos" ? "photos" : "clothes";
+      if (rawItemsTab === "photos") sub = "photos";
+    }
+    switchSub(sub);
+    if (sub === "items") switchClosetItemsTab(closetItemsView);
 
     if (snapshot.categoryItemsOpen && snapshot.categoryName && main === "closet") {
       openCategoryItemsPage(String(snapshot.categoryName), String(snapshot.categoryItemsView || "latest"));
+    }
+    state.rankingPeriod = normalizeRankingPeriod(snapshot.rankingPeriod || state.rankingPeriod);
+    state.rankingSort = ["asc", "desc"].includes(snapshot.rankingSort) ? snapshot.rankingSort : state.rankingSort;
+    if (rankingPeriodSelect) rankingPeriodSelect.value = state.rankingPeriod;
+    if (snapshot.rankingDetailOpen && snapshot.rankingMetric) {
+      openRankingDetail(snapshot.rankingMetric, snapshot.rankingSort);
     }
   } finally {
     restoringViewState = false;
@@ -1074,11 +1248,16 @@ function closeTopOverlay() {
     saveActiveViewState();
     return true;
   }
+  if (rankingDetailPage?.classList.contains("active")) {
+    closeRankingDetail();
+    return true;
+  }
   return false;
 }
 
 function hasOpenOverlay() {
   if (categoryItemsPage.classList.contains("active")) return true;
+  if (rankingDetailPage?.classList.contains("active")) return true;
   return [
     confirmDeleteItemDialog,
     confirmDeleteOutfitDialog,
@@ -1153,14 +1332,14 @@ async function refreshCurrentView() {
 
 function activeClosetSubTab() {
   const active = Array.from(subTabs).find((btn) => btn.classList.contains("active"));
-  return active?.dataset.subTab || "latest";
+  return active?.dataset.subTab || "items";
 }
 
 function navigateSwipeBack() {
   if (closeTopOverlay()) return;
   const main = currentMainPage();
   if (main === "closet") {
-    const order = ["latest", "photos", "category", "tags"];
+    const order = visibleClosetTabOrder();
     const idx = order.indexOf(activeClosetSubTab());
     if (idx > 0) {
       switchSub(order[idx - 1]);
@@ -1184,7 +1363,7 @@ function navigateSwipeForward() {
     return;
   }
   if (main === "closet") {
-    const order = ["latest", "photos", "category", "tags"];
+    const order = visibleClosetTabOrder();
     const idx = order.indexOf(activeClosetSubTab());
     if (idx >= 0 && idx < order.length - 1) {
       switchSub(order[idx + 1]);
@@ -1758,15 +1937,20 @@ function onSaveManualVote(e) {
 
 function renderAll() {
   normalizeCategoryOrder();
+  applyClosetTabOrder();
   purchaseSortSelect.value = state.purchaseSort;
+  if (photoSortSelect) photoSortSelect.value = state.photoSort;
   outfitSortSelect.value = state.outfitSort;
   tagUsageSortSelect.value = state.tagUsageSort;
+  if (rankingPeriodSelect) rankingPeriodSelect.value = state.rankingPeriod;
   renderItemCategoryOptions();
   renderItemOriginOptions(itemOriginSelect?.value || "");
   renderLatest();
   renderPhotosWall();
   renderCategoryTab();
   renderTagTab();
+  renderRankingTab();
+  renderClosetTabOrderList();
   renderVoteSearchCategoryOptions();
   renderManualVoteList();
   renderOutfitSearchCategoryOptions();
@@ -1775,7 +1959,10 @@ function renderAll() {
   if (categoryItemsPage.classList.contains("active")) {
     renderCategoryItemsPage();
   }
-  const activeSub = document.querySelector(".sub-btn.active")?.dataset.subTab || "latest";
+  if (rankingDetailPage?.classList.contains("active")) {
+    renderRankingDetailPage();
+  }
+  const activeSub = activeClosetSubTab();
   switchSub(activeSub);
   updateBulkActionButtons();
 }
@@ -1840,6 +2027,14 @@ function sortedByPurchase(items) {
     const ta = closetSortTimestamp(a);
     const tb = closetSortTimestamp(b);
     return state.purchaseSort === "asc" ? ta - tb : tb - ta;
+  });
+}
+
+function sortedByPhotoSort(items) {
+  return [...items].sort((a, b) => {
+    const ta = closetSortTimestamp(a);
+    const tb = closetSortTimestamp(b);
+    return state.photoSort === "asc" ? ta - tb : tb - ta;
   });
 }
 
@@ -2088,7 +2283,7 @@ function updateCurrentFontLabel(key) {
 
 function openFontPickerDialog() {
   if (!proUnlocked) {
-    alert("請先解鎖進階功能，才能修改文字格式。");
+    openUnlockFeatureDialog();
     return;
   }
   updateFontPickerPreview(pendingFontFamily);
@@ -2159,6 +2354,7 @@ function openSettingsDialog() {
   updateFontPickerPreview(pendingFontFamily);
   syncUnlockFeatureUi();
   updateThemeColorActive(color);
+  renderClosetTabOrderList();
   settingsDialog.showModal();
 }
 
@@ -2197,7 +2393,7 @@ function syncUnlockFeatureUi() {
     confirmUnlockFeature.disabled = proUnlocked;
   }
   if (fontFeatureControl) {
-    fontFeatureControl.classList.toggle("hidden", !proUnlocked);
+    fontFeatureControl.classList.toggle("is-locked", !proUnlocked);
   }
   if (fontFeatureHint) {
     fontFeatureHint.classList.toggle("hidden", proUnlocked);
@@ -2209,6 +2405,9 @@ function syncUnlockFeatureUi() {
   if (applyVipCodeBtn) {
     applyVipCodeBtn.disabled = proUnlocked;
     applyVipCodeBtn.textContent = proUnlocked ? "VIP 已啟用" : "使用 VIP CODE 解鎖";
+  }
+  if (fontLockIcon) {
+    fontLockIcon.classList.toggle("hidden", proUnlocked);
   }
 }
 
@@ -2632,7 +2831,7 @@ function renderLatest() {
 }
 
 function renderPhotosWall() {
-  const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
+  const items = sortedByPhotoSort(state.items).filter(matchesClosetQuery);
   const selectionVisible = selectionContext === "closet" && selectedItemIds.size > 0;
   queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
   if (!items.length) {
@@ -2983,22 +3182,24 @@ function renderCategoryItemsPage() {
     `;
   } else {
     categoryItemsList.innerHTML = `
-      <div class="latest-list">
+      <div class="list">
         ${items
         .map(
           (item) => {
             const selected = selectionVisible && selectedItemIds.has(item.id);
             return `
-              <article class="latest-row">
-                <button type="button" class="latest-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "selected-lines" : ""}" data-open-item-detail="${item.id}">
-                  <div class="latest-title">
-                    ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
-                    <span class="latest-title-text"><strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</span>
+              <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" data-open-item-detail="${item.id}">
+                <article class="item-row ${selected ? "selected-lines" : ""}">
+                  <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+                  <div>
+                    <div>
+                      ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                      <strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}
+                    </div>
+                    <p class="meta">${escapeHtml(item.category || "未分類")}</p>
                   </div>
-                  <p class="latest-category meta">${escapeHtml(item.category || "未分類")}</p>
-                  <img class="latest-thumb" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
-                </button>
-              </article>`;
+                </article>
+              </button>`;
           }
         )
         .join("")}
@@ -3081,6 +3282,722 @@ function renderTagTab() {
   }
   bindSelectionCheckboxes(tagResult, "closet");
   bindClearSearchButtons(tagResult);
+}
+
+function normalizeRankingPeriod(value) {
+  const v = String(value || "").toLowerCase();
+  if (["month", "quarter", "year", "rolling", "all"].includes(v)) return v;
+  return "month";
+}
+
+function normalizeClosetTabOrder(order) {
+  const list = Array.isArray(order) ? order.map((x) => String(x)) : [];
+  const seen = new Set();
+  const result = [];
+  for (const key of list) {
+    if (!DEFAULT_CLOSET_TAB_ORDER.includes(key)) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(key);
+  }
+  for (const key of DEFAULT_CLOSET_TAB_ORDER) {
+    if (!seen.has(key)) result.push(key);
+  }
+  return result;
+}
+
+function normalizeFeatureEnabled(list) {
+  const normalized = normalizeClosetTabOrder(list);
+  return normalized.length ? normalized : DEFAULT_FEATURE_ENABLED.slice();
+}
+
+function visibleClosetTabOrder() {
+  const order = normalizeClosetTabOrder(state.closetTabOrder);
+  const enabled = new Set(normalizeFeatureEnabled(state.featureEnabled));
+  const visible = order.filter((key) => enabled.has(key));
+  return visible.length ? visible : ["items"];
+}
+
+function syncSelectedTabs(order) {
+  const normalized = normalizeClosetTabOrder(order);
+  state.selectedTabs = normalized;
+  save(SELECTED_TABS_KEY, normalized);
+}
+
+function saveFeatureEnabled() {
+  state.featureEnabled = normalizeFeatureEnabled(state.featureEnabled);
+  save(FEATURE_ENABLED_KEY, state.featureEnabled);
+  void persistFeatureEnabled(state.featureEnabled);
+}
+
+function ensureActiveClosetTabVisible() {
+  const visible = visibleClosetTabOrder();
+  const active = activeClosetSubTab();
+  if (!visible.includes(active)) {
+    switchSub(visible[0]);
+  }
+}
+
+function applyClosetTabOrder() {
+  if (!closetMainTabs) return;
+  const order = normalizeClosetTabOrder(state.closetTabOrder);
+  state.closetTabOrder = order;
+  state.selectedTabs = order.slice();
+  state.featureEnabled = normalizeFeatureEnabled(state.featureEnabled);
+  const visibleOrder = visibleClosetTabOrder();
+  const enabled = new Set(state.featureEnabled);
+  const buttons = new Map(
+    Array.from(closetMainTabs.querySelectorAll("[data-sub-tab]")).map((btn) => [btn.dataset.subTab, btn])
+  );
+  for (const [key, btn] of buttons.entries()) {
+    btn.classList.toggle("is-hidden", !enabled.has(key));
+  }
+  for (const key of visibleOrder) {
+    const btn = buttons.get(key);
+    if (btn) closetMainTabs.appendChild(btn);
+  }
+  closetMainTabs.style.gridTemplateColumns = `repeat(${Math.max(visibleOrder.length, 1)}, minmax(0, 1fr))`;
+  ensureActiveClosetTabVisible();
+}
+
+function applyClosetTabOrderAnimated() {
+  if (!closetMainTabs) return;
+  const order = normalizeClosetTabOrder(state.closetTabOrder);
+  state.closetTabOrder = order;
+  state.selectedTabs = order.slice();
+  state.featureEnabled = normalizeFeatureEnabled(state.featureEnabled);
+  const visibleOrder = visibleClosetTabOrder();
+  const enabled = new Set(state.featureEnabled);
+  const buttons = new Map(
+    Array.from(closetMainTabs.querySelectorAll("[data-sub-tab]")).map((btn) => [btn.dataset.subTab, btn])
+  );
+  const before = new Map(
+    Array.from(closetMainTabs.querySelectorAll("[data-sub-tab]")).map((btn) => [btn, btn.getBoundingClientRect()])
+  );
+  for (const [key, btn] of buttons.entries()) {
+    btn.classList.toggle("is-hidden", !enabled.has(key));
+  }
+  for (const key of visibleOrder) {
+    const btn = buttons.get(key);
+    if (btn) closetMainTabs.appendChild(btn);
+  }
+  const afterButtons = Array.from(closetMainTabs.querySelectorAll("[data-sub-tab]"));
+  const after = new Map(afterButtons.map((btn) => [btn, btn.getBoundingClientRect()]));
+  for (const btn of afterButtons) {
+    const first = before.get(btn);
+    const last = after.get(btn);
+    if (!first || !last) continue;
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    if (dx || dy) {
+      if (typeof btn.animate === "function") {
+        btn.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], {
+          duration: 180,
+          easing: "ease",
+        });
+      }
+    }
+  }
+  closetMainTabs.style.gridTemplateColumns = `repeat(${Math.max(visibleOrder.length, 1)}, minmax(0, 1fr))`;
+  ensureActiveClosetTabVisible();
+}
+
+function renderClosetTabOrderList() {
+  if (!closetTabOrderList) return;
+  const order = normalizeClosetTabOrder(state.closetTabOrder);
+  state.closetTabOrder = order;
+  state.featureEnabled = normalizeFeatureEnabled(state.featureEnabled);
+  const enabled = new Set(state.featureEnabled);
+  closetTabOrderList.innerHTML = order
+    .map(
+      (key) => `
+        <div class="sortable-row ${enabled.has(key) ? "" : "is-disabled"}" data-tab-key="${escapeAttr(key)}" role="button" aria-label="排序 ${escapeHtml(CLOSET_TAB_LABELS[key] || key)}">
+          <label class="feature-toggle">
+            <input type="checkbox" data-feature-toggle="${escapeAttr(key)}" ${enabled.has(key) ? "checked" : ""} />
+            <strong>${escapeHtml(CLOSET_TAB_LABELS[key] || key)}</strong>
+          </label>
+          <span class="meta">長按拖曳排序</span>
+          <button type="button" class="drag-handle" data-drag-handle aria-label="拖曳排序">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function updateRankingDetailTitle() {
+  if (!rankingDetailTitle) return;
+  rankingDetailTitle.textContent = rankingDetailLabel(rankingDetailMetric, state.rankingSort);
+}
+
+function openRankingDetail(metric, direction) {
+  clearSelectionMode();
+  rankingDetailMetric = normalizeRankingMetric(metric);
+  if (direction === "asc" || direction === "desc") {
+    state.rankingSort = direction;
+    save("closet_ranking_sort", state.rankingSort);
+  }
+  state.rankingPeriod = normalizeRankingPeriod(state.rankingPeriod);
+  if (rankingPeriodSelect) rankingPeriodSelect.value = state.rankingPeriod;
+
+  updateRankingDetailTitle();
+  switchRankingDetailTab(rankingDetailView);
+  renderRankingDetailPage();
+
+  rankingDetailPage?.classList.add("active");
+  document.body.classList.add("ranking-detail-open");
+  saveActiveViewState();
+}
+
+function closeRankingDetail() {
+  rankingDetailMetric = "";
+  rankingDetailPage?.classList.remove("active");
+  document.body.classList.remove("ranking-detail-open");
+  saveActiveViewState();
+}
+
+function rankingDetailLabel(metric, direction) {
+  const dir = direction === "asc" ? "asc" : "desc";
+  if (metric === "usage") return dir === "asc" ? "來約會吧" : "靈魂摯愛";
+  if (metric === "cp") return dir === "asc" ? "超值巔峰" : "萬般不值";
+  if (metric === "price") return dir === "asc" ? "可愛小兵" : "高貴女王";
+  if (metric === "color") return dir === "asc" ? "新鮮色系" : "本命色彩";
+  if (metric === "brand") return dir === "asc" ? "初見品牌" : "入坑品牌";
+  return "排行";
+}
+
+function normalizeRankingMetric(metric) {
+  if (["usage", "cp", "price", "color", "brand"].includes(metric)) return metric;
+  return "usage";
+}
+
+function rankingPeriodRange(period) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-based
+  const end = now.getTime();
+  if (period === "month") {
+    const start = new Date(year, month, 1).getTime();
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+    return { start, end: monthEnd };
+  }
+  if (period === "quarter") {
+    const quarterStartMonth = Math.floor(month / 3) * 3;
+    const start = new Date(year, quarterStartMonth, 1).getTime();
+    const quarterEnd = new Date(year, quarterStartMonth + 3, 0, 23, 59, 59, 999).getTime();
+    return { start, end: quarterEnd };
+  }
+  if (period === "year") {
+    const start = new Date(year, 0, 1).getTime();
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999).getTime();
+    return { start, end: yearEnd };
+  }
+  if (period === "rolling") {
+    const start = now.getTime() - 365 * 24 * 60 * 60 * 1000;
+    return { start, end };
+  }
+  return { start: 0, end };
+}
+
+function itemEffectivePrice(item) {
+  const candidates = [item.discountPrice, item.specialPrice, item.originalPrice];
+  let min = null;
+  for (const value of candidates) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0) {
+      min = min === null ? num : Math.min(min, num);
+    }
+  }
+  return min;
+}
+
+function buildUsageCounter(period) {
+  const range = rankingPeriodRange(period);
+  const counter = new Map();
+  for (const item of state.items) counter.set(item.id, 0);
+  for (const log of state.dailyLogs) {
+    const t = safeTimestamp(log.date || log.createdAt);
+    if (!Number.isFinite(t)) continue;
+    if (t < range.start || t > range.end) continue;
+    for (const itemId of log.wornItemIds || []) {
+      counter.set(itemId, (counter.get(itemId) || 0) + 1);
+    }
+  }
+  if (period === "all") {
+    for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
+      counter.set(itemId, (counter.get(itemId) || 0) + Number(count || 0));
+    }
+  }
+  return counter;
+}
+
+function getCategoryColor(category) {
+  const name = category || "未分類";
+  const idx = state.categoryOrder.indexOf(name);
+  const fallback = idx >= 0 ? defaultCategoryColor(idx) : "#888888";
+  return state.categoryColors[name] || fallback;
+}
+
+function buildRankingData(metric, period) {
+  const usageCounter = buildUsageCounter(period);
+  const rows = [];
+  for (const item of state.items) {
+    const uses = usageCounter.get(item.id) || 0;
+    const price = itemEffectivePrice(item);
+    let value = 0;
+    if (metric === "usage") {
+      value = uses;
+    } else if (metric === "cp") {
+      if (!price) continue;
+      value = uses > 0 ? price / uses : price;
+    } else if (metric === "price") {
+      if (!price) continue;
+      value = price;
+    }
+    rows.push({ item, uses, price, value });
+  }
+
+  const dir = state.rankingSort === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    if (a.value === b.value) return 0;
+    return a.value > b.value ? dir : -dir;
+  });
+  return rows;
+}
+
+function buildColorRankingData(period) {
+  const usageCounter = buildUsageCounter(period);
+  const colorMap = new Map();
+  for (const item of state.items) {
+    const color = getCategoryColor(item.category);
+    const entry = colorMap.get(color) || { color, count: 0, categories: new Set() };
+    entry.count += usageCounter.get(item.id) || 0;
+    entry.categories.add(item.category || "未分類");
+    colorMap.set(color, entry);
+  }
+  const rows = Array.from(colorMap.values());
+  const dir = state.rankingSort === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    if (a.count === b.count) return 0;
+    return a.count > b.count ? dir : -dir;
+  });
+  return rows;
+}
+
+function buildBrandRankingData() {
+  const brandMap = new Map();
+  for (const item of state.items) {
+    const brand = String(item.brand || "").trim() || "未填品牌";
+    brandMap.set(brand, (brandMap.get(brand) || 0) + 1);
+  }
+  const rows = Array.from(brandMap.entries()).map(([brand, count]) => ({ brand, count }));
+  const dir = state.rankingSort === "asc" ? 1 : -1;
+  rows.sort((a, b) => {
+    if (a.count === b.count) return a.brand.localeCompare(b.brand);
+    return a.count > b.count ? dir : -dir;
+  });
+  return rows;
+}
+
+function renderRankingTab() {
+  if (!rankingList) return;
+  rankingList.innerHTML = `
+    <div class="list">
+      <button type="button" class="item-open-btn" data-open-ranking="usage" data-ranking-dir="desc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>靈魂摯愛</strong><p class="meta">使用率最高</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="usage" data-ranking-dir="asc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>來約會吧</strong><p class="meta">使用率最低</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="cp" data-ranking-dir="asc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>超值巔峰</strong><p class="meta">C/P 值最高</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="cp" data-ranking-dir="desc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>萬般不值</strong><p class="meta">C/P 值最低</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="price" data-ranking-dir="desc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>高貴女王</strong><p class="meta">單價最高</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="price" data-ranking-dir="asc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>可愛小兵</strong><p class="meta">單價最低</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="color" data-ranking-dir="desc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>本命色彩</strong><p class="meta">顏色使用率最高</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="color" data-ranking-dir="asc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>新鮮色系</strong><p class="meta">顏色使用率最低</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="brand" data-ranking-dir="desc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>入坑品牌</strong><p class="meta">品牌數量最高</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+      <button type="button" class="item-open-btn" data-open-ranking="brand" data-ranking-dir="asc">
+        <article class="item-row ranking-row">
+          <div class="ranking-text"><strong>初見品牌</strong><p class="meta">品牌數量最低</p></div>
+          <span aria-hidden="true">›</span>
+        </article>
+      </button>
+    </div>
+  `;
+}
+
+function renderRankingDetailPage() {
+  if (!rankingDetailPage || !rankingDetailStats || !rankingDetailPhotos) return;
+  const metric = normalizeRankingMetric(rankingDetailMetric || "usage");
+  const period = normalizeRankingPeriod(state.rankingPeriod);
+  updateRankingDetailTitle();
+
+  const selectionVisible = selectionContext === "rankingDetail" && selectedItemIds.size > 0;
+
+  if (metric === "color") {
+    const rows = buildColorRankingData(period);
+    if (!rows.length) {
+      rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
+      rankingDetailPhotos.innerHTML = "";
+      return;
+    }
+    rankingDetailStats.innerHTML = rows
+      .map((row, idx) => {
+        const categories = Array.from(row.categories);
+        const categoryText = categories.length ? `分類：${categories.join(" / ")}` : "分類：未分類";
+        return `
+          <article class="latest-row">
+            <div class="latest-open-btn">
+              <div class="latest-title">
+                <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;<span class="color-dot" style="background:${escapeAttr(row.color)};"></span>${escapeHtml(row.color)}</span>
+              </div>
+              <p class="latest-category meta">顏色出現次數：${row.count} · ${escapeHtml(categoryText)}</p>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+    const photoItems = sortedByPurchase(state.items).filter((item) => rows.some((row) => row.color === getCategoryColor(item.category))).slice(0, 30);
+    queuePhotoRefs(photoItems.map((item) => item.itemPhotos?.[0]));
+    rankingDetailPhotos.innerHTML = photoItems.length
+      ? `<div class="photo-grid">
+        ${photoItems
+        .map(
+          (item) => {
+            const selected = selectionVisible && selectedItemIds.has(item.id);
+            return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${item.id}">
+                ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+              </button>`;
+          }
+        )
+        .join("")}
+      </div>`
+      : '<p class="meta">目前沒有照片。</p>';
+
+    for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
+      const itemId = String(btn.dataset.openItemDetail || "");
+      bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
+    }
+    bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
+    return;
+  }
+
+  if (metric === "brand") {
+    const rows = buildBrandRankingData();
+    if (!rows.length) {
+      rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
+      rankingDetailPhotos.innerHTML = "";
+      return;
+    }
+    rankingDetailStats.innerHTML = rows
+      .map(
+        (row, idx) => `
+        <article class="latest-row">
+          <div class="latest-open-btn">
+            <div class="latest-title">
+              <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.brand)}</span>
+            </div>
+            <p class="latest-category meta">單品數：${row.count}</p>
+          </div>
+        </article>`
+      )
+      .join("");
+    const orderedBrands = rows.map((row) => row.brand);
+    const photoItems = sortedByPurchase(state.items).filter((item) => orderedBrands.includes(String(item.brand || "").trim() || "未填品牌")).slice(0, 30);
+    queuePhotoRefs(photoItems.map((item) => item.itemPhotos?.[0]));
+    rankingDetailPhotos.innerHTML = photoItems.length
+      ? `<div class="photo-grid">
+        ${photoItems
+        .map(
+          (item) => {
+            const selected = selectionVisible && selectedItemIds.has(item.id);
+            return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${item.id}">
+                ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+              </button>`;
+          }
+        )
+        .join("")}
+      </div>`
+      : '<p class="meta">目前沒有照片。</p>';
+
+    for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
+      const itemId = String(btn.dataset.openItemDetail || "");
+      bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
+    }
+    bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
+    return;
+  }
+
+  const rows = buildRankingData(metric, period);
+  if (!rows.length) {
+    rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
+    rankingDetailPhotos.innerHTML = "";
+    return;
+  }
+  queuePhotoRefs(rows.map((row) => row.item.itemPhotos?.[0]));
+
+  rankingDetailStats.innerHTML = `
+    <div class="list">
+      ${rows
+      .map((row, idx) => {
+        const { item, uses, price, value } = row;
+        const statText =
+          metric === "usage"
+            ? `使用次數：${uses}`
+            : metric === "cp"
+              ? `單次成本：${formatNumber(value, 2)}（${price ? `最低取得價 ${formatCurrency(price)}` : "未填價格"} / ${uses || 0} 次）`
+              : `最低取得價：${formatCurrency(value)}`;
+        const selected = selectionVisible && selectedItemIds.has(item.id);
+        return `
+            <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" data-open-item-detail="${item.id}">
+              <article class="item-row ${selected ? "selected-lines" : ""}">
+                <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+                <div>
+                  <div>
+                    ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                    <strong>No.${idx + 1}</strong>&nbsp;<strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}
+                  </div>
+                  <p class="meta">${escapeHtml(item.category || "未分類")} · ${statText}</p>
+                </div>
+              </article>
+            </button>
+          `;
+      })
+      .join("")}
+    </div>
+  `;
+
+  rankingDetailPhotos.innerHTML = `
+    <div class="photo-grid">
+      ${rows
+      .map(
+        (row) => {
+          const selected = selectionVisible && selectedItemIds.has(row.item.id);
+          return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${row.item.id}">
+              ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${row.item.id}" aria-label="選取單品"></span>` : ""}
+              <img class="cover-grid" src="${photoSrc(row.item.itemPhotos?.[0])}" alt="${escapeHtml(row.item.name)}" />
+            </button>`;
+        }
+      )
+      .join("")}
+    </div>
+  `;
+
+  for (const btn of rankingDetailStats.querySelectorAll("[data-open-item-detail]")) {
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
+  }
+  for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
+  }
+  bindSelectionCheckboxes(rankingDetailStats, "rankingDetail");
+  bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
+}
+
+function formatNumber(value, digits = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  return num.toFixed(digits);
+}
+
+function formatCurrency(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  return `$${Math.round(num)}`;
+}
+
+function startTabOrderPress(e) {
+  if (!closetTabOrderList || tabOrderDragState) return;
+  const handle = e.target.closest("[data-drag-handle]");
+  if (!handle) return;
+  const row = handle.closest(".sortable-row");
+  if (!row) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  const startY = e.clientY;
+  const pointerId = e.pointerId;
+  const timer = window.setTimeout(() => {
+    beginTabOrderDrag(row, pointerId, startY);
+  }, LONG_PRESS_MS);
+  tabOrderDragState = {
+    row,
+    pointerId,
+    startY,
+    lastY: startY,
+    timer,
+    dragging: false,
+    offsetY: 0,
+  };
+  row.setPointerCapture?.(pointerId);
+}
+
+function moveTabOrderPress(e) {
+  if (!tabOrderDragState || e.pointerId !== tabOrderDragState.pointerId) return;
+  tabOrderDragState.lastY = e.clientY;
+  if (!tabOrderDragState.dragging) {
+    if (Math.abs(e.clientY - tabOrderDragState.startY) > 8) {
+      window.clearTimeout(tabOrderDragState.timer);
+      tabOrderDragState.timer = null;
+    }
+    return;
+  }
+  updateTabOrderDrag(e.clientY);
+}
+
+function endTabOrderPress(e) {
+  if (!tabOrderDragState) return;
+  if (tabOrderDragState.pointerId && e.pointerId !== tabOrderDragState.pointerId) return;
+  if (!tabOrderDragState.dragging) {
+    window.clearTimeout(tabOrderDragState.timer);
+    tabOrderDragState = null;
+    return;
+  }
+  finishTabOrderDrag();
+}
+
+function beginTabOrderDrag(row, pointerId, clientY) {
+  if (!tabOrderDragState) return;
+  tabOrderDragState.dragging = true;
+  tabOrderDragState.row = row;
+  const rect = row.getBoundingClientRect();
+  tabOrderDragState.offsetY = clientY - rect.top;
+  row.classList.add("is-dragging");
+  navigator.vibrate?.(10);
+  updateTabOrderDrag(clientY);
+}
+
+function updateTabOrderDrag(clientY) {
+  if (!tabOrderDragState || !tabOrderDragState.dragging || !closetTabOrderList) return;
+  const row = tabOrderDragState.row;
+  const listRect = closetTabOrderList.getBoundingClientRect();
+  const y = clientY - listRect.top - tabOrderDragState.offsetY;
+  row.style.transform = `translateY(${y}px) scale(1.08)`;
+
+  const over = document.elementFromPoint(row.getBoundingClientRect().left + 10, clientY);
+  const target = over?.closest(".sortable-row");
+  if (target && target !== row && target.parentElement === closetTabOrderList) {
+    const targetRect = target.getBoundingClientRect();
+    const shouldInsertAfter = clientY > targetRect.top + targetRect.height / 2;
+    animateTabOrderReorder(row, target, shouldInsertAfter);
+  }
+  autoScrollTabOrder(clientY);
+}
+
+function animateTabOrderReorder(dragRow, targetRow, insertAfter) {
+  if (!closetTabOrderList) return;
+  const items = Array.from(closetTabOrderList.querySelectorAll(".sortable-row"));
+  const first = new Map(items.map((el) => [el, el.getBoundingClientRect()]));
+  if (insertAfter) {
+    closetTabOrderList.insertBefore(dragRow, targetRow.nextSibling);
+  } else {
+    closetTabOrderList.insertBefore(dragRow, targetRow);
+  }
+  const last = new Map(items.map((el) => [el, el.getBoundingClientRect()]));
+  for (const el of items) {
+    if (el === dragRow) continue;
+    const f = first.get(el);
+    const l = last.get(el);
+    if (!f || !l) continue;
+    const dy = f.top - l.top;
+    if (dy) {
+      if (typeof el.animate === "function") {
+        el.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }], {
+          duration: 160,
+          easing: "ease",
+        });
+      }
+    }
+  }
+}
+
+function autoScrollTabOrder(clientY) {
+  const container = settingsDialog;
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const edge = 96;
+  if (clientY < rect.top + edge) {
+    const dist = Math.max(0, clientY - rect.top);
+    const intensity = (edge - dist) / edge;
+    container.scrollTop -= 12 + intensity * 28;
+  } else if (clientY > rect.bottom - edge) {
+    const dist = Math.max(0, rect.bottom - clientY);
+    const intensity = (edge - dist) / edge;
+    container.scrollTop += 12 + intensity * 28;
+  }
+}
+
+function finishTabOrderDrag() {
+  if (!tabOrderDragState || !tabOrderDragState.dragging || !closetTabOrderList) {
+    tabOrderDragState = null;
+    return;
+  }
+  const row = tabOrderDragState.row;
+  row.classList.remove("is-dragging");
+  row.style.transform = "";
+  const order = Array.from(closetTabOrderList.querySelectorAll(".sortable-row")).map(
+    (el) => el.dataset.tabKey || ""
+  );
+  state.closetTabOrder = normalizeClosetTabOrder(order);
+  save("closet_tab_order", state.closetTabOrder);
+  syncSelectedTabs(state.closetTabOrder);
+  void persistFeatureOrder(state.closetTabOrder);
+  applyClosetTabOrderAnimated();
+  tabOrderDragState = null;
+}
+
+function cancelTabOrderDrag() {
+  if (!tabOrderDragState) return;
+  if (tabOrderDragState.timer) window.clearTimeout(tabOrderDragState.timer);
+  if (tabOrderDragState.dragging && tabOrderDragState.row) {
+    tabOrderDragState.row.classList.remove("is-dragging");
+    tabOrderDragState.row.style.transform = "";
+  }
+  renderClosetTabOrderList();
+  tabOrderDragState = null;
 }
 
 function renderVoteChecklist(container, selectedIds) {
@@ -3738,6 +4655,103 @@ function mergeVoteCounts(a, b) {
     merged[k] = Number(merged[k] || 0) + Number(v || 0);
   }
   return merged;
+}
+
+const PersistenceService = {
+  async get(key) {
+    const prefs = window.Capacitor?.Plugins?.Preferences;
+    if (prefs?.get) {
+      try {
+        const result = await prefs.get({ key });
+        if (result?.value != null) return result.value;
+      } catch {
+        // ignore
+      }
+    }
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  async set(key, value) {
+    const prefs = window.Capacitor?.Plugins?.Preferences;
+    if (prefs?.set) {
+      try {
+        await prefs.set({ key, value });
+        return;
+      } catch {
+        // ignore
+      }
+    }
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // ignore
+    }
+  },
+};
+
+function parseFeatureOrder(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return normalizeClosetTabOrder(parsed);
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function hydrateFeatureOrder() {
+  const [rawOrder, rawEnabled] = await Promise.all([
+    PersistenceService.get(FEATURE_ORDER_KEY),
+    PersistenceService.get(FEATURE_ENABLED_KEY),
+  ]);
+  const parsedOrder = parseFeatureOrder(rawOrder);
+  const parsedEnabled = parseFeatureOrder(rawEnabled);
+  if (parsedEnabled && parsedEnabled.length) {
+    state.featureEnabled = normalizeFeatureEnabled(parsedEnabled);
+  }
+  if (parsedOrder && parsedOrder.length) {
+    state.closetTabOrder = parsedOrder;
+    state.selectedTabs = parsedOrder.slice();
+  }
+  if (Array.isArray(state.closetTabOrder) && state.closetTabOrder.length) {
+    await PersistenceService.set(FEATURE_ORDER_KEY, JSON.stringify(state.closetTabOrder));
+  }
+  if (Array.isArray(state.featureEnabled) && state.featureEnabled.length) {
+    await PersistenceService.set(FEATURE_ENABLED_KEY, JSON.stringify(state.featureEnabled));
+  }
+}
+
+async function persistFeatureOrder(order) {
+  const normalized = normalizeClosetTabOrder(order);
+  await PersistenceService.set(FEATURE_ORDER_KEY, JSON.stringify(normalized));
+}
+
+async function persistFeatureEnabled(list) {
+  const normalized = normalizeFeatureEnabled(list);
+  await PersistenceService.set(FEATURE_ENABLED_KEY, JSON.stringify(normalized));
+}
+
+function applyFeatureDefaultsIfNeeded() {
+  try {
+    if (localStorage.getItem(FEATURE_DEFAULT_MIGRATION_KEY) === "1") return;
+  } catch {
+    // ignore
+  }
+  state.closetTabOrder = DEFAULT_CLOSET_TAB_ORDER.slice();
+  state.featureEnabled = DEFAULT_FEATURE_ENABLED.slice();
+  save("closet_tab_order", state.closetTabOrder);
+  syncSelectedTabs(state.closetTabOrder);
+  saveFeatureEnabled();
+  void persistFeatureOrder(state.closetTabOrder);
+  try {
+    localStorage.setItem(FEATURE_DEFAULT_MIGRATION_KEY, "1");
+  } catch {
+    // ignore
+  }
 }
 
 function load(key, fallback) {

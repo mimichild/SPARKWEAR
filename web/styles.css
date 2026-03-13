@@ -25,6 +25,7 @@ body {
   touch-action: manipulation;
   overscroll-behavior-y: contain;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 html {
@@ -66,6 +67,23 @@ body.with-bottom-ad {
 .page.active {
   display: block;
   -webkit-overflow-scrolling: touch;
+}
+
+@media (pointer: coarse) {
+  body {
+    overflow-y: hidden;
+  }
+
+  .app {
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .page.active {
+    overflow-y: visible;
+  }
 }
 
 .hidden {

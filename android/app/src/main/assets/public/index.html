@@ -173,6 +173,9 @@
 
   <dialog id="itemDialog">
     <form id="itemForm" class="dialog-card" method="dialog">
+      <div class="dialog-top-actions">
+        <button id="backItemForm" class="dialog-back-btn" type="button" aria-label="回上一頁">←</button>
+      </div>
       <h2 id="itemFormTitle">記錄新品</h2>
       <div class="grid-2">
         <label>品牌名稱<input name="brand" /></label>
@@ -213,6 +216,15 @@
               <option>其他</option>
             </select>
             <button id="openOriginDialogBtn" class="origin-add-btn" type="button">編輯</button>
+          </div>
+        </label>
+        <label>
+          顏色
+          <div class="origin-field-row">
+            <select id="itemColorSelect" name="color">
+              <option value="">未設定</option>
+            </select>
+            <button id="openColorDialogBtn" class="origin-add-btn" type="button">編輯</button>
           </div>
         </label>
       </div>
@@ -272,6 +284,36 @@
       <div class="actions hidden" id="originDeleteCloseOnly">
         <button id="closeOriginDeleteOnly" type="button">關閉</button>
       </div>
+    </article>
+  </dialog>
+
+  <dialog id="colorDialog">
+    <article class="dialog-card">
+      <h2>編輯顏色</h2>
+      <div class="origin-mode-row">
+        <button id="colorModeAddBtn" class="origin-mode-btn is-active" type="button">新增</button>
+        <button id="colorModeDeleteBtn" class="origin-mode-btn" type="button">刪除</button>
+      </div>
+
+      <form id="colorForm" class="origin-panel" method="dialog">
+        <label>顏色名稱<input id="newColorInput" name="colorName" maxlength="20" required
+            placeholder="例如：藕粉色 / 淺霧藍" /></label>
+        <p class="meta">確認後會新增到「顏色」選項中。</p>
+        <div class="actions">
+          <button id="cancelColorDialog" type="button">取消</button>
+          <button type="submit">確認新增</button>
+        </div>
+      </form>
+
+      <section id="colorDeletePanel" class="origin-panel hidden">
+        <p class="meta">點選一個顏色後，按下刪除。已有單品會改成「未設定」。</p>
+        <div id="colorDeleteList" class="chip-row"></div>
+        <div class="actions">
+          <button id="cancelColorDelete" type="button">取消</button>
+          <button id="confirmColorDelete" class="danger-btn" type="button">刪除顏色</button>
+        </div>
+      </section>
+      <div id="colorDeleteEmpty" class="meta hidden">目前沒有可刪除的顏色。</div>
     </article>
   </dialog>
 
@@ -433,8 +475,10 @@
       <button class="sub-btn active" type="button" data-ranking-detail-tab="clothes">單品</button>
       <button class="sub-btn" type="button" data-ranking-detail-tab="photos">照片</button>
     </nav>
-    <section id="rankingDetailStats" class="list sub-panel active"></section>
-    <section id="rankingDetailPhotos" class="list sub-panel"></section>
+    <div class="ranking-detail-layout">
+      <section id="rankingDetailStats" class="sub-panel active"></section>
+      <section id="rankingDetailPhotos" class="sub-panel"></section>
+    </div>
   </section>
 
   <dialog id="itemDetailDialog">

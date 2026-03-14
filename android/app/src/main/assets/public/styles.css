@@ -468,15 +468,32 @@ button,
 }
 
 .sub-panel {
-  display: none;
+  display: none !important;
 }
 
 .sub-panel.active {
-  display: block;
+  display: block !important;
 }
 
 .ranking-detail-layout {
   display: block;
+}
+
+@media (min-width: 721px) {
+  .ranking-detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  #rankingDetailPage .sub-tabs {
+    display: none;
+  }
+
+  #rankingDetailPage .sub-panel {
+    display: block !important;
+  }
 }
 
 .ranking-detail-col .photo-grid {

@@ -1,17 +1,20 @@
 const DEFAULT_CATEGORY_ORDER = ["上衣", "裙裝", "褲裝", "洋裝", "外套", "套裝", "日常", "鞋類", "包包", "猶豫", "留校", "冷凍", "未分類"];
 const SEASON_TAG_OPTIONS = ["春季", "夏季", "秋季", "冬季"];
 const DEFAULT_ORIGIN_OPTIONS = ["日貨", "韓貨", "品牌", "蝦皮", "其他"];
+const DEFAULT_COLOR_OPTIONS = ["黑色", "白色", "灰色", "紅色", "橙色", "黃色", "綠色", "藍色", "紫色", "粉色", "棕色", "米色", "卡其色", "青色", "花色"];
 const CUSTOM_ORIGINS_KEY = "closet_custom_origins";
 const DELETED_ORIGINS_KEY = "closet_deleted_origins";
+const CUSTOM_COLORS_KEY = "closet_custom_colors";
+const DELETED_COLORS_KEY = "closet_deleted_colors";
 const SELECTED_TABS_KEY = "closet_selected_tabs";
 const FEATURE_ORDER_KEY = "closet_feature_order";
 const FEATURE_ENABLED_KEY = "closet_feature_enabled";
-const FEATURE_DEFAULT_MIGRATION_KEY = "closet_feature_defaults_v2";
+const FEATURE_DEFAULT_MIGRATION_KEY = "closet_feature_defaults_v3";
 const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.63+64";
+const APP_VERSION_LABEL = "v1.0.69+70";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -74,8 +77,8 @@ const NATIVE_BACKUP_BASE64_BLOCK = 0x8000;
 const MISSING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="42">MISSING</text></svg>');
 const LOADING_PHOTO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="100%" height="100%" fill="#f5f1e9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9f9689" font-size="30">LOADING</text></svg>');
 
-const DEFAULT_CLOSET_TAB_ORDER = ["items", "photos", "category", "ranking", "tags"];
-const DEFAULT_FEATURE_ENABLED = ["items", "photos", "category", "ranking"];
+const DEFAULT_CLOSET_TAB_ORDER = ["items", "photos", "category", "tags", "ranking"];
+const DEFAULT_FEATURE_ENABLED = ["items", "photos", "category", "tags", "ranking"];
 const CLOSET_TAB_LABELS = {
   items: "單品",
   photos: "照片",
@@ -101,6 +104,8 @@ const state = {
   selectedTabs: load(SELECTED_TABS_KEY, []),
   customOrigins: load(CUSTOM_ORIGINS_KEY, []),
   deletedOrigins: load(DELETED_ORIGINS_KEY, []),
+  customColors: load(CUSTOM_COLORS_KEY, []),
+  deletedColors: load(DELETED_COLORS_KEY, []),
   selectedCategory: "",
   selectedTags: [],
   closetQuery: "",
@@ -137,6 +142,7 @@ const ADMOB_BANNER_AD_UNIT_ID = "ca-app-pub-5935990202404330/1560595575";
 const ADMOB_TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111";
 const ADMOB_FORCE_TESTING = false;
 const ADMOB_TEST_DEVICE_IDS = [];
+const PAYMENT_ENABLED = false;
 
 const openPageBtns = document.querySelectorAll("[data-open-page]");
 const backBtns = document.querySelectorAll("[data-back-home]");
@@ -206,6 +212,22 @@ const confirmOriginDelete = document.getElementById("confirmOriginDelete");
 const originDeleteEmpty = document.getElementById("originDeleteEmpty");
 const originDeleteCloseOnly = document.getElementById("originDeleteCloseOnly");
 const closeOriginDeleteOnly = document.getElementById("closeOriginDeleteOnly");
+
+const itemColorSelect = document.getElementById("itemColorSelect");
+const openColorDialogBtn = document.getElementById("openColorDialogBtn");
+const colorDialog = document.getElementById("colorDialog");
+const colorForm = document.getElementById("colorForm");
+const newColorInput = document.getElementById("newColorInput");
+const cancelColorDialog = document.getElementById("cancelColorDialog");
+const colorModeAddBtn = document.getElementById("colorModeAddBtn");
+const colorModeDeleteBtn = document.getElementById("colorModeDeleteBtn");
+const colorDeletePanel = document.getElementById("colorDeletePanel");
+const colorDeleteList = document.getElementById("colorDeleteList");
+const cancelColorDelete = document.getElementById("cancelColorDelete");
+const confirmColorDelete = document.getElementById("confirmColorDelete");
+const colorDeleteEmpty = document.getElementById("colorDeleteEmpty");
+const backItemFormBtn = document.getElementById("backItemForm");
+
 const existingItemPhotosSection = document.getElementById("existingItemPhotosSection");
 const existingItemPhotosList = document.getElementById("existingItemPhotosList");
 
@@ -364,7 +386,9 @@ let cropSession = null;
 let stagedItemUploadFiles = null;
 let stagedOutfitUploadFiles = null;
 let originDialogMode = "add";
+let colorDialogMode = "add";
 let selectedDeleteOriginKey = "";
+let selectedDeleteColorKey = "";
 let cropDialogProgrammaticClose = false;
 let selectionContext = "";
 let selectedItemIds = new Set();
@@ -482,6 +506,12 @@ closeItemBtn.addEventListener("click", () => {
   if (itemPhotosInput) itemPhotosInput.value = "";
   itemDialog.close();
 });
+backItemFormBtn?.addEventListener("click", () => {
+  editingItemId = null;
+  stagedItemUploadFiles = null;
+  if (itemPhotosInput) itemPhotosInput.value = "";
+  itemDialog.close();
+});
 openOriginDialogBtn?.addEventListener("click", () => openOriginDialogForm());
 cancelOriginDialog?.addEventListener("click", () => originDialog?.close());
 originForm?.addEventListener("submit", (e) => onSaveOrigin(e));
@@ -490,6 +520,14 @@ originModeDeleteBtn?.addEventListener("click", () => setOriginDialogMode("delete
 cancelOriginDelete?.addEventListener("click", () => originDialog?.close());
 confirmOriginDelete?.addEventListener("click", () => onDeleteOrigin());
 closeOriginDeleteOnly?.addEventListener("click", () => originDialog?.close());
+
+openColorDialogBtn?.addEventListener("click", () => openColorDialogForm());
+cancelColorDialog?.addEventListener("click", () => colorDialog?.close());
+colorForm?.addEventListener("submit", (e) => onSaveColor(e));
+colorModeAddBtn?.addEventListener("click", () => setColorDialogMode("add"));
+colorModeDeleteBtn?.addEventListener("click", () => setColorDialogMode("delete"));
+cancelColorDelete?.addEventListener("click", () => colorDialog?.close());
+confirmColorDelete?.addEventListener("click", () => onDeleteColor());
 openCategoryEdit.addEventListener("click", () => {
   renderCategoryEditRows();
   categoryEditDialog.showModal();
@@ -1193,6 +1231,7 @@ function openNewItemForm() {
   itemFormTitle.textContent = "記錄新品";
   itemForm.reset();
   renderItemOriginOptions("");
+  renderItemColorOptions("");
   stagedItemUploadFiles = null;
   if (itemPhotosInput) itemPhotosInput.value = "";
   if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
@@ -1314,6 +1353,114 @@ function onDeleteOrigin() {
   }
   selectedDeleteOriginKey = "";
   renderOriginDeleteOptions();
+  renderAll();
+}
+
+function openColorDialogForm() {
+  if (!itemDialog?.open) return;
+  if (newColorInput) newColorInput.value = "";
+  selectedDeleteColorKey = "";
+  setColorDialogMode("add");
+  colorDialog?.showModal();
+}
+
+function setColorDialogMode(mode) {
+  colorDialogMode = mode === "delete" ? "delete" : "add";
+  const isAdd = colorDialogMode === "add";
+  colorForm?.classList.toggle("hidden", !isAdd);
+  colorDeletePanel?.classList.toggle("hidden", isAdd);
+  colorModeAddBtn?.classList.toggle("is-active", isAdd);
+  colorModeDeleteBtn?.classList.toggle("is-active", !isAdd);
+  if (isAdd) {
+    colorDeleteEmpty?.classList.add("hidden");
+    newColorInput?.focus();
+    return;
+  }
+  renderColorDeleteOptions();
+}
+
+function onSaveColor(e) {
+  e.preventDefault();
+  const name = String(newColorInput?.value || "").trim();
+  if (!name) {
+    alert("請輸入顏色名稱");
+    return;
+  }
+  const key = normalizeLookupKey(name);
+  const exists = buildColorOptions().some((color) => normalizeLookupKey(color) === key);
+  if (exists) {
+    renderItemColorOptions(name);
+    selectedDeleteColorKey = "";
+    renderColorDeleteOptions();
+    colorDialog?.close();
+    return;
+  }
+  state.deletedColors = (state.deletedColors || []).filter((color) => normalizeLookupKey(color) !== key);
+  state.customColors = [...(state.customColors || []), name];
+  if (!persistAll()) return;
+  renderItemColorOptions(name);
+  renderAll();
+  selectedDeleteColorKey = "";
+  renderColorDeleteOptions();
+  colorDialog?.close();
+}
+
+function renderColorDeleteOptions() {
+  const options = buildColorOptions();
+  if (!colorDeleteList) return;
+  if (!options.length) {
+    colorDeleteList.innerHTML = "";
+    colorDeleteEmpty?.classList.remove("hidden");
+    colorDeletePanel?.classList.add("hidden");
+    return;
+  }
+  colorDeleteEmpty?.classList.add("hidden");
+  colorDeletePanel?.classList.remove("hidden");
+  if (!options.some((color) => normalizeLookupKey(color) === selectedDeleteColorKey)) {
+    selectedDeleteColorKey = normalizeLookupKey(options[0] || "");
+  }
+  colorDeleteList.innerHTML = options
+    .map((color) => {
+      const key = normalizeLookupKey(color);
+      const selected = key === selectedDeleteColorKey;
+      return `<button type="button" class="chip ${selected ? "is-selected" : ""}" data-color-delete-key="${escapeAttr(key)}">${escapeHtml(color)}</button>`;
+    })
+    .join("");
+  for (const btn of colorDeleteList.querySelectorAll("[data-color-delete-key]")) {
+    btn.addEventListener("click", () => {
+      selectedDeleteColorKey = String(btn.dataset.colorDeleteKey || "");
+      renderColorDeleteOptions();
+    });
+  }
+}
+
+function onDeleteColor() {
+  const key = normalizeLookupKey(selectedDeleteColorKey);
+  if (!key) {
+    alert("請先選擇要刪除的顏色");
+    return;
+  }
+  const options = buildColorOptions();
+  const target = options.find((color) => normalizeLookupKey(color) === key);
+  if (!target) {
+    alert("找不到要刪除的顏色");
+    return;
+  }
+
+  state.customColors = (state.customColors || []).filter((color) => normalizeLookupKey(color) !== key);
+  state.deletedColors = [...(state.deletedColors || []), target];
+  for (const item of state.items) {
+    if (normalizeLookupKey(item?.color) === key) item.color = "";
+  }
+
+  if (!persistAll()) return;
+  if (normalizeLookupKey(itemColorSelect?.value || "") === key) {
+    renderItemColorOptions("");
+  } else {
+    renderItemColorOptions(itemColorSelect?.value || "");
+  }
+  selectedDeleteColorKey = "";
+  renderColorDeleteOptions();
   renderAll();
 }
 
@@ -2107,6 +2254,7 @@ async function onSaveItem(e) {
     suggestedWeight: String(fd.get("suggestedWeight") || "").trim(),
     grade: String(fd.get("grade") || "").trim(),
     origin: String(fd.get("origin") || "").trim(),
+    color: String(fd.get("color") || "").trim(),
     seasons: fd.getAll("seasons"),
     miniNote: String(fd.get("miniNote") || "").trim(),
     pros: String(fd.get("pros") || "").trim(),
@@ -2316,6 +2464,8 @@ function persistAll() {
   try {
     state.customOrigins = normalizeOriginList(state.customOrigins);
     state.deletedOrigins = normalizeDeletedOriginList(state.deletedOrigins);
+    state.customColors = normalizeColorList(state.customColors);
+    state.deletedColors = normalizeDeletedColorList(state.deletedColors);
     save("closet_items", state.items);
     save("closet_daily_logs", state.dailyLogs);
     save("closet_category_order", state.categoryOrder);
@@ -2323,6 +2473,8 @@ function persistAll() {
     save("closet_manual_vote_counts", state.manualVoteCounts);
     save(CUSTOM_ORIGINS_KEY, state.customOrigins);
     save(DELETED_ORIGINS_KEY, state.deletedOrigins);
+    save(CUSTOM_COLORS_KEY, state.customColors);
+    save(DELETED_COLORS_KEY, state.deletedColors);
     return true;
   } catch (err) {
     console.error("persistAll failed:", err);
@@ -2698,8 +2850,12 @@ function syncUnlockFeatureUi() {
     openUnlockFeatureBtn.textContent = proUnlocked ? "已解鎖進階" : "解鎖功能";
   }
   if (confirmUnlockFeature) {
-    confirmUnlockFeature.textContent = proUnlocked ? "已永久解鎖" : "立即解鎖";
-    confirmUnlockFeature.disabled = proUnlocked;
+    confirmUnlockFeature.textContent = proUnlocked
+      ? "已永久解鎖"
+      : PAYMENT_ENABLED
+        ? "立即解鎖"
+        : "付款功能未開放";
+    confirmUnlockFeature.disabled = proUnlocked || !PAYMENT_ENABLED;
   }
   if (fontFeatureControl) {
     fontFeatureControl.classList.toggle("is-locked", !proUnlocked);
@@ -2728,6 +2884,10 @@ function openUnlockFeatureDialog() {
 function onConfirmUnlockFeature() {
   if (proUnlocked) {
     unlockFeatureDialog?.close();
+    return;
+  }
+  if (!PAYMENT_ENABLED) {
+    alert("付款功能尚未開放，請使用 VIP CODE 解鎖。");
     return;
   }
   const approved = window.confirm("將以一次性 $30 元解鎖進階功能，確認要升級嗎？");
@@ -3099,6 +3259,70 @@ function renderItemOriginOptions(selectedValue = "") {
   itemOriginSelect.value = matched || "";
 }
 
+function normalizeColorList(values) {
+  const list = Array.isArray(values) ? values : [];
+  const seen = new Set();
+  const result = [];
+  for (const row of list) {
+    const name = String(row || "").trim();
+    if (!name) continue;
+    const key = normalizeLookupKey(name);
+    if (seen.has(key)) continue;
+    if (DEFAULT_COLOR_OPTIONS.some((color) => normalizeLookupKey(color) === key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+function normalizeDeletedColorList(values) {
+  const list = Array.isArray(values) ? values : [];
+  const seen = new Set();
+  const result = [];
+  for (const row of list) {
+    const name = String(row || "").trim();
+    if (!name) continue;
+    const key = normalizeLookupKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+function buildColorOptions() {
+  const merged = [];
+  const seen = new Set();
+  const deleted = new Set((state.deletedColors || []).map((color) => normalizeLookupKey(color)));
+  const add = (value) => {
+    const name = String(value || "").trim();
+    if (!name) return;
+    const key = normalizeLookupKey(name);
+    if (deleted.has(key)) return;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(name);
+  };
+  for (const color of DEFAULT_COLOR_OPTIONS) add(color);
+  for (const color of state.customColors || []) add(color);
+  for (const item of state.items || []) add(item?.color);
+  return merged;
+}
+
+function renderItemColorOptions(selectedValue = "") {
+  if (!itemColorSelect) return;
+  const options = buildColorOptions();
+  itemColorSelect.innerHTML = ['<option value="">未設定</option>', ...options.map((color) => `<option value="${escapeAttr(color)}">${escapeHtml(color)}</option>`)]
+    .join("");
+  const expectedKey = normalizeLookupKey(selectedValue || "");
+  if (!expectedKey) {
+    itemColorSelect.value = "";
+    return;
+  }
+  const matched = options.find((color) => normalizeLookupKey(color) === expectedKey);
+  itemColorSelect.value = matched || "";
+}
+
 function renderLatest() {
   const items = sortedByPurchase(state.items).filter(matchesClosetQuery);
   const selectionVisible = selectionContext === "closet" && selectedItemIds.size > 0;
@@ -3189,6 +3413,7 @@ function openItemDetail(itemId) {
     <div><strong>原價：</strong>${item.originalPrice ?? "未填"}</div>
     <div><strong>特價：</strong>${item.specialPrice ?? "未填"}</div>
     <div><strong>優惠價：</strong>${item.discountPrice ?? "未填"}</div>
+    <div><strong>顏色：</strong>${escapeHtml(item.color || "未填")}</div>
     <div><strong>來源：</strong>${escapeHtml(item.origin || "未填")}</div>
     <div><strong>分級：</strong>${escapeHtml(item.grade || "未填")}</div>
     <div><strong>季節：</strong>${escapeHtml((item.seasons || []).join(" / ") || "未填")}</div>
@@ -3234,6 +3459,7 @@ function openItemEditForm() {
   if (suggestedWeightInput) suggestedWeightInput.value = item.suggestedWeight || "";
   itemForm.grade.value = item.grade || "";
   renderItemOriginOptions(item.origin || "");
+  renderItemColorOptions(item.color || "");
   itemForm.miniNote.value = item.miniNote || "";
   itemForm.pros.value = item.pros || "";
   itemForm.cons.value = item.cons || "";
@@ -3879,17 +4105,24 @@ function buildColorRankingData(period) {
   const usageCounter = buildUsageCounter(period);
   const colorMap = new Map();
   for (const item of state.items) {
-    const color = getCategoryColor(item.category);
-    const entry = colorMap.get(color) || { color, count: 0, categories: new Set() };
-    entry.count += usageCounter.get(item.id) || 0;
+    const colorName = item.color || "未設定";
+    const entry = colorMap.get(colorName) || { color: colorName, usageCount: 0, possessionCount: 0, categories: new Set(), items: [] };
+    entry.usageCount += usageCounter.get(item.id) || 0;
+    entry.possessionCount++;
     entry.categories.add(item.category || "未分類");
-    colorMap.set(color, entry);
+    entry.items.push(item);
+    colorMap.set(colorName, entry);
   }
   const rows = Array.from(colorMap.values());
   const dir = state.rankingSort === "asc" ? 1 : -1;
   rows.sort((a, b) => {
-    if (a.count === b.count) return 0;
-    return a.count > b.count ? dir : -dir;
+    if (a.possessionCount !== b.possessionCount) {
+      return a.possessionCount > b.possessionCount ? dir : -dir;
+    }
+    if (a.usageCount !== b.usageCount) {
+      return a.usageCount > b.usageCount ? dir : -dir;
+    }
+    return a.color.localeCompare(b.color);
   });
   return rows;
 }
@@ -3898,13 +4131,18 @@ function buildBrandRankingData() {
   const brandMap = new Map();
   for (const item of state.items) {
     const brand = String(item.brand || "").trim() || "未填品牌";
-    brandMap.set(brand, (brandMap.get(brand) || 0) + 1);
+    const entry = brandMap.get(brand) || { brand, possessionCount: 0, items: [] };
+    entry.possessionCount++;
+    entry.items.push(item);
+    brandMap.set(brand, entry);
   }
-  const rows = Array.from(brandMap.entries()).map(([brand, count]) => ({ brand, count }));
+  const rows = Array.from(brandMap.values());
   const dir = state.rankingSort === "asc" ? 1 : -1;
   rows.sort((a, b) => {
-    if (a.count === b.count) return a.brand.localeCompare(b.brand);
-    return a.count > b.count ? dir : -dir;
+    if (a.possessionCount !== b.possessionCount) {
+      return a.possessionCount > b.possessionCount ? dir : -dir;
+    }
+    return a.brand.localeCompare(b.brand);
   });
   return rows;
 }
@@ -3987,28 +4225,34 @@ function renderRankingDetailPage() {
 
   if (metric === "color") {
     const rows = buildColorRankingData(period);
+    const usageCounter = buildUsageCounter(period);
     if (!rows.length) {
       rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
       rankingDetailPhotos.innerHTML = "";
       return;
     }
-    rankingDetailStats.innerHTML = rows
-      .map((row, idx) => {
-        const categories = Array.from(row.categories);
-        const categoryText = categories.length ? `分類：${categories.join(" / ")}` : "分類：未分類";
-        return `
-          <article class="latest-row">
-            <div class="latest-open-btn">
-              <div class="latest-title">
-                <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;<span class="color-dot" style="background:${escapeAttr(row.color)};"></span>${escapeHtml(row.color)}</span>
+    rankingDetailStats.innerHTML = `
+      <div class="list">
+        ${rows
+        .map((row, idx) => {
+          const representativeItem = getMostUsedItemInGroup(row.items, usageCounter);
+          return `
+            <article class="latest-row">
+              <div class="latest-open-btn">
+                <div class="latest-title">
+                  <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.color)}</span>
+                </div>
+                <p class="latest-category meta">總計：${row.possessionCount}</p>
+                ${representativeItem ? `<img class="latest-thumb" src="${photoSrc(representativeItem.itemPhotos?.[0])}" alt="" />` : ""}
               </div>
-              <p class="latest-category meta">顏色出現次數：${row.count} · ${escapeHtml(categoryText)}</p>
-            </div>
-          </article>
-        `;
-      })
-      .join("");
-    const photoItems = sortedByPurchase(state.items).filter((item) => rows.some((row) => row.color === getCategoryColor(item.category))).slice(0, 30);
+            </article>
+          `;
+        })
+        .join("")}
+      </div>
+    `;
+
+    const photoItems = rows.map(row => getMostUsedItemInGroup(row.items, usageCounter)).filter(Boolean);
     queuePhotoRefs(photoItems.map((item) => item.itemPhotos?.[0]));
     rankingDetailPhotos.innerHTML = photoItems.length
       ? `<div class="photo-grid">
@@ -4036,26 +4280,35 @@ function renderRankingDetailPage() {
 
   if (metric === "brand") {
     const rows = buildBrandRankingData();
+    const usageCounter = buildUsageCounter(period);
     if (!rows.length) {
       rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
       rankingDetailPhotos.innerHTML = "";
       return;
     }
-    rankingDetailStats.innerHTML = rows
-      .map(
-        (row, idx) => `
-        <article class="latest-row">
-          <div class="latest-open-btn">
-            <div class="latest-title">
-              <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.brand)}</span>
-            </div>
-            <p class="latest-category meta">單品數：${row.count}</p>
-          </div>
-        </article>`
-      )
-      .join("");
-    const orderedBrands = rows.map((row) => row.brand);
-    const photoItems = sortedByPurchase(state.items).filter((item) => orderedBrands.includes(String(item.brand || "").trim() || "未填品牌")).slice(0, 30);
+    rankingDetailStats.innerHTML = `
+      <div class="list">
+        ${rows
+        .map(
+          (row, idx) => {
+            const representativeItem = getMostUsedItemInGroup(row.items, usageCounter);
+            return `
+              <article class="latest-row">
+                <div class="latest-open-btn">
+                  <div class="latest-title">
+                    <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.brand)}</span>
+                  </div>
+                  <p class="latest-category meta">單品數：${row.possessionCount}</p>
+                  ${representativeItem ? `<img class="latest-thumb" src="${photoSrc(representativeItem.itemPhotos?.[0])}" alt="" />` : ""}
+                </div>
+              </article>`;
+          }
+        )
+        .join("")}
+      </div>
+    `;
+
+    const photoItems = rows.map(row => getMostUsedItemInGroup(row.items, usageCounter)).filter(Boolean);
     queuePhotoRefs(photoItems.map((item) => item.itemPhotos?.[0]));
     rankingDetailPhotos.innerHTML = photoItems.length
       ? `<div class="photo-grid">
@@ -4098,22 +4351,20 @@ function renderRankingDetailPage() {
           metric === "usage"
             ? `使用次數：${uses}`
             : metric === "cp"
-              ? `單次成本：${formatNumber(value, 2)}（${price ? `最低取得價 ${formatCurrency(price)}` : "未填價格"} / ${uses || 0} 次）`
+              ? `單次成本：${formatNumber(value, 2)}（${price ? formatCurrency(price) : "未填價格"} / ${uses || 0} 次）`
               : `最低取得價：${formatCurrency(value)}`;
         const selected = selectionVisible && selectedItemIds.has(item.id);
         return `
-            <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" data-open-item-detail="${item.id}">
-              <article class="item-row ${selected ? "selected-lines" : ""}">
-                <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
-                <div>
-                  <div>
-                    ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
-                    <strong>No.${idx + 1}</strong>&nbsp;<strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}
-                  </div>
-                  <p class="meta">${escapeHtml(item.category || "未分類")} · ${statText}</p>
+            <article class="latest-row">
+              <button type="button" class="latest-open-btn ${selectionVisible ? "selection-visible" : ""}" data-open-item-detail="${item.id}">
+                <div class="latest-title">
+                  ${selectionVisible ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                  <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;<strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}</span>
                 </div>
-              </article>
-            </button>
+                <p class="latest-category meta">${escapeHtml(item.category || "未分類")} · ${statText}</p>
+                <img class="latest-thumb" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+              </button>
+            </article>
           `;
       })
       .join("")}
@@ -4146,6 +4397,20 @@ function renderRankingDetailPage() {
   }
   bindSelectionCheckboxes(rankingDetailStats, "rankingDetail");
   bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
+}
+
+function getMostUsedItemInGroup(items, usageCounter) {
+  if (!items || items.length === 0) return null;
+  let best = items[0];
+  let maxU = -1;
+  for (const it of items) {
+    const u = usageCounter.get(it.id) || 0;
+    if (u > maxU) {
+      maxU = u;
+      best = it;
+    }
+  }
+  return best;
 }
 
 function formatNumber(value, digits = 0) {

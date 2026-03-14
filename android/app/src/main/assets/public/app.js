@@ -11,7 +11,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.60+61";
+const APP_VERSION_LABEL = "v1.0.61+62";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -131,6 +131,7 @@ const bottomAdsenseSlot = document.getElementById("bottomAdsenseSlot");
 
 const ADSENSE_CLIENT_ID = "ca-pub-xxxxxxxxxxxxxxxx";
 const ADSENSE_BOTTOM_SLOT_ID = "0000000000";
+const isAdEnabled = true;
 
 const openPageBtns = document.querySelectorAll("[data-open-page]");
 const backBtns = document.querySelectorAll("[data-back-home]");
@@ -213,6 +214,10 @@ const outfitFormDialog = document.getElementById("outfitFormDialog");
 const outfitForm = document.getElementById("outfitForm");
 const outfitFormTitle = document.getElementById("outfitFormTitle");
 const closeOutfitBtn = document.querySelector("[data-close-outfit]");
+const backOutfitFormBtn = document.getElementById("backOutfitForm");
+const cancelOutfitConfirmDialog = document.getElementById("cancelOutfitConfirmDialog");
+const cancelOutfitConfirmBtn = document.getElementById("cancelOutfitConfirm");
+const confirmOutfitCancelBtn = document.getElementById("confirmOutfitCancel");
 const outfitTimeInput = outfitForm.querySelector('input[name="time"]');
 const outfitPhotosInput = outfitForm.querySelector('input[name="outfitPhotos"]');
 const outfitSearchBrand = document.getElementById("outfitSearchBrand");
@@ -292,6 +297,8 @@ const photoCropViewport = document.getElementById("photoCropViewport");
 const photoCropImage = document.getElementById("photoCropImage");
 const cancelPhotoCrop = document.getElementById("cancelPhotoCrop");
 const confirmPhotoCrop = document.getElementById("confirmPhotoCrop");
+const cropPrevBtn = document.getElementById("cropPrevBtn");
+const cropNextBtn = document.getElementById("cropNextBtn");
 const bulkCategoryDialog = document.getElementById("bulkCategoryDialog");
 const bulkCategoryForm = document.getElementById("bulkCategoryForm");
 const bulkCategoryText = document.getElementById("bulkCategoryText");
@@ -497,6 +504,15 @@ openOutfitFormAction.addEventListener("click", () => {
   outfitFormDialog.showModal();
   renderOutfitSearchCategoryOptions();
   renderOutfitItemChecklist();
+});
+backOutfitFormBtn?.addEventListener("click", () => {
+  if (cancelOutfitConfirmDialog?.open) return;
+  cancelOutfitConfirmDialog?.showModal();
+});
+cancelOutfitConfirmBtn?.addEventListener("click", () => cancelOutfitConfirmDialog?.close());
+confirmOutfitCancelBtn?.addEventListener("click", () => {
+  dismissOutfitForm();
+  cancelOutfitConfirmDialog?.close();
 });
 openVoteFormAction.addEventListener("click", () => {
   outfitMenuDialog.close();
@@ -800,6 +816,8 @@ cancelImportBtn.addEventListener("click", () => {
 });
 cancelPhotoCrop.addEventListener("click", () => cancelCropSession());
 confirmPhotoCrop.addEventListener("click", () => confirmCropFrame());
+cropPrevBtn?.addEventListener("click", () => navigateCropFrame(-1));
+cropNextBtn?.addEventListener("click", () => navigateCropFrame(1));
 cancelBulkCategory.addEventListener("click", () => bulkCategoryDialog.close());
 bulkCategoryForm.addEventListener("submit", (e) => onConfirmBulkCategory(e));
 cancelBulkDelete.addEventListener("click", () => bulkDeleteDialog.close());
@@ -851,6 +869,7 @@ originDialog?.addEventListener("close", () => {
 outfitFormDialog.addEventListener("close", () => {
   stagedOutfitUploadFiles = null;
   if (outfitPhotosInput) outfitPhotosInput.value = "";
+  cancelOutfitConfirmDialog?.close();
 });
 cancelDeleteItem.addEventListener("click", () => confirmDeleteItemDialog.close());
 cancelDeleteOutfit.addEventListener("click", () => confirmDeleteOutfitDialog.close());
@@ -904,6 +923,7 @@ function hasValidAdsenseConfig() {
 
 function initBottomAd() {
   if (!bottomAdBanner || !bottomAdsenseSlot) return;
+  if (!isAdEnabled) return;
   if (!hasValidAdsenseConfig()) {
     bottomAdBanner.classList.add("placeholder-mode");
     return;
@@ -933,7 +953,7 @@ function renderBottomAdOnce() {
 
 function updateBottomAdVisibility() {
   if (!bottomAdBanner) return;
-  const shouldShow = currentMainPage() !== "home" && !proUnlocked;
+  const shouldShow = isAdEnabled && !proUnlocked && currentMainPage() !== "home";
   bottomAdBanner.classList.toggle("hidden", !shouldShow);
   bottomAdBanner.setAttribute("aria-hidden", shouldShow ? "false" : "true");
   document.body.classList.toggle("with-bottom-ad", shouldShow);
@@ -941,6 +961,15 @@ function updateBottomAdVisibility() {
     bottomAdBanner.classList.toggle("placeholder-mode", !hasValidAdsenseConfig());
     renderBottomAdOnce();
   }
+}
+
+function dismissOutfitForm() {
+  editingOutfitId = null;
+  stagedOutfitUploadFiles = null;
+  outfitSelection = new Set();
+  outfitForm?.reset();
+  if (outfitPhotosInput) outfitPhotosInput.value = "";
+  outfitFormDialog?.close();
 }
 
 function switchSub(tab) {
@@ -1537,19 +1566,166 @@ async function cropFilesForUpload(files, profileName) {
   const profile = getCompressionProfile(profileName);
   if (!profile.width || !profile.height) return list;
   const ratio = 3 / 4;
-  const output = [];
-  for (let i = 0; i < list.length; i += 1) {
+  if (list.length <= 1) {
     try {
-      const blob = await cropSingleFile(list[i], i + 1, list.length, ratio, profile.width, profile.height);
-      output.push(blob);
+      const blob = await cropSingleFile(list[0], 1, 1, ratio, profile.width, profile.height);
+      return [blob];
     } catch (err) {
       const text = String(err?.message || err || "").toLowerCase();
       if (text.includes("crop-cancelled")) throw err;
       console.warn("cropSingleFile fallback to original file:", err);
-      output.push(list[i]);
+      return list;
     }
   }
-  return output;
+  try {
+    return await cropBatchFiles(list, ratio, profile.width, profile.height);
+  } catch (err) {
+    const text = String(err?.message || err || "").toLowerCase();
+    if (text.includes("crop-cancelled")) throw err;
+    console.warn("cropBatchFiles fallback to original files:", err);
+    return list;
+  }
+}
+
+function updateCropNavigationUi() {
+  if (!cropPrevBtn || !cropNextBtn || !confirmPhotoCrop) return;
+  if (!cropSession || !Array.isArray(cropSession.files)) {
+    cropPrevBtn.classList.add("hidden");
+    cropNextBtn.classList.add("hidden");
+    confirmPhotoCrop.textContent = "確定";
+    return;
+  }
+  const total = cropSession.files.length;
+  const idx = cropSession.index || 0;
+  cropPrevBtn.classList.toggle("hidden", total <= 1);
+  cropNextBtn.classList.toggle("hidden", total <= 1);
+  cropPrevBtn.disabled = idx <= 0;
+  cropNextBtn.disabled = idx >= total - 1;
+  confirmPhotoCrop.textContent = idx >= total - 1 ? "完成" : "確定";
+}
+
+function persistCropState() {
+  if (!cropSession || !Array.isArray(cropSession.states)) return;
+  cropSession.states[cropSession.index] = {
+    scale: cropSession.scale,
+    offsetX: cropSession.offsetX,
+    offsetY: cropSession.offsetY,
+  };
+}
+
+async function saveCurrentCropFrame() {
+  if (!cropSession) return;
+  persistCropState();
+  if (!Array.isArray(cropSession.outputs)) return;
+  try {
+    const blob = await renderCropBlob(cropSession);
+    cropSession.outputs[cropSession.index] = blob;
+  } catch (err) {
+    console.warn("renderCropBlob failed, fallback to original file:", err);
+    if (Array.isArray(cropSession.files)) {
+      cropSession.outputs[cropSession.index] = cropSession.files[cropSession.index];
+    }
+  }
+}
+
+function openCropIndex(index) {
+  if (!cropSession || !Array.isArray(cropSession.files) || !photoCropImage || !photoCropViewport) return;
+  const file = cropSession.files[index];
+  if (!file) return;
+  if (cropSession.objectUrl) URL.revokeObjectURL(cropSession.objectUrl);
+  const objectUrl = URL.createObjectURL(file);
+  cropSession.objectUrl = objectUrl;
+  cropSession.index = index;
+  cropSession.dragging = false;
+  cropSession.pointers.clear();
+  cropSession.pinchStartDistance = 0;
+  cropSession.pinchStartScale = 1;
+  photoCropImage.onload = () => {
+    if (!cropSession || cropSession.objectUrl !== objectUrl) return;
+    const session = cropSession;
+    if (!photoCropDialog.open) photoCropDialog.showModal();
+    requestAnimationFrame(() => {
+      if (!cropSession || cropSession.objectUrl !== objectUrl) return;
+      session.imgW = Math.max(1, photoCropImage.naturalWidth || 1);
+      session.imgH = Math.max(1, photoCropImage.naturalHeight || 1);
+      session.viewportW = Math.max(1, photoCropViewport.clientWidth || photoCropViewport.getBoundingClientRect().width || 1);
+      session.viewportH = Math.max(1, Math.round(session.viewportW / Math.max(session.ratio, 0.01)));
+      const containScale = Math.min(session.viewportW / session.imgW, session.viewportH / session.imgH);
+      const coverScale = Math.max(session.viewportW / session.imgW, session.viewportH / session.imgH);
+      session.minScale = Math.max(0.05, containScale);
+      session.maxScale = Math.max(coverScale * 6, coverScale + 0.2);
+      const saved = Array.isArray(session.states) ? session.states[index] : null;
+      if (saved) {
+        session.scale = Math.max(session.minScale, Math.min(session.maxScale, saved.scale || coverScale));
+        session.offsetX = saved.offsetX || 0;
+        session.offsetY = saved.offsetY || 0;
+      } else {
+        session.scale = coverScale;
+        session.offsetX = 0;
+        session.offsetY = 0;
+      }
+      if (photoCropMeta) photoCropMeta.textContent = `第 ${index + 1} / ${session.files.length} 張`;
+      updateCropNavigationUi();
+      applyCropTransform();
+    });
+  };
+  photoCropImage.onerror = () => {
+    URL.revokeObjectURL(objectUrl);
+    if (cropSession && cropSession.objectUrl === objectUrl) cropSession.objectUrl = "";
+  };
+  photoCropImage.src = objectUrl;
+}
+
+async function navigateCropFrame(step) {
+  if (!cropSession || !Array.isArray(cropSession.files) || cropSession.busy) return;
+  const nextIndex = cropSession.index + step;
+  if (nextIndex < 0 || nextIndex >= cropSession.files.length) return;
+  cropSession.busy = true;
+  try {
+    await saveCurrentCropFrame();
+    openCropIndex(nextIndex);
+  } finally {
+    cropSession.busy = false;
+  }
+}
+
+function cropBatchFiles(files, ratio, outW, outH) {
+  return new Promise((resolve, reject) => {
+    if (!photoCropDialog || !photoCropImage || !photoCropViewport) {
+      resolve(files);
+      return;
+    }
+    cropSession = {
+      resolve,
+      reject,
+      files,
+      outputs: Array(files.length).fill(null),
+      states: Array(files.length).fill(null),
+      objectUrl: "",
+      index: 0,
+      total: files.length,
+      ratio,
+      outW,
+      outH,
+      scale: 1,
+      minScale: 1,
+      maxScale: 4,
+      offsetX: 0,
+      offsetY: 0,
+      dragging: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      pointers: new Map(),
+      pinchStartDistance: 0,
+      pinchStartScale: 1,
+      imgW: 1,
+      imgH: 1,
+      viewportW: 1,
+      viewportH: 1,
+      busy: false,
+    };
+    openCropIndex(0);
+  });
 }
 
 function cropSingleFile(file, index, total, ratio, outW, outH) {
@@ -1563,6 +1739,9 @@ function cropSingleFile(file, index, total, ratio, outW, outH) {
       resolve,
       reject,
       objectUrl,
+      files: null,
+      outputs: null,
+      states: null,
       index,
       total,
       ratio,
@@ -1604,6 +1783,7 @@ function cropSingleFile(file, index, total, ratio, outW, outH) {
         session.offsetY = 0;
         if (photoCropMeta) photoCropMeta.textContent = `第 ${index} / ${total} 張`;
         confirmPhotoCrop.textContent = "確定";
+        updateCropNavigationUi();
         applyCropTransform();
       });
     };
@@ -1648,6 +1828,10 @@ function cancelCropSession() {
 
 async function confirmCropFrame() {
   if (!cropSession) return;
+  if (Array.isArray(cropSession.files)) {
+    await confirmBatchCropFrame();
+    return;
+  }
   const current = cropSession;
   try {
     const blob = await renderCropBlob(current);
@@ -1660,6 +1844,31 @@ async function confirmCropFrame() {
     current.resolve(blob);
   } catch (err) {
     current.reject(err);
+  }
+}
+
+async function confirmBatchCropFrame() {
+  if (!cropSession || !Array.isArray(cropSession.files) || cropSession.busy) return;
+  cropSession.busy = true;
+  const current = cropSession;
+  try {
+    await saveCurrentCropFrame();
+    if (current.index < current.files.length - 1) {
+      openCropIndex(current.index + 1);
+      return;
+    }
+    const outputs = current.outputs.map((blob, idx) => blob || current.files[idx]);
+    cropSession = null;
+    if (photoCropDialog?.open) {
+      cropDialogProgrammaticClose = true;
+      photoCropDialog.close();
+    }
+    if (current.objectUrl) URL.revokeObjectURL(current.objectUrl);
+    current.resolve(outputs);
+  } catch (err) {
+    current.reject(err);
+  } finally {
+    if (cropSession) cropSession.busy = false;
   }
 }
 

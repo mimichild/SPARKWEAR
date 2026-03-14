@@ -581,6 +581,31 @@ button,
   gap: 8px;
 }
 
+.settings-section-title {
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
+.dialog-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.dialog-back-btn {
+  border: 0;
+  background: var(--theme);
+  color: #fff;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 .lock-icon {
   font-size: 14px;
   line-height: 1;
@@ -1086,7 +1111,7 @@ button,
   min-height: 50px;
   border: 1px dashed #d8d8d8;
   color: #8a8a8a;
-  font-size: 12px;
+  font-size: 14px;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1370,7 +1395,7 @@ fieldset label {
   overflow: auto;
   background: var(--bg);
   z-index: 50;
-  padding: calc(12px + var(--safe-top)) 12px calc(12px + var(--safe-bottom));
+  padding: calc(12px + var(--safe-top)) 12px calc(12px + var(--safe-bottom) + var(--bottom-ad-height));
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }

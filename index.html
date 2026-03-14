@@ -288,6 +288,9 @@
 
   <dialog id="outfitFormDialog">
     <form id="outfitForm" class="dialog-card" method="dialog">
+      <div class="dialog-top-actions">
+        <button id="backOutfitForm" class="dialog-back-btn" type="button" aria-label="回上一頁">←</button>
+      </div>
       <h2 id="outfitFormTitle">新增穿搭</h2>
       <div class="grid-2">
         <label>日期<input type="date" name="date" required /></label>
@@ -316,6 +319,17 @@
         <button type="submit">儲存</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="cancelOutfitConfirmDialog">
+    <article class="dialog-card">
+      <h2>確定取消新增？</h2>
+      <p class="meta">取消後，目前編輯的內容將不會被儲存。</p>
+      <div class="actions">
+        <button id="cancelOutfitConfirm" type="button">取消</button>
+        <button id="confirmOutfitCancel" class="danger-btn" type="button">確定取消</button>
+      </div>
+    </article>
   </dialog>
 
   <dialog id="voteDialog">
@@ -400,26 +414,27 @@
         <button id="closeRankingDetailPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
       </div>
     </header>
-    <nav class="sub-tabs ranking-detail-tabs">
+    <div class="search-bar">
+      <div class="search-row">
+        <span></span>
+        <label class="mini-sort">
+          區間
+          <select id="rankingPeriodSelect">
+            <option value="month">當月</option>
+            <option value="quarter">當季</option>
+            <option value="year">當年</option>
+            <option value="rolling">年度</option>
+            <option value="all">累積</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <nav class="sub-tabs category-inner-tabs">
       <button class="sub-btn active" type="button" data-ranking-detail-tab="clothes">單品</button>
       <button class="sub-btn" type="button" data-ranking-detail-tab="photos">照片</button>
     </nav>
-    <div class="sort-bar">
-      <label class="mini-sort">
-        區間
-        <select id="rankingPeriodSelect">
-          <option value="month">當月</option>
-          <option value="quarter">當季</option>
-          <option value="year">當年</option>
-          <option value="rolling">年度</option>
-          <option value="all">累積</option>
-        </select>
-      </label>
-    </div>
-    <section id="rankingDetailContent" class="ranking-detail-layout">
-      <div id="rankingDetailStats" class="ranking-detail-col sub-panel active"></div>
-      <div id="rankingDetailPhotos" class="ranking-detail-col sub-panel"></div>
-    </section>
+    <section id="rankingDetailStats" class="list sub-panel active"></section>
+    <section id="rankingDetailPhotos" class="list sub-panel"></section>
   </section>
 
   <dialog id="itemDetailDialog">
@@ -520,7 +535,7 @@
     <form id="settingsForm" class="dialog-card" method="dialog">
       <h2>設定</h2>
       <section class="theme-presets">
-        <p class="meta">修改主題顏色</p>
+        <p class="meta settings-section-title">修改主題顏色</p>
         <p class="meta">熱門色</p>
         <div id="themePresetList" class="theme-preset-list">
           <button type="button" class="theme-preset" data-theme-color="#f1aba7" aria-label="櫻花粉 #F1ABA7" title="#F1ABA7"
@@ -548,21 +563,13 @@
           <button type="button" class="theme-preset" data-theme-color="#f6d7b0" aria-label="杏桃色 #F6D7B0" title="#F6D7B0"
             style="--preset:#f6d7b0;"></button>
         </div>
-      </section>
-      <section class="theme-presets">
-        <p class="meta">調色盤</p>
-        <div id="themePaletteGrid" class="theme-palette-grid"></div>
         <label class="color-picker-row">
           自訂顏色
           <input id="themeColorInput" type="color" value="#f1aba7" />
         </label>
       </section>
       <section class="theme-presets">
-        <p class="meta">功能排序（長按拖曳）</p>
-        <div id="closetTabOrderList" class="list sortable-list"></div>
-      </section>
-      <section class="theme-presets">
-        <p class="meta">文字格式</p>
+        <p class="meta settings-section-title">文字格式</p>
         <div id="fontFeatureControl" class="font-feature-row">
           <div class="font-feature-actions">
             <button id="openFontPickerBtn" class="mini-action" type="button">修改文字格式</button>
@@ -647,8 +654,10 @@
       <div id="photoCropViewport" class="photo-crop-viewport">
         <img id="photoCropImage" class="photo-crop-image" alt="裁切預覽" />
       </div>
-      <p class="meta">可用雙指縮放、單指拖拉調整位置，按「確定」後會自動進入下一張。</p>
-      <div class="actions">
+      <p class="meta">可用雙指縮放、單指拖拉調整位置，可用「上一張／下一張」切換。</p>
+      <div class="actions crop-actions">
+        <button id="cropPrevBtn" type="button">上一張</button>
+        <button id="cropNextBtn" type="button">下一張</button>
         <button id="cancelPhotoCrop" type="button">取消</button>
         <button id="confirmPhotoCrop" type="button">確定</button>
       </div>

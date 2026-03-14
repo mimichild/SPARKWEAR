@@ -11,7 +11,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.61+62";
+const APP_VERSION_LABEL = "v1.0.63+64";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -132,6 +132,11 @@ const bottomAdsenseSlot = document.getElementById("bottomAdsenseSlot");
 const ADSENSE_CLIENT_ID = "ca-pub-xxxxxxxxxxxxxxxx";
 const ADSENSE_BOTTOM_SLOT_ID = "0000000000";
 const isAdEnabled = true;
+const ADMOB_APP_ID_ANDROID = "ca-app-pub-5935990202404330~7822276239";
+const ADMOB_BANNER_AD_UNIT_ID = "ca-app-pub-5935990202404330/1560595575";
+const ADMOB_TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111";
+const ADMOB_FORCE_TESTING = false;
+const ADMOB_TEST_DEVICE_IDS = [];
 
 const openPageBtns = document.querySelectorAll("[data-open-page]");
 const backBtns = document.querySelectorAll("[data-back-home]");
@@ -376,6 +381,9 @@ let pullRefreshTracking = false;
 let pullRefreshTriggered = false;
 let pullRefreshing = false;
 let bottomAdRendered = false;
+let admobInitialized = false;
+let admobInitAttempted = false;
+let admobBannerVisible = false;
 let proUnlocked = loadUnlockFeatureState();
 let pendingFontFamily = loadAppFontKey();
 
@@ -395,6 +403,7 @@ if (!["asc", "desc"].includes(state.rankingSort)) state.rankingSort = "desc";
 state.rankingPeriod = normalizeRankingPeriod(state.rankingPeriod);
 
 const platform = typeof window !== "undefined" ? window.Capacitor?.getPlatform?.() || "web" : "web";
+const isNativePlatform = platform !== "web";
 document.body.classList.add(`platform-${platform}`);
 
 applyThemeColor(loadThemeColor());
@@ -883,6 +892,7 @@ document.addEventListener("visibilitychange", () => {
 initApp();
 
 async function initApp() {
+  await initAdMob();
   initBottomAd();
   syncUnlockFeatureUi();
   try {
@@ -921,9 +931,90 @@ function hasValidAdsenseConfig() {
   return /^ca-pub-\d{16}$/.test(ADSENSE_CLIENT_ID) && /^\d+$/.test(ADSENSE_BOTTOM_SLOT_ID);
 }
 
-function initBottomAd() {
-  if (!bottomAdBanner || !bottomAdsenseSlot) return;
+function getAdMobPlugin() {
+  return window.Capacitor?.Plugins?.AdMob;
+}
+
+function isAdMobTesting() {
+  return ADMOB_FORCE_TESTING || window.__CAP_DEBUG__ === true;
+}
+
+async function initAdMob() {
+  if (!isAdEnabled || !isNativePlatform) return;
+  const AdMob = getAdMobPlugin();
+  if (!AdMob) {
+    console.warn("AdMob plugin not available. Did you run npm install and cap sync?");
+    return;
+  }
+  if (admobInitAttempted) return;
+  admobInitAttempted = true;
+  try {
+    await AdMob.initialize({
+      initializeForTesting: isAdMobTesting(),
+      testingDevices: ADMOB_TEST_DEVICE_IDS,
+    });
+    admobInitialized = true;
+  } catch (err) {
+    console.warn("AdMob initialize failed:", err);
+  }
+}
+
+async function showAdMobBanner() {
+  if (!isAdEnabled || !isNativePlatform) return;
+  if (admobBannerVisible) return;
+  const AdMob = getAdMobPlugin();
+  if (!AdMob) return;
+  if (!admobInitialized) await initAdMob();
+  try {
+    const isTesting = isAdMobTesting();
+    const adId = isTesting ? ADMOB_TEST_BANNER_AD_UNIT_ID : ADMOB_BANNER_AD_UNIT_ID;
+    await AdMob.showBanner({
+      adId,
+      adSize: "BANNER",
+      position: "BOTTOM_CENTER",
+      isTesting,
+      margin: 0,
+    });
+    admobBannerVisible = true;
+  } catch (err) {
+    console.warn("AdMob showBanner failed:", err);
+  }
+}
+
+async function hideAdMobBanner() {
+  if (!isNativePlatform) return;
+  if (!admobBannerVisible) return;
+  const AdMob = getAdMobPlugin();
+  if (!AdMob) return;
+  try {
+    await AdMob.hideBanner();
+  } catch (err) {
+    console.warn("AdMob hideBanner failed:", err);
+  } finally {
+    admobBannerVisible = false;
+  }
+}
+
+function syncAdMobBannerVisibility(shouldShow) {
+  if (!isNativePlatform) return;
   if (!isAdEnabled) return;
+  if (shouldShow) {
+    void showAdMobBanner();
+    return;
+  }
+  void hideAdMobBanner();
+}
+
+function initBottomAd() {
+  if (!isAdEnabled) return;
+  if (isNativePlatform) {
+    if (bottomAdBanner) {
+      bottomAdBanner.classList.add("hidden");
+      bottomAdBanner.setAttribute("aria-hidden", "true");
+    }
+    return;
+  }
+  if (!bottomAdBanner || !bottomAdsenseSlot) return;
   if (!hasValidAdsenseConfig()) {
     bottomAdBanner.classList.add("placeholder-mode");
     return;
@@ -942,6 +1033,7 @@ function initBottomAd() {
 }
 
 function renderBottomAdOnce() {
+  if (isNativePlatform) return;
   if (bottomAdRendered || !bottomAdsenseSlot || !hasValidAdsenseConfig()) return;
   try {
     (window.adsbygoogle = window.adsbygoogle || []).push({});
@@ -952,11 +1044,19 @@ function renderBottomAdOnce() {
 }
 
 function updateBottomAdVisibility() {
-  if (!bottomAdBanner) return;
   const shouldShow = isAdEnabled && !proUnlocked && currentMainPage() !== "home";
+  document.body.classList.toggle("with-bottom-ad", shouldShow);
+  if (isNativePlatform) {
+    if (bottomAdBanner) {
+      bottomAdBanner.classList.add("hidden");
+      bottomAdBanner.setAttribute("aria-hidden", "true");
+    }
+    syncAdMobBannerVisibility(shouldShow);
+    return;
+  }
+  if (!bottomAdBanner) return;
   bottomAdBanner.classList.toggle("hidden", !shouldShow);
   bottomAdBanner.setAttribute("aria-hidden", shouldShow ? "false" : "true");
-  document.body.classList.toggle("with-bottom-ad", shouldShow);
   if (shouldShow) {
     bottomAdBanner.classList.toggle("placeholder-mode", !hasValidAdsenseConfig());
     renderBottomAdOnce();

@@ -35,19 +35,8 @@
     </section>
 
     <section id="closetPage" class="page">
-      <header class="page-head">
+      <header class="page-head closet-page-head">
         <h1>我的衣櫃</h1>
-        <div class="head-actions">
-          <button id="bulkMoveClosetBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span
-              class="icon-folder" aria-hidden="true"></span></button>
-          <button id="bulkDeleteClosetBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span
-              class="icon-trash" aria-hidden="true"></span></button>
-          <button id="openUnlockClosetBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span
-              class="icon-store" aria-hidden="true"></span></button>
-          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search"
-              aria-hidden="true"></span></button>
-          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
-        </div>
       </header>
       <div id="closetSearchBar" class="search-bar hidden">
         <div class="search-row">
@@ -89,8 +78,6 @@
                 <option value="asc">舊到新</option>
               </select>
             </label>
-            <button id="toggleClosetPhotoSearch" class="icon-btn" type="button" aria-label="搜尋"><span
-                class="icon-search" aria-hidden="true"></span></button>
           </div>
         </div>
         <section id="closetPhotos"></section>
@@ -129,21 +116,47 @@
         <div id="rankingList" class="list"></div>
       </section>
 
-      <button id="openItemForm" class="fab" aria-label="新增衣物"><span class="pencil-icon">✎</span></button>
+      <div id="closetBottomBar" class="closet-bottom-bar" aria-hidden="true">
+        <div class="closet-bottom-bar__shell">
+          <div class="closet-bottom-bar__mode closet-bottom-bar__mode--standard is-active" data-closet-bottom-mode="standard">
+            <button class="closet-bottom-action" type="button" data-back-home aria-label="返回首頁">
+              <span class="closet-bottom-action__icon icon-back" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">返回</span>
+            </button>
+            <button id="toggleClosetSearch" class="closet-bottom-action" type="button" aria-label="搜尋">
+              <span class="closet-bottom-action__icon icon-search" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">搜尋</span>
+            </button>
+            <button id="openUnlockClosetBtn" class="closet-bottom-action" type="button" data-open-unlock aria-label="商店">
+              <span class="closet-bottom-action__icon icon-store" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">商店</span>
+            </button>
+            <button id="openItemForm" class="closet-bottom-action closet-bottom-action--primary" type="button" aria-label="新增衣物">
+              <span class="closet-bottom-action__icon icon-plus-circle" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">新增</span>
+            </button>
+          </div>
+          <div class="closet-bottom-bar__mode closet-bottom-bar__mode--edit" data-closet-bottom-mode="edit">
+            <button id="cancelClosetSelectionBtn" class="closet-bottom-action" type="button" aria-label="取消批次選取">
+              <span class="closet-bottom-action__icon icon-close" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">取消</span>
+            </button>
+            <button id="bulkMoveClosetBtn" class="closet-bottom-action" type="button" aria-label="移動至分類">
+              <span class="closet-bottom-action__icon icon-folder" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">分類</span>
+            </button>
+            <button id="bulkDeleteClosetBtn" class="closet-bottom-action closet-bottom-action--danger" type="button" aria-label="刪除選取項目">
+              <span class="closet-bottom-action__icon icon-trash" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">刪除</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="outfitPage" class="page">
-      <header class="page-head">
+      <header class="page-head compact-page-head">
         <h1>穿搭紀錄</h1>
-        <div class="head-actions">
-          <button id="bulkDeleteOutfitBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span
-              class="icon-trash" aria-hidden="true"></span></button>
-          <button id="openUnlockOutfitBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span
-              class="icon-store" aria-hidden="true"></span></button>
-          <button id="toggleOutfitSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search"
-              aria-hidden="true"></span></button>
-          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
-        </div>
       </header>
       <div id="outfitSearchBar" class="search-bar hidden">
         <div class="search-row">
@@ -162,7 +175,42 @@
       </div>
 
       <section id="outfitGrid" class="photo-grid"></section>
-      <button id="openOutfitMenu" class="fab" aria-label="穿搭筆記本"><span class="pencil-icon">✎</span></button>
+      <div id="outfitBottomBar" class="closet-bottom-bar" aria-hidden="true">
+        <div class="closet-bottom-bar__shell">
+          <div class="closet-bottom-bar__mode closet-bottom-bar__mode--standard closet-bottom-bar__mode--four is-active" data-closet-bottom-mode="outfit-standard">
+            <button class="closet-bottom-action" type="button" data-back-home aria-label="返回首頁">
+              <span class="closet-bottom-action__icon icon-back" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">返回</span>
+            </button>
+            <button id="toggleOutfitSearch" class="closet-bottom-action" type="button" aria-label="搜尋">
+              <span class="closet-bottom-action__icon icon-search" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">搜尋</span>
+            </button>
+            <button id="openUnlockOutfitBtn" class="closet-bottom-action" type="button" data-open-unlock aria-label="商店">
+              <span class="closet-bottom-action__icon icon-store" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">商店</span>
+            </button>
+            <button id="openOutfitMenu" class="closet-bottom-action closet-bottom-action--primary" type="button" aria-label="穿搭筆記本">
+              <span class="closet-bottom-action__icon icon-plus-circle" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">新增</span>
+            </button>
+          </div>
+          <div class="closet-bottom-bar__mode closet-bottom-bar__mode--edit closet-bottom-bar__mode--three" data-closet-bottom-mode="outfit-edit">
+            <button id="cancelOutfitSelectionBtn" class="closet-bottom-action" type="button" aria-label="取消批次選取">
+              <span class="closet-bottom-action__icon icon-close" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">取消</span>
+            </button>
+            <button id="bulkMoveOutfitPlaceholderBtn" class="closet-bottom-action is-disabled" type="button" aria-label="分類功能目前不適用於穿搭紀錄" disabled>
+              <span class="closet-bottom-action__icon icon-folder" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">分類</span>
+            </button>
+            <button id="bulkDeleteOutfitBtn" class="closet-bottom-action closet-bottom-action--danger hidden" type="button" aria-label="批次刪除">
+              <span class="closet-bottom-action__icon icon-trash" aria-hidden="true"></span>
+              <span class="closet-bottom-action__label">刪除</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
   <div id="bottomAdBanner" class="bottom-ad hidden" aria-hidden="true">
@@ -247,9 +295,9 @@
       </section>
       <label>首圖與商品照片（第一張做首圖）<input type="file" name="itemPhotos" accept="image/*" multiple /></label>
 
-      <div class="actions">
-        <button type="button" data-close-item>取消</button>
-        <button type="submit">儲存</button>
+      <div class="form-bottom-bar">
+        <button class="form-bottom-bar__secondary" type="button" data-close-item>取消</button>
+        <button class="form-bottom-bar__primary" type="submit">儲存</button>
       </div>
     </form>
   </dialog>
@@ -356,9 +404,9 @@
         </div>
         <div id="outfitItemChecklist" class="list"></div>
       </div>
-      <div class="actions">
-        <button type="button" data-close-outfit>取消</button>
-        <button type="submit">儲存</button>
+      <div class="form-bottom-bar">
+        <button class="form-bottom-bar__secondary" type="button" data-close-outfit>取消</button>
+        <button class="form-bottom-bar__primary" type="submit">儲存</button>
       </div>
     </form>
   </dialog>
@@ -422,19 +470,8 @@
   </dialog>
 
   <section id="categoryItemsPage" class="overlay-page">
-    <header class="page-head">
+    <header class="page-head compact-page-head">
       <h1 id="categoryItemsTitle">分類</h1>
-      <div class="head-actions">
-        <button id="bulkMoveCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span
-            class="icon-folder" aria-hidden="true"></span></button>
-        <button id="bulkDeleteCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次刪除"><span
-            class="icon-trash" aria-hidden="true"></span></button>
-        <button id="openUnlockCategoryItemsBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span
-            class="icon-store" aria-hidden="true"></span></button>
-        <button id="toggleCategoryItemsSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search"
-            aria-hidden="true"></span></button>
-        <button id="closeCategoryItemsPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
-      </div>
     </header>
     <div id="categoryItemsSearchBar" class="search-bar hidden">
       <div class="search-row">
@@ -447,15 +484,54 @@
       <button id="categoryItemsPhotosTab" class="sub-btn" type="button">照片</button>
     </nav>
     <section id="categoryItemsList" class="list"></section>
+    <div id="categoryItemsBottomBar" class="closet-bottom-bar" aria-hidden="true">
+      <div class="closet-bottom-bar__shell">
+        <div class="closet-bottom-bar__mode closet-bottom-bar__mode--standard closet-bottom-bar__mode--four is-active" data-closet-bottom-mode="category-standard">
+          <button id="closeCategoryItemsPage" class="closet-bottom-action" type="button" aria-label="回上一頁">
+            <span class="closet-bottom-action__icon icon-back" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">返回</span>
+          </button>
+          <button id="toggleCategoryItemsSearch" class="closet-bottom-action" type="button" aria-label="搜尋">
+            <span class="closet-bottom-action__icon icon-search" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">搜尋</span>
+          </button>
+          <button id="openUnlockCategoryItemsBtn" class="closet-bottom-action" type="button" data-open-unlock aria-label="商店">
+            <span class="closet-bottom-action__icon icon-store" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">商店</span>
+          </button>
+          <button id="openItemFormFromCategoryBtn" class="closet-bottom-action closet-bottom-action--primary" type="button" aria-label="新增衣物">
+            <span class="closet-bottom-action__icon icon-plus-circle" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">新增</span>
+          </button>
+        </div>
+        <div class="closet-bottom-bar__mode closet-bottom-bar__mode--edit closet-bottom-bar__mode--three" data-closet-bottom-mode="category-edit">
+          <button id="cancelCategorySelectionBtn" class="closet-bottom-action" type="button" aria-label="取消批次選取">
+            <span class="closet-bottom-action__icon icon-close" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">取消</span>
+          </button>
+          <button id="bulkMoveCategoryItemsBtn" class="closet-bottom-action" type="button" aria-label="批次分類">
+            <span class="closet-bottom-action__icon icon-folder" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">分類</span>
+          </button>
+          <button id="bulkDeleteCategoryItemsBtn" class="closet-bottom-action closet-bottom-action--danger" type="button" aria-label="批次刪除">
+            <span class="closet-bottom-action__icon icon-trash" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">刪除</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="rankingDetailPage" class="overlay-page">
-    <header class="page-head">
+    <header class="page-head compact-page-head">
       <h1 id="rankingDetailTitle">排行</h1>
-      <div class="head-actions">
-        <button id="closeRankingDetailPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
-      </div>
     </header>
+    <div id="rankingDetailSearchBar" class="search-bar hidden">
+      <div class="search-row">
+        <input id="rankingDetailSearchInput" placeholder="搜尋關鍵字（品牌/名稱/分類/備註）" />
+        <button id="clearRankingDetailSearch" type="button">清除</button>
+      </div>
+    </div>
     <div class="search-bar">
       <div class="search-row">
         <span></span>
@@ -478,6 +554,42 @@
     <div class="ranking-detail-layout">
       <section id="rankingDetailStats" class="sub-panel active"></section>
       <section id="rankingDetailPhotos" class="sub-panel"></section>
+    </div>
+    <div id="rankingDetailBottomBar" class="closet-bottom-bar" aria-hidden="true">
+      <div class="closet-bottom-bar__shell">
+        <div class="closet-bottom-bar__mode closet-bottom-bar__mode--standard closet-bottom-bar__mode--four is-active" data-closet-bottom-mode="ranking-standard">
+          <button id="closeRankingDetailPage" class="closet-bottom-action" type="button" aria-label="回上一頁">
+            <span class="closet-bottom-action__icon icon-back" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">返回</span>
+          </button>
+          <button id="toggleRankingDetailSearch" class="closet-bottom-action" type="button" aria-label="搜尋">
+            <span class="closet-bottom-action__icon icon-search" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">搜尋</span>
+          </button>
+          <button id="openUnlockRankingDetailBtn" class="closet-bottom-action" type="button" data-open-unlock aria-label="商店">
+            <span class="closet-bottom-action__icon icon-store" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">商店</span>
+          </button>
+          <button id="openItemFormFromRankingBtn" class="closet-bottom-action closet-bottom-action--primary" type="button" aria-label="新增衣物">
+            <span class="closet-bottom-action__icon icon-plus-circle" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">新增</span>
+          </button>
+        </div>
+        <div class="closet-bottom-bar__mode closet-bottom-bar__mode--edit closet-bottom-bar__mode--three" data-closet-bottom-mode="ranking-edit">
+          <button id="cancelRankingDetailSelectionBtn" class="closet-bottom-action" type="button" aria-label="取消批次選取">
+            <span class="closet-bottom-action__icon icon-close" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">取消</span>
+          </button>
+          <button id="bulkMoveRankingDetailBtn" class="closet-bottom-action" type="button" aria-label="批次分類">
+            <span class="closet-bottom-action__icon icon-folder" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">分類</span>
+          </button>
+          <button id="bulkDeleteRankingDetailBtn" class="closet-bottom-action closet-bottom-action--danger" type="button" aria-label="批次刪除">
+            <span class="closet-bottom-action__icon icon-trash" aria-hidden="true"></span>
+            <span class="closet-bottom-action__label">刪除</span>
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 

@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.69+70";
+const APP_VERSION_LABEL = "v1.0.77+78";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -116,6 +116,7 @@ const state = {
 const homePage = document.getElementById("homePage");
 const closetPage = document.getElementById("closetPage");
 const outfitPage = document.getElementById("outfitPage");
+const appRoot = document.querySelector("main.app");
 const exportDataBtn = document.getElementById("exportDataBtn");
 const importDataBtn = document.getElementById("importDataBtn");
 const openSettingsBtn = document.getElementById("openSettingsBtn");
@@ -195,6 +196,10 @@ const itemPurchaseDateInput = itemForm.querySelector('input[name="purchaseDate"]
 const itemPurchaseTimeInput = itemForm.querySelector('input[name="purchaseTime"]');
 const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
 const openItemForm = document.getElementById("openItemForm");
+const closetBottomBar = document.getElementById("closetBottomBar");
+const closetBottomStandardMode = closetBottomBar?.querySelector('[data-closet-bottom-mode="standard"]');
+const closetBottomEditMode = closetBottomBar?.querySelector('[data-closet-bottom-mode="edit"]');
+const cancelClosetSelectionBtn = document.getElementById("cancelClosetSelectionBtn");
 const closeItemBtn = document.querySelector("[data-close-item]");
 const itemCategorySelect = document.getElementById("itemCategorySelect");
 const itemOriginSelect = document.getElementById("itemOriginSelect");
@@ -233,6 +238,10 @@ const existingItemPhotosList = document.getElementById("existingItemPhotosList")
 
 const outfitMenuDialog = document.getElementById("outfitMenuDialog");
 const openOutfitMenu = document.getElementById("openOutfitMenu");
+const outfitBottomBar = document.getElementById("outfitBottomBar");
+const outfitBottomStandardMode = outfitBottomBar?.querySelector('[data-closet-bottom-mode="outfit-standard"]');
+const outfitBottomEditMode = outfitBottomBar?.querySelector('[data-closet-bottom-mode="outfit-edit"]');
+const cancelOutfitSelectionBtn = document.getElementById("cancelOutfitSelectionBtn");
 const closeOutfitMenu = document.getElementById("closeOutfitMenu");
 const openOutfitFormAction = document.getElementById("openOutfitFormAction");
 const openVoteFormAction = document.getElementById("openVoteFormAction");
@@ -281,7 +290,12 @@ const categoryItemsTitle = document.getElementById("categoryItemsTitle");
 const categoryItemsLatestTab = document.getElementById("categoryItemsLatestTab");
 const categoryItemsPhotosTab = document.getElementById("categoryItemsPhotosTab");
 const categoryItemsList = document.getElementById("categoryItemsList");
+const categoryItemsBottomBar = document.getElementById("categoryItemsBottomBar");
+const categoryItemsBottomStandardMode = categoryItemsBottomBar?.querySelector('[data-closet-bottom-mode="category-standard"]');
+const categoryItemsBottomEditMode = categoryItemsBottomBar?.querySelector('[data-closet-bottom-mode="category-edit"]');
 const closeCategoryItemsPage = document.getElementById("closeCategoryItemsPage");
+const openItemFormFromCategoryBtn = document.getElementById("openItemFormFromCategoryBtn");
+const cancelCategorySelectionBtn = document.getElementById("cancelCategorySelectionBtn");
 const toggleCategoryItemsSearch = document.getElementById("toggleCategoryItemsSearch");
 const bulkMoveCategoryItemsBtn = document.getElementById("bulkMoveCategoryItemsBtn");
 const bulkDeleteCategoryItemsBtn = document.getElementById("bulkDeleteCategoryItemsBtn");
@@ -293,11 +307,22 @@ const closetMainTabs = document.querySelector(".closet-main-tabs");
 const closetTabOrderList = document.getElementById("closetTabOrderList");
 const rankingDetailPage = document.getElementById("rankingDetailPage");
 const rankingDetailTitle = document.getElementById("rankingDetailTitle");
+const rankingDetailBottomBar = document.getElementById("rankingDetailBottomBar");
+const rankingDetailBottomStandardMode = rankingDetailBottomBar?.querySelector('[data-closet-bottom-mode="ranking-standard"]');
+const rankingDetailBottomEditMode = rankingDetailBottomBar?.querySelector('[data-closet-bottom-mode="ranking-edit"]');
 const rankingDetailStats = document.getElementById("rankingDetailStats");
 const rankingDetailPhotos = document.getElementById("rankingDetailPhotos");
 const rankingDetailTabs = document.querySelectorAll("[data-ranking-detail-tab]");
 const rankingPeriodSelect = document.getElementById("rankingPeriodSelect");
 const closeRankingDetailPage = document.getElementById("closeRankingDetailPage");
+const toggleRankingDetailSearch = document.getElementById("toggleRankingDetailSearch");
+const rankingDetailSearchBar = document.getElementById("rankingDetailSearchBar");
+const rankingDetailSearchInput = document.getElementById("rankingDetailSearchInput");
+const clearRankingDetailSearch = document.getElementById("clearRankingDetailSearch");
+const bulkMoveRankingDetailBtn = document.getElementById("bulkMoveRankingDetailBtn");
+const bulkDeleteRankingDetailBtn = document.getElementById("bulkDeleteRankingDetailBtn");
+const cancelRankingDetailSelectionBtn = document.getElementById("cancelRankingDetailSelectionBtn");
+const openItemFormFromRankingBtn = document.getElementById("openItemFormFromRankingBtn");
 
 const itemDetailDialog = document.getElementById("itemDetailDialog");
 const editItemDetail = document.getElementById("editItemDetail");
@@ -376,6 +401,7 @@ let categoryItemsView = "latest";
 let closetItemsView = "clothes";
 let rankingDetailMetric = "";
 let rankingDetailView = "clothes";
+let rankingDetailQuery = "";
 let pendingImportData = null;
 const photoSrcCache = new Map();
 const photoSrcLoading = new Set();
@@ -500,6 +526,24 @@ for (const btn of rankingDetailTabs) btn.addEventListener("click", () => {
 });
 
 openItemForm.addEventListener("click", () => openNewItemForm());
+openItemFormFromCategoryBtn?.addEventListener("click", () => openNewItemForm());
+openItemFormFromRankingBtn?.addEventListener("click", () => openNewItemForm());
+cancelClosetSelectionBtn?.addEventListener("click", () => {
+  clearSelectionMode();
+  renderAll();
+});
+cancelCategorySelectionBtn?.addEventListener("click", () => {
+  clearSelectionMode();
+  renderAll();
+});
+cancelOutfitSelectionBtn?.addEventListener("click", () => {
+  clearSelectionMode();
+  renderAll();
+});
+cancelRankingDetailSelectionBtn?.addEventListener("click", () => {
+  clearSelectionMode();
+  renderAll();
+});
 closeItemBtn.addEventListener("click", () => {
   editingItemId = null;
   stagedItemUploadFiles = null;
@@ -587,6 +631,7 @@ closeCategoryItemsPage.addEventListener("click", () => {
   categoryItemsSearchBar.classList.add("hidden");
   state.categoryItemsQuery = "";
   categoryItemsSearchInput.value = "";
+  updateBottomActionBars();
   saveActiveViewState();
 });
 itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
@@ -613,6 +658,8 @@ bulkMoveClosetBtn.addEventListener("click", () => openBulkCategoryDialog("closet
 bulkDeleteClosetBtn.addEventListener("click", () => openBulkDeleteDialog("closet"));
 bulkMoveCategoryItemsBtn.addEventListener("click", () => openBulkCategoryDialog("categoryItems"));
 bulkDeleteCategoryItemsBtn.addEventListener("click", () => openBulkDeleteDialog("categoryItems"));
+bulkMoveRankingDetailBtn?.addEventListener("click", () => openBulkCategoryDialog("rankingDetail"));
+bulkDeleteRankingDetailBtn?.addEventListener("click", () => openBulkDeleteDialog("rankingDetail"));
 bulkDeleteOutfitBtn.addEventListener("click", () => openBulkDeleteOutfitDialog());
 categoryItemsSearchInput.addEventListener("input", () => {
   state.categoryItemsQuery = categoryItemsSearchInput.value.trim().toLowerCase();
@@ -729,31 +776,76 @@ outfitDetailMainPhoto.addEventListener("touchend", (e) => {
   stepOutfitDetailPhoto(dx < 0 ? 1 : -1);
 });
 
-const SWIPE_THRESHOLD = 60;
-const SWIPE_MAX_VERTICAL_DRIFT = 90;
-let navTouchStartX = 0;
-let navTouchStartY = 0;
-let navTouchTarget = null;
+const ROOT_SWIPE_EDGE_WIDTH = 56;
+const ROOT_SWIPE_BACK_THRESHOLD = 64;
+const ROOT_SWIPE_MAX_VERTICAL_DRIFT = 96;
+let rootSwipeStartX = 0;
+let rootSwipeStartY = 0;
+let rootSwipeTracking = false;
+let rootSwipeBlocked = false;
+let rootSwipeTarget = null;
 
-document.addEventListener("touchstart", (e) => {
-  navTouchStartX = e.touches[0]?.clientX || 0;
-  navTouchStartY = e.touches[0]?.clientY || 0;
-  navTouchTarget = e.target;
-});
+function resetRootSwipeBackTracking() {
+  rootSwipeStartX = 0;
+  rootSwipeStartY = 0;
+  rootSwipeTracking = false;
+  rootSwipeBlocked = false;
+  rootSwipeTarget = null;
+}
 
-document.addEventListener("touchend", (e) => {
-  if (!navTouchTarget || isSwipeNavBlockedTarget(navTouchTarget)) return;
-  const endX = e.changedTouches[0]?.clientX || 0;
-  const endY = e.changedTouches[0]?.clientY || 0;
-  const dx = endX - navTouchStartX;
-  const dy = endY - navTouchStartY;
-  if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_MAX_VERTICAL_DRIFT) return;
-  if (dx > 0) {
-    navigateSwipeBack();
-  } else {
-    navigateSwipeForward();
-  }
-});
+function setupRootSwipeBack(container) {
+  if (!container) return;
+  document.addEventListener("touchstart", (e) => {
+    resetRootSwipeBackTracking();
+    if ((e.touches?.length || 0) !== 1) return;
+    const touch = e.touches[0];
+    const target = e.target;
+    if (!(target instanceof Node) || !container.contains(target)) return;
+    if (!touch || (touch.clientX || 0) > ROOT_SWIPE_EDGE_WIDTH) return;
+    if (isSwipeNavBlockedTarget(target)) return;
+    rootSwipeStartX = touch.clientX || 0;
+    rootSwipeStartY = touch.clientY || 0;
+    rootSwipeTracking = true;
+    rootSwipeTarget = target;
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (e) => {
+    if (!rootSwipeTracking || rootSwipeBlocked) return;
+    const touch = e.touches[0];
+    if (!touch) {
+      resetRootSwipeBackTracking();
+      return;
+    }
+    const dx = (touch.clientX || 0) - rootSwipeStartX;
+    const dy = (touch.clientY || 0) - rootSwipeStartY;
+    if (dx < -12 || Math.abs(dy) > ROOT_SWIPE_MAX_VERTICAL_DRIFT) {
+      rootSwipeBlocked = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!rootSwipeTracking || rootSwipeBlocked || !rootSwipeTarget) {
+      resetRootSwipeBackTracking();
+      return;
+    }
+    const touch = e.changedTouches[0];
+    if (!touch) {
+      resetRootSwipeBackTracking();
+      return;
+    }
+    const dx = (touch.clientX || 0) - rootSwipeStartX;
+    const dy = (touch.clientY || 0) - rootSwipeStartY;
+    const isHorizontalSwipe = Math.abs(dx) > Math.abs(dy);
+    if (dx >= ROOT_SWIPE_BACK_THRESHOLD && Math.abs(dy) <= ROOT_SWIPE_MAX_VERTICAL_DRIFT && isHorizontalSwipe) {
+      navigateSwipeBack();
+    }
+    resetRootSwipeBackTracking();
+  }, { passive: true });
+
+  document.addEventListener("touchcancel", () => resetRootSwipeBackTracking(), { passive: true });
+}
+
+setupRootSwipeBack(appRoot);
 
 document.addEventListener("touchstart", (e) => {
   if (hasBlockingDialogOpenForPullRefresh()) {
@@ -832,13 +924,22 @@ toggleOutfitSearch.addEventListener("click", () => {
   outfitSearchBar.classList.toggle("hidden");
   if (!outfitSearchBar.classList.contains("hidden")) outfitSearchInput.focus();
 });
+toggleRankingDetailSearch?.addEventListener("click", () => {
+  rankingDetailSearchBar?.classList.toggle("hidden");
+  if (!rankingDetailSearchBar?.classList.contains("hidden")) rankingDetailSearchInput?.focus();
+});
 outfitSearchInput.addEventListener("input", () => {
   state.outfitQuery = outfitSearchInput.value.trim().toLowerCase();
   renderOutfitGrid();
 });
+rankingDetailSearchInput?.addEventListener("input", () => {
+  rankingDetailQuery = rankingDetailSearchInput.value.trim().toLowerCase();
+  renderRankingDetailPage();
+});
 clearClosetSearch.addEventListener("click", () => clearSearch("closet"));
 clearOutfitSearch.addEventListener("click", () => clearSearch("outfit"));
 clearCategoryItemsSearch.addEventListener("click", () => clearSearch("categoryItems"));
+clearRankingDetailSearch?.addEventListener("click", () => clearSearch("rankingDetail"));
 exportDataBtn.addEventListener("click", exportDataAsJson);
 importDataBtn.addEventListener("click", () => importFileInput.click());
 openSettingsBtn.addEventListener("click", () => openSettingsDialog());
@@ -951,6 +1052,7 @@ function showHome() {
   homePage.classList.add("active");
   closetPage.classList.remove("active");
   outfitPage.classList.remove("active");
+  updateBottomActionBars();
   updateBottomAdVisibility();
   saveActiveViewState();
 }
@@ -961,6 +1063,7 @@ function openPage(type) {
   homePage.classList.remove("active");
   closetPage.classList.toggle("active", type === "closet");
   outfitPage.classList.toggle("active", type === "outfit");
+  updateBottomActionBars();
   updateBottomAdVisibility();
   saveActiveViewState();
 }
@@ -1486,7 +1589,7 @@ function renderExistingItemPhotos(photos) {
 
 function isSwipeNavBlockedTarget(target) {
   if (!(target instanceof Element)) return false;
-  return Boolean(target.closest("input,textarea,select,button,label,[contenteditable='true'],.carousel,.detail-photo,.photo-crop-viewport,.photo-crop-image"));
+  return Boolean(target.closest("input,textarea,select,[contenteditable='true'],.carousel,.detail-photo,.photo-crop-viewport,.photo-crop-image"));
 }
 
 function closeTopOverlay() {
@@ -1521,6 +1624,7 @@ function closeTopOverlay() {
     categoryItemsSearchBar.classList.add("hidden");
     state.categoryItemsQuery = "";
     categoryItemsSearchInput.value = "";
+    updateBottomActionBars();
     saveActiveViewState();
     return true;
   }
@@ -1613,22 +1717,11 @@ function activeClosetSubTab() {
 
 function navigateSwipeBack() {
   if (closeTopOverlay()) return;
-  const main = currentMainPage();
-  if (main === "closet") {
-    const order = visibleClosetTabOrder();
-    const idx = order.indexOf(activeClosetSubTab());
-    if (idx > 0) {
-      switchSub(order[idx - 1]);
-    } else {
-      showHome();
-    }
+  if (currentMainPage() === "home") {
+    void requestExitApp();
     return;
   }
-  if (main === "outfit") {
-    openPage("closet");
-    return;
-  }
-  requestExitApp();
+  showHome();
 }
 
 function navigateSwipeForward() {
@@ -2591,8 +2684,36 @@ function matchesOutfitQuery(log) {
   return text.includes(q);
 }
 
+function activeCategoryItemsQuery() {
+  return String(state.categoryItemsQuery || "").trim().toLowerCase();
+}
+
+function matchesRankingDetailQuery(item, extraText = "") {
+  const q = String(rankingDetailQuery || "").trim().toLowerCase();
+  if (!q) return true;
+  const text = [
+    item?.brand || "",
+    item?.name || "",
+    item?.purchaseDate || "",
+    item?.category || "",
+    item?.origin || "",
+    item?.color || "",
+    (item?.seasons || []).join(" "),
+    item?.grade || "",
+    item?.size || "",
+    item?.miniNote || "",
+    item?.pros || "",
+    item?.cons || "",
+    item?.remark || "",
+    extraText || "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return text.includes(q);
+}
+
 function matchesCategoryItemsQuery(item) {
-  const q = state.categoryItemsQuery;
+  const q = activeCategoryItemsQuery();
   if (!q) return true;
   const text = [
     item.brand || "",
@@ -2627,6 +2748,12 @@ function clearSearch(type) {
     state.categoryItemsQuery = "";
     categoryItemsSearchInput.value = "";
     renderCategoryItemsPage();
+    return;
+  }
+  if (type === "rankingDetail") {
+    rankingDetailQuery = "";
+    if (rankingDetailSearchInput) rankingDetailSearchInput.value = "";
+    renderRankingDetailPage();
     return;
   }
   state.outfitQuery = "";
@@ -2936,8 +3063,62 @@ function clearSelectionMode() {
 
 function activeSelectionContext() {
   if (categoryItemsPage.classList.contains("active")) return "categoryItems";
+  if (rankingDetailPage?.classList.contains("active")) return "rankingDetail";
   if (outfitPage.classList.contains("active")) return "outfit";
   return "closet";
+}
+
+function updateCategoryItemsBottomBar() {
+  if (!categoryItemsBottomBar) return;
+  const visible = categoryItemsPage.classList.contains("active");
+  const editMode = visible && selectionContext === "categoryItems" && selectedItemIds.size > 0;
+  categoryItemsBottomBar.classList.toggle("is-visible", visible);
+  categoryItemsBottomBar.classList.toggle("is-edit-mode", editMode);
+  categoryItemsBottomBar.setAttribute("aria-hidden", visible ? "false" : "true");
+  categoryItemsBottomStandardMode?.classList.toggle("is-active", !editMode);
+  categoryItemsBottomEditMode?.classList.toggle("is-active", editMode);
+}
+
+function updateRankingDetailBottomBar() {
+  if (!rankingDetailBottomBar) return;
+  const visible = rankingDetailPage?.classList.contains("active");
+  const editMode = visible && selectionContext === "rankingDetail" && selectedItemIds.size > 0;
+  rankingDetailBottomBar.classList.toggle("is-visible", Boolean(visible));
+  rankingDetailBottomBar.classList.toggle("is-edit-mode", Boolean(editMode));
+  rankingDetailBottomBar.setAttribute("aria-hidden", visible ? "false" : "true");
+  rankingDetailBottomStandardMode?.classList.toggle("is-active", !editMode);
+  rankingDetailBottomEditMode?.classList.toggle("is-active", Boolean(editMode));
+}
+
+function updateClosetBottomBar() {
+  if (!closetBottomBar) return;
+  const visible = closetPage.classList.contains("active")
+    && !categoryItemsPage.classList.contains("active")
+    && !rankingDetailPage?.classList.contains("active");
+  const editMode = visible && selectionContext === "closet" && selectedItemIds.size > 0;
+  closetBottomBar.classList.toggle("is-visible", visible);
+  closetBottomBar.classList.toggle("is-edit-mode", editMode);
+  closetBottomBar.setAttribute("aria-hidden", visible ? "false" : "true");
+  closetBottomStandardMode?.classList.toggle("is-active", !editMode);
+  closetBottomEditMode?.classList.toggle("is-active", editMode);
+}
+
+function updateOutfitBottomBar() {
+  if (!outfitBottomBar) return;
+  const visible = outfitPage.classList.contains("active");
+  const editMode = visible && selectionContext === "outfit" && selectedItemIds.size > 0;
+  outfitBottomBar.classList.toggle("is-visible", visible);
+  outfitBottomBar.classList.toggle("is-edit-mode", editMode);
+  outfitBottomBar.setAttribute("aria-hidden", visible ? "false" : "true");
+  outfitBottomStandardMode?.classList.toggle("is-active", !editMode);
+  outfitBottomEditMode?.classList.toggle("is-active", editMode);
+}
+
+function updateBottomActionBars() {
+  updateClosetBottomBar();
+  updateCategoryItemsBottomBar();
+  updateRankingDetailBottomBar();
+  updateOutfitBottomBar();
 }
 
 function updateBulkActionButtons() {
@@ -2947,7 +3128,10 @@ function updateBulkActionButtons() {
   bulkDeleteClosetBtn.classList.toggle("hidden", !(hasSelection && context === "closet"));
   bulkMoveCategoryItemsBtn.classList.toggle("hidden", !(hasSelection && context === "categoryItems"));
   bulkDeleteCategoryItemsBtn.classList.toggle("hidden", !(hasSelection && context === "categoryItems"));
+  bulkMoveRankingDetailBtn?.classList.toggle("hidden", !(hasSelection && context === "rankingDetail"));
+  bulkDeleteRankingDetailBtn?.classList.toggle("hidden", !(hasSelection && context === "rankingDetail"));
   bulkDeleteOutfitBtn.classList.toggle("hidden", !(hasSelection && context === "outfit"));
+  updateBottomActionBars();
 }
 
 function toggleItemSelection(itemId, context) {
@@ -3166,7 +3350,7 @@ function onConfirmBulkDeleteOutfit() {
 }
 
 function emptyResultBlock(type) {
-  const label = type === "closet" ? "衣櫃" : "穿搭";
+  const label = type === "rankingDetail" ? "排行" : type === "closet" ? "衣櫃" : "穿搭";
   return `<div class="empty-block">找不到符合條件的${label}資料。<br /><button type="button" data-clear-search="${type}">一鍵清除搜尋</button></div>`;
 }
 
@@ -3674,18 +3858,20 @@ function openCategoryItemsPage(category, preferredView = "latest") {
   clearSelectionMode();
   currentCategoryItemsName = category;
   categoryItemsView = preferredView === "photos" ? "photos" : "latest";
-  state.categoryItemsQuery = "";
-  categoryItemsSearchInput.value = "";
+  state.categoryItemsQuery = state.closetQuery;
+  categoryItemsSearchInput.value = state.categoryItemsQuery;
   categoryItemsSearchBar.classList.add("hidden");
   document.body.classList.add("category-items-open");
   renderCategoryItemsPage();
   categoryItemsPage.classList.add("active");
+  updateBottomActionBars();
   saveActiveViewState();
 }
 
 function renderCategoryItemsPage() {
   if (!currentCategoryItemsName) return;
   const category = currentCategoryItemsName;
+  const query = activeCategoryItemsQuery();
   const selectionVisible = selectionContext === "categoryItems" && selectedItemIds.size > 0;
   const items = sortedByPurchase(state.items).filter((x) => x.category === category && matchesCategoryItemsQuery(x));
   queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
@@ -3694,7 +3880,7 @@ function renderCategoryItemsPage() {
   categoryItemsPhotosTab.classList.toggle("active", categoryItemsView === "photos");
 
   if (!items.length) {
-    categoryItemsList.innerHTML = state.categoryItemsQuery ? '<div class="empty-block">找不到符合條件的分類商品。<br /><button type="button" data-clear-search="categoryItems">一鍵清除搜尋</button></div>' : '<p class="meta">此分類目前沒有商品。</p>';
+    categoryItemsList.innerHTML = query ? '<div class="empty-block">找不到符合條件的分類商品。<br /><button type="button" data-clear-search="categoryItems">一鍵清除搜尋</button></div>' : '<p class="meta">此分類目前沒有商品。</p>';
     bindClearSearchButtons(categoryItemsList);
     return;
   }
@@ -3969,6 +4155,9 @@ function updateRankingDetailTitle() {
 function openRankingDetail(metric, direction) {
   clearSelectionMode();
   rankingDetailMetric = normalizeRankingMetric(metric);
+  rankingDetailQuery = "";
+  if (rankingDetailSearchInput) rankingDetailSearchInput.value = "";
+  rankingDetailSearchBar?.classList.add("hidden");
   if (direction === "asc" || direction === "desc") {
     state.rankingSort = direction;
     save("closet_ranking_sort", state.rankingSort);
@@ -3982,13 +4171,18 @@ function openRankingDetail(metric, direction) {
 
   rankingDetailPage?.classList.add("active");
   document.body.classList.add("ranking-detail-open");
+  updateBottomActionBars();
   saveActiveViewState();
 }
 
 function closeRankingDetail() {
   rankingDetailMetric = "";
+  rankingDetailQuery = "";
+  if (rankingDetailSearchInput) rankingDetailSearchInput.value = "";
+  rankingDetailSearchBar?.classList.add("hidden");
   rankingDetailPage?.classList.remove("active");
   document.body.classList.remove("ranking-detail-open");
+  updateBottomActionBars();
   saveActiveViewState();
 }
 
@@ -4219,16 +4413,18 @@ function renderRankingDetailPage() {
   if (!rankingDetailPage || !rankingDetailStats || !rankingDetailPhotos) return;
   const metric = normalizeRankingMetric(rankingDetailMetric || "usage");
   const period = normalizeRankingPeriod(state.rankingPeriod);
+  const hasQuery = Boolean(String(rankingDetailQuery || "").trim());
   updateRankingDetailTitle();
 
   const selectionVisible = selectionContext === "rankingDetail" && selectedItemIds.size > 0;
 
   if (metric === "color") {
-    const rows = buildColorRankingData(period);
+    const rows = buildColorRankingData(period).filter((row) => row.items.some((item) => matchesRankingDetailQuery(item, row.color)));
     const usageCounter = buildUsageCounter(period);
     if (!rows.length) {
-      rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
+      rankingDetailStats.innerHTML = hasQuery ? emptyResultBlock("rankingDetail") : '<p class="meta">目前沒有資料。</p>';
       rankingDetailPhotos.innerHTML = "";
+      bindClearSearchButtons(rankingDetailStats);
       return;
     }
     rankingDetailStats.innerHTML = `
@@ -4279,11 +4475,12 @@ function renderRankingDetailPage() {
   }
 
   if (metric === "brand") {
-    const rows = buildBrandRankingData();
+    const rows = buildBrandRankingData().filter((row) => row.items.some((item) => matchesRankingDetailQuery(item, row.brand)));
     const usageCounter = buildUsageCounter(period);
     if (!rows.length) {
-      rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
+      rankingDetailStats.innerHTML = hasQuery ? emptyResultBlock("rankingDetail") : '<p class="meta">目前沒有資料。</p>';
       rankingDetailPhotos.innerHTML = "";
+      bindClearSearchButtons(rankingDetailStats);
       return;
     }
     rankingDetailStats.innerHTML = `
@@ -4334,10 +4531,11 @@ function renderRankingDetailPage() {
     return;
   }
 
-  const rows = buildRankingData(metric, period);
+  const rows = buildRankingData(metric, period).filter((row) => matchesRankingDetailQuery(row.item, `${row.uses || ""} ${row.price || ""} ${row.value || ""}`));
   if (!rows.length) {
-    rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
+    rankingDetailStats.innerHTML = hasQuery ? emptyResultBlock("rankingDetail") : '<p class="meta">目前沒有資料。</p>';
     rankingDetailPhotos.innerHTML = "";
+    bindClearSearchButtons(rankingDetailStats);
     return;
   }
   queuePhotoRefs(rows.map((row) => row.item.itemPhotos?.[0]));

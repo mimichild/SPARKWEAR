@@ -1637,6 +1637,17 @@ fieldset label {
   gap: 6px;
 }
 
+.usage-count-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.usage-count-inline button {
+  margin: 0;
+}
+
 .existing-photos-grid {
   margin-top: 8px;
   display: grid;

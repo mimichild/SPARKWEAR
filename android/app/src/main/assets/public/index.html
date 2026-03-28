@@ -237,6 +237,7 @@
         <label>原價<input type="number" name="originalPrice" min="0" /></label>
         <label>特價<input type="number" name="specialPrice" min="0" /></label>
         <label>優惠價<input type="number" name="discountPrice" min="0" /></label>
+        <label>使用次數<input type="number" name="usageCount" min="0" step="1" inputmode="numeric" value="0" required /></label>
         <label>尺寸<input name="size" placeholder="例如：S / M / 23cm" /></label>
         <label>體重（kg）<input name="weight" placeholder="例如：48" /></label>
         <label>身材<input name="bodyType" placeholder="例如：梨形 / 直筒" /></label>
@@ -370,7 +371,7 @@
       <h2>穿搭筆記本</h2>
       <div class="actions single-col">
         <button id="openOutfitFormAction" type="button">新增穿搭</button>
-        <button id="openVoteFormAction" type="button">票選衣服</button>
+        <button id="openVoteFormAction" type="button">增加使用次數</button>
         <button id="closeOutfitMenu" type="button">取消</button>
       </div>
     </article>
@@ -424,7 +425,7 @@
 
   <dialog id="voteDialog">
     <form id="voteForm" class="dialog-card" method="dialog">
-      <h2>票選衣服</h2>
+      <h2>增加使用次數</h2>
       <div class="grid-2">
         <label>搜尋品牌<input id="voteSearchBrand" name="searchBrand" placeholder="輸入品牌" /></label>
         <label>搜尋名稱<input id="voteSearchName" name="searchName" placeholder="輸入商品名稱" /></label>
@@ -440,7 +441,7 @@
       </div>
       <div class="actions">
         <button type="button" id="closeVoteDialog">取消</button>
-        <button type="submit">確認投票</button>
+        <button type="submit">確認增加</button>
       </div>
     </form>
   </dialog>

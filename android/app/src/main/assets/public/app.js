@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.79+80";
+const APP_VERSION_LABEL = "v1.0.80+81";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -195,6 +195,7 @@ const itemFormTitle = document.getElementById("itemFormTitle");
 const itemPurchaseDateInput = itemForm.querySelector('input[name="purchaseDate"]');
 const itemPurchaseTimeInput = itemForm.querySelector('input[name="purchaseTime"]');
 const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
+const itemUsageCountInput = itemForm.querySelector('input[name="usageCount"]');
 const openItemForm = document.getElementById("openItemForm");
 const closetBottomBar = document.getElementById("closetBottomBar");
 const closetBottomStandardMode = closetBottomBar?.querySelector('[data-closet-bottom-mode="standard"]');
@@ -1360,6 +1361,7 @@ function openNewItemForm() {
   editingItemId = null;
   itemFormTitle.textContent = "記錄新品";
   itemForm.reset();
+  if (itemUsageCountInput) itemUsageCountInput.value = "0";
   renderItemOriginOptions("");
   renderItemColorOptions("");
   stagedItemUploadFiles = null;
@@ -2323,6 +2325,12 @@ photoCropViewport?.addEventListener("pointercancel", stopCropDrag);
 async function onSaveItem(e) {
   e.preventDefault();
   const fd = new FormData(itemForm);
+  const usageCount = parseUsageCount(fd.get("usageCount"));
+  if (usageCount == null) {
+    alert("使用次數只能輸入 0 或以上的整數");
+    itemUsageCountInput?.focus();
+    return;
+  }
   let newPhotos = [];
   const photoLimit = getPhotoUploadLimit();
   const hasFileSelection = Boolean(itemPhotosInput?.files?.length);
@@ -2358,6 +2366,8 @@ async function onSaveItem(e) {
     finalPhotos = finalPhotos.slice(0, photoLimit);
   }
   const detachedPhotos = editing ? diffRemovedPhotoRefs(editing.itemPhotos || [], finalPhotos) : [];
+  const loggedWearCounter = buildLoggedWearCounter();
+  const baseUsageCount = editing ? (loggedWearCounter.get(editing.id) || 0) : 0;
 
   const item = {
     id: editing?.id || crypto.randomUUID(),
@@ -2382,7 +2392,7 @@ async function onSaveItem(e) {
     cons: String(fd.get("cons") || "").trim(),
     remark: String(fd.get("remark") || "").trim(),
     itemPhotos: finalPhotos,
-    wearCountTotal: editing?.wearCountTotal || 0,
+    wearCountTotal: usageCount,
     createdAt: editing?.createdAt || new Date().toISOString(),
   };
 
@@ -2396,6 +2406,7 @@ async function onSaveItem(e) {
   } else {
     state.items.push(item);
   }
+  setUsageAdjustment(item.id, usageCount - baseUsageCount);
   cleanupDetachedPhotoRefs(detachedPhotos);
   cleanupOrphanPhotos();
   normalizeCategoryOrder();
@@ -2513,6 +2524,31 @@ function onSaveManualVote(e) {
   renderAll();
 }
 
+function buildLoggedWearCounter() {
+  const counter = new Map();
+  for (const item of state.items) counter.set(item.id, 0);
+  for (const log of state.dailyLogs) {
+    for (const itemId of log.wornItemIds || []) {
+      counter.set(itemId, (counter.get(itemId) || 0) + 1);
+    }
+  }
+  return counter;
+}
+
+function getUsageAdjustment(itemId) {
+  return Number(state.manualVoteCounts?.[itemId] || 0);
+}
+
+function setUsageAdjustment(itemId, value) {
+  if (!itemId) return;
+  const nextValue = Number(value || 0);
+  if (!Number.isFinite(nextValue) || nextValue === 0) {
+    delete state.manualVoteCounts[itemId];
+    return;
+  }
+  state.manualVoteCounts[itemId] = nextValue;
+}
+
 function renderAll() {
   normalizeCategoryOrder();
   applyClosetTabOrder();
@@ -2566,18 +2602,11 @@ function normalizeCategoryOrder() {
 }
 
 function recomputeWearCounts() {
-  const counter = new Map();
-  for (const item of state.items) counter.set(item.id, 0);
-  for (const log of state.dailyLogs) {
-    for (const itemId of log.wornItemIds || []) {
-      counter.set(itemId, (counter.get(itemId) || 0) + 1);
-    }
-  }
-  for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
-    counter.set(itemId, (counter.get(itemId) || 0) + Number(count || 0));
-  }
+  const counter = buildLoggedWearCounter();
   for (const item of state.items) {
-    item.wearCountTotal = counter.get(item.id) || 0;
+    const baseCount = counter.get(item.id) || 0;
+    const adjusted = baseCount + getUsageAdjustment(item.id);
+    item.wearCountTotal = Math.max(0, adjusted);
   }
 }
 
@@ -3652,17 +3681,8 @@ function renderPhotosWall() {
   bindSelectionCheckboxes(closetPhotos, "closet");
 }
 
-function openItemDetail(itemId) {
-  const item = state.items.find((x) => x.id === itemId);
-  if (!item) return;
-  currentItemDetailId = item.id;
-
-  itemDetailTitle.textContent = `${item.brand ? `${item.brand} / ` : ""}${item.name}`;
-
-  detailItemPhotos = item.itemPhotos || [];
-  detailPhotoIndex = 0;
-  renderDetailPhoto();
-
+function renderItemDetailRecords(item) {
+  if (!itemDetailRecords) return;
   itemDetailRecords.innerHTML = `
     <div><strong>購買日期：</strong>${escapeHtml(item.purchaseDate || "未填")}</div>
     <div><strong>分類：</strong>${escapeHtml(item.category || "未填")}</div>
@@ -3681,9 +3701,39 @@ function openItemDetail(itemId) {
     <div><strong>優點：</strong>${escapeHtml(item.pros || "-")}</div>
     <div><strong>缺點：</strong>${escapeHtml(item.cons || "-")}</div>
     <div><strong>備註：</strong>${escapeHtml(item.remark || "-")}</div>
-    <div><strong>使用次數：</strong>${item.wearCountTotal || 0}</div>
+    <div class="usage-count-inline">
+      <strong>使用次數：</strong>
+      <span>${item.wearCountTotal || 0}</span>
+      <button type="button" class="secondary-btn" data-increment-usage-count="${item.id}">+1</button>
+    </div>
     <div><strong>平均使用價格：</strong>${averageUsePriceText(item)}</div>
   `;
+  const incrementBtn = itemDetailRecords.querySelector("[data-increment-usage-count]");
+  incrementBtn?.addEventListener("click", () => incrementItemUsageCount(item.id));
+}
+
+function incrementItemUsageCount(itemId) {
+  const item = state.items.find((x) => x.id === itemId);
+  if (!item) return;
+  setUsageAdjustment(itemId, getUsageAdjustment(itemId) + 1);
+  recomputeWearCounts();
+  if (!persistAll()) return;
+  renderItemDetailRecords(item);
+  renderAll();
+}
+
+function openItemDetail(itemId) {
+  const item = state.items.find((x) => x.id === itemId);
+  if (!item) return;
+  currentItemDetailId = item.id;
+
+  itemDetailTitle.textContent = `${item.brand ? `${item.brand} / ` : ""}${item.name}`;
+
+  detailItemPhotos = item.itemPhotos || [];
+  detailPhotoIndex = 0;
+  renderDetailPhoto();
+
+  renderItemDetailRecords(item);
   renderItemUsedOutfits(item.id);
 
   itemDetailDialog.showModal();
@@ -3714,6 +3764,7 @@ function openItemEditForm() {
   if (bodyTypeInput) bodyTypeInput.value = item.bodyType || "";
   if (suggestedWeightInput) suggestedWeightInput.value = item.suggestedWeight || "";
   itemForm.grade.value = item.grade || "";
+  if (itemUsageCountInput) itemUsageCountInput.value = String(item.wearCountTotal || 0);
   renderItemOriginOptions(item.origin || "");
   renderItemColorOptions(item.color || "");
   itemForm.miniNote.value = item.miniNote || "";
@@ -4367,7 +4418,7 @@ function buildUsageCounter(period) {
   }
   if (period === "all") {
     for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
-      counter.set(itemId, (counter.get(itemId) || 0) + Number(count || 0));
+      counter.set(itemId, Math.max(0, (counter.get(itemId) || 0) + Number(count || 0)));
     }
   }
   return counter;
@@ -4953,7 +5004,7 @@ function renderManualVoteList() {
             <div>
               <div><strong>${escapeHtml(item.brand || "未填品牌")}</strong> / ${escapeHtml(item.name)}</div>
               <p class="meta">目前使用次數：${item.wearCountTotal || 0}</p>
-              <label><input type="checkbox" name="voteItemIds" value="${item.id}" /> 投票</label>
+              <label><input type="checkbox" name="voteItemIds" value="${item.id}" /> 增加 1 次</label>
             </div>
           </label>`
       )
@@ -5665,6 +5716,14 @@ function numberOrNull(v) {
   if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function parseUsageCount(v) {
+  if (v == null || v === "") return 0;
+  const text = String(v).trim();
+  if (!/^\d+$/.test(text)) return null;
+  const count = Number(text);
+  return Number.isSafeInteger(count) && count >= 0 ? count : null;
 }
 
 function averageUsePriceText(item) {

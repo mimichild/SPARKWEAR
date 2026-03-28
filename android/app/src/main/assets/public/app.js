@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.77+78";
+const APP_VERSION_LABEL = "v1.0.79+80";
 const UNLOCK_FEATURE_KEY = "spark_unlock_feature_enabled";
 const APP_FONT_KEY = "spark_app_font";
 const VIP_UNLOCK_CODE = "MIMILOVEYOU520";
@@ -397,6 +397,9 @@ let outfitSelection = new Set();
 let currentOutfitDetailId = null;
 let currentItemDetailId = null;
 let currentCategoryItemsName = "";
+let currentCategoryItemsSourceType = "category";
+let currentCategoryItemsSourceValue = "";
+let currentCategoryItemsStandaloneSearch = false;
 let categoryItemsView = "latest";
 let closetItemsView = "clothes";
 let rankingDetailMetric = "";
@@ -628,6 +631,7 @@ closeCategoryItemsPage.addEventListener("click", () => {
   clearSelectionMode();
   categoryItemsPage.classList.remove("active");
   document.body.classList.remove("category-items-open");
+  currentCategoryItemsStandaloneSearch = false;
   categoryItemsSearchBar.classList.add("hidden");
   state.categoryItemsQuery = "";
   categoryItemsSearchInput.value = "";
@@ -651,6 +655,18 @@ categoryItemsPhotosTab.addEventListener("click", () => {
   saveActiveViewState();
 });
 toggleCategoryItemsSearch.addEventListener("click", () => {
+  if (isCategoryItemsAttributeSource()) {
+    clearSelectionMode();
+    const opening = categoryItemsSearchBar.classList.contains("hidden");
+    currentCategoryItemsStandaloneSearch = opening;
+    state.categoryItemsQuery = "";
+    categoryItemsSearchInput.value = "";
+    categoryItemsSearchBar.classList.toggle("hidden", !opening);
+    renderCategoryItemsPage();
+    if (opening) categoryItemsSearchInput.focus();
+    saveActiveViewState();
+    return;
+  }
   categoryItemsSearchBar.classList.toggle("hidden");
   if (!categoryItemsSearchBar.classList.contains("hidden")) categoryItemsSearchInput.focus();
 });
@@ -664,6 +680,7 @@ bulkDeleteOutfitBtn.addEventListener("click", () => openBulkDeleteOutfitDialog()
 categoryItemsSearchInput.addEventListener("input", () => {
   state.categoryItemsQuery = categoryItemsSearchInput.value.trim().toLowerCase();
   renderCategoryItemsPage();
+  saveActiveViewState();
 });
 purchaseSortSelect.addEventListener("change", () => {
   state.purchaseSort = purchaseSortSelect.value === "asc" ? "asc" : "desc";
@@ -1277,6 +1294,8 @@ function saveActiveViewState() {
     closetItemsTab: closetItemsView,
     categoryItemsOpen: categoryItemsPage.classList.contains("active"),
     categoryName: currentCategoryItemsName || "",
+    categoryItemsSourceType: currentCategoryItemsSourceType || "category",
+    categoryItemsSourceValue: currentCategoryItemsSourceValue || "",
     categoryItemsView,
     rankingDetailOpen: rankingDetailPage?.classList.contains("active") || false,
     rankingMetric: rankingDetailMetric,
@@ -1314,14 +1333,22 @@ function restoreActiveViewState() {
     switchSub(sub);
     if (sub === "items") switchClosetItemsTab(closetItemsView);
 
-    if (snapshot.categoryItemsOpen && snapshot.categoryName && main === "closet") {
-      openCategoryItemsPage(String(snapshot.categoryName), String(snapshot.categoryItemsView || "latest"));
-    }
     state.rankingPeriod = normalizeRankingPeriod(snapshot.rankingPeriod || state.rankingPeriod);
     state.rankingSort = ["asc", "desc"].includes(snapshot.rankingSort) ? snapshot.rankingSort : state.rankingSort;
     if (rankingPeriodSelect) rankingPeriodSelect.value = state.rankingPeriod;
     if (snapshot.rankingDetailOpen && snapshot.rankingMetric) {
       openRankingDetail(snapshot.rankingMetric, snapshot.rankingSort);
+    }
+    if (snapshot.categoryItemsOpen && main === "closet") {
+      const sourceType = normalizeCategoryItemsSourceType(snapshot.categoryItemsSourceType || "category");
+      const sourceValue = String(snapshot.categoryItemsSourceValue || snapshot.categoryName || "");
+      if (sourceValue) {
+        if (sourceType === "category") {
+          openCategoryItemsPage(sourceValue, String(snapshot.categoryItemsView || "latest"));
+        } else {
+          openAttributeItemsPage(sourceType, sourceValue, String(snapshot.categoryItemsView || "latest"));
+        }
+      }
     }
   } finally {
     restoringViewState = false;
@@ -1621,6 +1648,7 @@ function closeTopOverlay() {
     clearSelectionMode();
     categoryItemsPage.classList.remove("active");
     document.body.classList.remove("category-items-open");
+    currentCategoryItemsStandaloneSearch = false;
     categoryItemsSearchBar.classList.add("hidden");
     state.categoryItemsQuery = "";
     categoryItemsSearchInput.value = "";
@@ -2688,6 +2716,46 @@ function activeCategoryItemsQuery() {
   return String(state.categoryItemsQuery || "").trim().toLowerCase();
 }
 
+function normalizeCategoryItemsSourceType(value) {
+  const type = String(value || "").toLowerCase();
+  if (["category", "color", "brand"].includes(type)) return type;
+  return "category";
+}
+
+function isCategoryItemsAttributeSource() {
+  const type = normalizeCategoryItemsSourceType(currentCategoryItemsSourceType);
+  return type === "color" || type === "brand";
+}
+
+function isStandaloneCategoryItemsSearch() {
+  return isCategoryItemsAttributeSource() && currentCategoryItemsStandaloneSearch;
+}
+
+function categoryItemsSearchPlaceholder() {
+  return isCategoryItemsAttributeSource()
+    ? "輸入關鍵字開啟新搜尋"
+    : "搜尋關鍵字（品牌/名稱/介紹）";
+}
+
+function matchesCategoryItemsSource(item) {
+  const type = normalizeCategoryItemsSourceType(currentCategoryItemsSourceType);
+  const value = String(currentCategoryItemsSourceValue || "");
+  if (type === "color") {
+    return normalizeLookupKey(item?.color || "未設定") === normalizeLookupKey(value);
+  }
+  if (type === "brand") {
+    return normalizeLookupKey(String(item?.brand || "").trim() || "未填品牌") === normalizeLookupKey(value);
+  }
+  return String(item?.category || "未分類") === value;
+}
+
+function sortCategoryItemsResults(items) {
+  if (isCategoryItemsAttributeSource()) {
+    return [...items].sort((a, b) => closetSortTimestamp(b) - closetSortTimestamp(a));
+  }
+  return sortedByPurchase(items);
+}
+
 function matchesRankingDetailQuery(item, extraText = "") {
   const q = String(rankingDetailQuery || "").trim().toLowerCase();
   if (!q) return true;
@@ -2747,6 +2815,10 @@ function clearSearch(type) {
   if (type === "categoryItems") {
     state.categoryItemsQuery = "";
     categoryItemsSearchInput.value = "";
+    if (isStandaloneCategoryItemsSearch()) {
+      currentCategoryItemsStandaloneSearch = false;
+      categoryItemsSearchBar.classList.add("hidden");
+    }
     renderCategoryItemsPage();
     return;
   }
@@ -3081,7 +3153,7 @@ function updateCategoryItemsBottomBar() {
 
 function updateRankingDetailBottomBar() {
   if (!rankingDetailBottomBar) return;
-  const visible = rankingDetailPage?.classList.contains("active");
+  const visible = rankingDetailPage?.classList.contains("active") && !categoryItemsPage.classList.contains("active");
   const editMode = visible && selectionContext === "rankingDetail" && selectedItemIds.size > 0;
   rankingDetailBottomBar.classList.toggle("is-visible", Boolean(visible));
   rankingDetailBottomBar.classList.toggle("is-edit-mode", Boolean(editMode));
@@ -3857,30 +3929,70 @@ function renderCategoryTab() {
 function openCategoryItemsPage(category, preferredView = "latest") {
   clearSelectionMode();
   currentCategoryItemsName = category;
+  currentCategoryItemsSourceType = "category";
+  currentCategoryItemsSourceValue = category;
+  currentCategoryItemsStandaloneSearch = false;
   categoryItemsView = preferredView === "photos" ? "photos" : "latest";
   state.categoryItemsQuery = state.closetQuery;
   categoryItemsSearchInput.value = state.categoryItemsQuery;
+  categoryItemsSearchInput.placeholder = categoryItemsSearchPlaceholder();
   categoryItemsSearchBar.classList.add("hidden");
+  categoryItemsPage.scrollTop = 0;
   document.body.classList.add("category-items-open");
-  renderCategoryItemsPage();
   categoryItemsPage.classList.add("active");
+  renderCategoryItemsPage();
+  updateBottomActionBars();
+  saveActiveViewState();
+}
+
+function openAttributeItemsPage(sourceType, sourceValue, preferredView = "latest") {
+  clearSelectionMode();
+  currentCategoryItemsSourceType = normalizeCategoryItemsSourceType(sourceType);
+  currentCategoryItemsSourceValue = String(sourceValue || "").trim();
+  currentCategoryItemsName = currentCategoryItemsSourceValue;
+  currentCategoryItemsStandaloneSearch = false;
+  categoryItemsView = preferredView === "photos" ? "photos" : "latest";
+  state.categoryItemsQuery = "";
+  categoryItemsSearchInput.value = "";
+  categoryItemsSearchInput.placeholder = categoryItemsSearchPlaceholder();
+  categoryItemsSearchBar.classList.add("hidden");
+  categoryItemsPage.scrollTop = 0;
+  document.body.classList.add("category-items-open");
+  categoryItemsPage.classList.add("active");
+  renderCategoryItemsPage();
   updateBottomActionBars();
   saveActiveViewState();
 }
 
 function renderCategoryItemsPage() {
   if (!currentCategoryItemsName) return;
-  const category = currentCategoryItemsName;
   const query = activeCategoryItemsQuery();
+  const standaloneSearch = isStandaloneCategoryItemsSearch();
   const selectionVisible = selectionContext === "categoryItems" && selectedItemIds.size > 0;
-  const items = sortedByPurchase(state.items).filter((x) => x.category === category && matchesCategoryItemsQuery(x));
+  const items = sortCategoryItemsResults(state.items).filter((item) => {
+    if (standaloneSearch) return query ? matchesCategoryItemsQuery(item) : false;
+    return matchesCategoryItemsSource(item) && matchesCategoryItemsQuery(item);
+  });
   queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
-  categoryItemsTitle.textContent = category;
+  categoryItemsTitle.textContent = standaloneSearch ? "搜尋結果" : currentCategoryItemsName;
+  categoryItemsSearchInput.placeholder = categoryItemsSearchPlaceholder();
   categoryItemsLatestTab.classList.toggle("active", categoryItemsView === "latest");
   categoryItemsPhotosTab.classList.toggle("active", categoryItemsView === "photos");
 
   if (!items.length) {
-    categoryItemsList.innerHTML = query ? '<div class="empty-block">找不到符合條件的分類商品。<br /><button type="button" data-clear-search="categoryItems">一鍵清除搜尋</button></div>' : '<p class="meta">此分類目前沒有商品。</p>';
+    const sourceType = normalizeCategoryItemsSourceType(currentCategoryItemsSourceType);
+    const emptyHtml = standaloneSearch
+      ? (query
+        ? '<div class="empty-block">找不到符合條件的搜尋結果。<br /><button type="button" data-clear-search="categoryItems">返回原始結果</button></div>'
+        : '<p class="meta">輸入關鍵字開始新搜尋。</p>')
+      : (query
+        ? '<div class="empty-block">找不到符合條件的結果。<br /><button type="button" data-clear-search="categoryItems">一鍵清除搜尋</button></div>'
+        : (sourceType === "color"
+          ? '<p class="meta">此顏色目前沒有商品。</p>'
+          : sourceType === "brand"
+            ? '<p class="meta">此品牌目前沒有商品。</p>'
+            : '<p class="meta">此分類目前沒有商品。</p>'));
+    categoryItemsList.innerHTML = emptyHtml;
     bindClearSearchButtons(categoryItemsList);
     return;
   }
@@ -4434,13 +4546,13 @@ function renderRankingDetailPage() {
           const representativeItem = getMostUsedItemInGroup(row.items, usageCounter);
           return `
             <article class="latest-row">
-              <div class="latest-open-btn">
+              <button type="button" class="latest-open-btn" data-open-attribute-items="color" data-attribute-value="${escapeAttr(row.color)}">
                 <div class="latest-title">
                   <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.color)}</span>
                 </div>
                 <p class="latest-category meta">總計：${row.possessionCount}</p>
                 ${representativeItem ? `<img class="latest-thumb" src="${photoSrc(representativeItem.itemPhotos?.[0])}" alt="" />` : ""}
-              </div>
+              </button>
             </article>
           `;
         })
@@ -4466,6 +4578,11 @@ function renderRankingDetailPage() {
       </div>`
       : '<p class="meta">目前沒有照片。</p>';
 
+    for (const btn of rankingDetailStats.querySelectorAll("[data-open-attribute-items]")) {
+      btn.addEventListener("click", () => {
+        openAttributeItemsPage(btn.dataset.openAttributeItems, btn.dataset.attributeValue);
+      });
+    }
     for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
       const itemId = String(btn.dataset.openItemDetail || "");
       bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
@@ -4491,13 +4608,13 @@ function renderRankingDetailPage() {
             const representativeItem = getMostUsedItemInGroup(row.items, usageCounter);
             return `
               <article class="latest-row">
-                <div class="latest-open-btn">
+                <button type="button" class="latest-open-btn" data-open-attribute-items="brand" data-attribute-value="${escapeAttr(row.brand)}">
                   <div class="latest-title">
                     <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.brand)}</span>
                   </div>
                   <p class="latest-category meta">單品數：${row.possessionCount}</p>
                   ${representativeItem ? `<img class="latest-thumb" src="${photoSrc(representativeItem.itemPhotos?.[0])}" alt="" />` : ""}
-                </div>
+                </button>
               </article>`;
           }
         )
@@ -4523,6 +4640,11 @@ function renderRankingDetailPage() {
       </div>`
       : '<p class="meta">目前沒有照片。</p>';
 
+    for (const btn of rankingDetailStats.querySelectorAll("[data-open-attribute-items]")) {
+      btn.addEventListener("click", () => {
+        openAttributeItemsPage(btn.dataset.openAttributeItems, btn.dataset.attributeValue);
+      });
+    }
     for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
       const itemId = String(btn.dataset.openItemDetail || "");
       bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));

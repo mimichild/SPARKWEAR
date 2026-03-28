@@ -1675,6 +1675,14 @@ fieldset label {
   -webkit-overflow-scrolling: touch;
 }
 
+#rankingDetailPage.overlay-page.active {
+  z-index: 50;
+}
+
+#categoryItemsPage.overlay-page.active {
+  z-index: 60;
+}
+
 #categoryItemsPage.overlay-page.active,
 #rankingDetailPage.overlay-page.active {
   padding-bottom: calc(12px + var(--safe-bottom) + var(--bottom-ad-height) + var(--closet-bottom-bar-total));

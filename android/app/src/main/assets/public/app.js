@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.65+85";
+const APP_VERSION_LABEL = "v1.0.71+91";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -284,8 +284,6 @@ const closetTabOrderList = document.getElementById("closetTabOrderList");
 const rankingDetailPage = document.getElementById("rankingDetailPage");
 const rankingDetailTitle = document.getElementById("rankingDetailTitle");
 const rankingDetailStats = document.getElementById("rankingDetailStats");
-const rankingDetailPhotos = document.getElementById("rankingDetailPhotos");
-const rankingDetailTabs = document.querySelectorAll("[data-ranking-detail-tab]");
 const rankingPeriodSelect = document.getElementById("rankingPeriodSelect");
 const closeRankingDetailPage = document.getElementById("closeRankingDetailPage");
 
@@ -365,7 +363,6 @@ let currentCategoryItemsName = "";
 let categoryItemsView = "latest";
 let closetItemsView = "clothes";
 let rankingDetailMetric = "";
-let rankingDetailView = "clothes";
 let pendingImportData = null;
 const photoSrcCache = new Map();
 const photoSrcLoading = new Set();
@@ -491,10 +488,6 @@ for (const btn of closetItemsTabs) btn.addEventListener("click", () => {
   clearSelectionMode();
   switchClosetItemsTab(btn.dataset.closetItemsTab);
 });
-for (const btn of rankingDetailTabs) btn.addEventListener("click", () => {
-  switchRankingDetailTab(btn.dataset.rankingDetailTab);
-});
-
 openItemForm.addEventListener("click", () => openNewItemForm());
 closeItemBtn.addEventListener("click", () => {
   editingItemId = null;
@@ -1043,16 +1036,6 @@ function switchClosetItemsTab(view) {
     closetPhotos.classList.toggle("active", closetItemsView === "photos");
   }
   saveActiveViewState();
-}
-
-function switchRankingDetailTab(view) {
-  if (!view) return;
-  rankingDetailView = view === "photos" ? "photos" : "clothes";
-  for (const btn of rankingDetailTabs) {
-    btn.classList.toggle("active", btn.dataset.rankingDetailTab === rankingDetailView);
-  }
-  if (rankingDetailStats) rankingDetailStats.classList.toggle("active", rankingDetailView === "clothes");
-  if (rankingDetailPhotos) rankingDetailPhotos.classList.toggle("active", rankingDetailView === "photos");
 }
 
 function loadActiveViewState() {
@@ -3919,7 +3902,6 @@ function openRankingDetail(metric, direction) {
   if (rankingPeriodSelect) rankingPeriodSelect.value = state.rankingPeriod;
 
   updateRankingDetailTitle();
-  switchRankingDetailTab(rankingDetailView);
   renderRankingDetailPage();
 
   rankingDetailPage?.classList.add("active");
@@ -4049,14 +4031,18 @@ function buildColorRankingData(period) {
   for (const item of state.items) {
     const itemTime = safeTimestamp(item.purchaseDate || item.createdAt);
     if (Number.isFinite(itemTime) && (itemTime < range.start || itemTime > range.end)) continue;
+    const colorId = normalizeColorId(item.colorId);
     const color = getItemColorLabel(item);
-    if (!color) continue;
-    const entry = colorMap.get(color) || { color, count: 0, categories: new Set() };
+    if (!colorId || !color) continue;
+    const entry = colorMap.get(colorId) || { colorId, color, count: 0, categories: new Set() };
     entry.count += 1;
     entry.categories.add(item.category || "未分類");
-    colorMap.set(color, entry);
+    colorMap.set(colorId, entry);
   }
-  const rows = Array.from(colorMap.values());
+  const rows = Array.from(colorMap.values()).map((row) => ({
+    ...row,
+    previewItem: pickRepresentativeItem((item) => normalizeColorId(item.colorId) === row.colorId),
+  }));
   const dir = state.rankingSort === "asc" ? 1 : -1;
   rows.sort((a, b) => {
     if (a.count === b.count) return 0;
@@ -4069,15 +4055,44 @@ function buildBrandRankingData() {
   const brandMap = new Map();
   for (const item of state.items) {
     const brand = String(item.brand || "").trim() || "未填品牌";
-    brandMap.set(brand, (brandMap.get(brand) || 0) + 1);
+    const entry = brandMap.get(brand) || { brand, count: 0 };
+    entry.count += 1;
+    brandMap.set(brand, entry);
   }
-  const rows = Array.from(brandMap.entries()).map(([brand, count]) => ({ brand, count }));
+  const rows = Array.from(brandMap.values()).map((row) => ({
+    ...row,
+    previewItem: pickRepresentativeItem((item) => (String(item.brand || "").trim() || "未填品牌") === row.brand),
+  }));
   const dir = state.rankingSort === "asc" ? 1 : -1;
   rows.sort((a, b) => {
     if (a.count === b.count) return a.brand.localeCompare(b.brand);
     return a.count > b.count ? dir : -dir;
   });
   return rows;
+}
+
+function itemUsageCount(item) {
+  return Number(item?.wearCountTotal || 0);
+}
+
+function itemCreatedTimestamp(item) {
+  return safeTimestamp(item?.createdAt || item?.purchaseDate || 0);
+}
+
+function pickRepresentativeItem(predicate) {
+  const matches = (state.items || []).filter((item) => predicate(item));
+  if (!matches.length) return null;
+  matches.sort((a, b) => {
+    const usageDiff = itemUsageCount(b) - itemUsageCount(a);
+    if (usageDiff !== 0) return usageDiff;
+    return itemCreatedTimestamp(b) - itemCreatedTimestamp(a);
+  });
+  return matches[0] || null;
+}
+
+function previewPhotoSrc(item) {
+  const firstPhoto = item?.itemPhotos?.[0];
+  return firstPhoto ? photoSrc(firstPhoto) : LOADING_PHOTO_SRC;
 }
 
 function renderRankingTab() {
@@ -4149,7 +4164,7 @@ function renderRankingTab() {
 }
 
 function renderRankingDetailPage() {
-  if (!rankingDetailPage || !rankingDetailStats || !rankingDetailPhotos) return;
+  if (!rankingDetailPage || !rankingDetailStats) return;
   const metric = normalizeRankingMetric(rankingDetailMetric || "usage");
   const period = normalizeRankingPeriod(state.rankingPeriod);
   updateRankingDetailTitle();
@@ -4160,49 +4175,37 @@ function renderRankingDetailPage() {
     const rows = buildColorRankingData(period);
     if (!rows.length) {
       rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
-      rankingDetailPhotos.innerHTML = "";
       return;
     }
-    rankingDetailStats.innerHTML = rows
-      .map((row, idx) => {
-        const categories = Array.from(row.categories);
-        const categoryText = categories.length ? `分類：${categories.join(" / ")}` : "分類：未分類";
+    queuePhotoRefs(rows.map((row) => row.previewItem?.itemPhotos?.[0]));
+    rankingDetailStats.innerHTML = `
+      <div class="list">
+        ${rows.map((row, idx) => {
+        const item = row.previewItem;
+        const itemId = item?.id || "";
+        const selected = selectionVisible && itemId && selectedItemIds.has(itemId);
         return `
-          <article class="latest-row">
-            <div class="latest-open-btn">
-              <div class="latest-title">
-                <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;<span class="color-dot" aria-hidden="true"></span>${escapeHtml(row.color)}</span>
+          <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" ${itemId ? `data-open-item-detail="${itemId}"` : ""}>
+            <article class="item-row ${selected ? "selected-lines" : ""}">
+              <img class="cover-sm" src="${previewPhotoSrc(item)}" alt="${escapeHtml(row.color)} 代表封面" />
+              <div>
+                <div>
+                  ${selectionVisible && itemId ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${itemId}" aria-label="選取單品"></span>` : ""}
+                  <strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.color)}
+                </div>
+                <p class="meta">單品數：${row.count}</p>
               </div>
-              <p class="latest-category meta">單品數：${row.count} · ${escapeHtml(categoryText)}</p>
-            </div>
-          </article>
+            </article>
+          </button>
         `;
-      })
-      .join("");
-    const colorSet = new Set(rows.map((row) => row.color));
-    const photoItems = sortedByPurchase(state.items).filter((item) => colorSet.has(getItemColorLabel(item))).slice(0, 30);
-    queuePhotoRefs(photoItems.map((item) => item.itemPhotos?.[0]));
-    rankingDetailPhotos.innerHTML = photoItems.length
-      ? `<div class="photo-grid">
-        ${photoItems
-        .map(
-          (item) => {
-            const selected = selectionVisible && selectedItemIds.has(item.id);
-            return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${item.id}">
-                ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
-                <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
-              </button>`;
-          }
-        )
-        .join("")}
-      </div>`
-      : '<p class="meta">目前沒有照片。</p>';
-
-    for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
+      }).join("")}
+      </div>
+    `;
+    for (const btn of rankingDetailStats.querySelectorAll("[data-open-item-detail]")) {
       const itemId = String(btn.dataset.openItemDetail || "");
       bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
     }
-    bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
+    bindSelectionCheckboxes(rankingDetailStats, "rankingDetail");
     return;
   }
 
@@ -4210,53 +4213,42 @@ function renderRankingDetailPage() {
     const rows = buildBrandRankingData();
     if (!rows.length) {
       rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
-      rankingDetailPhotos.innerHTML = "";
       return;
     }
-    rankingDetailStats.innerHTML = rows
-      .map(
-        (row, idx) => `
-        <article class="latest-row">
-          <div class="latest-open-btn">
-            <div class="latest-title">
-              <span class="latest-title-text"><strong>No.${idx + 1}</strong>&nbsp;${escapeHtml(row.brand)}</span>
+    queuePhotoRefs(rows.map((row) => row.previewItem?.itemPhotos?.[0]));
+    rankingDetailStats.innerHTML = `
+      <div class="list">
+        ${rows.map((row, idx) => {
+        const item = row.previewItem;
+        const itemId = item?.id || "";
+        const selected = selectionVisible && itemId && selectedItemIds.has(itemId);
+        return `
+        <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" ${itemId ? `data-open-item-detail="${itemId}"` : ""}>
+          <article class="item-row ${selected ? "selected-lines" : ""}">
+            <img class="cover-sm" src="${previewPhotoSrc(item)}" alt="${escapeHtml(row.brand)} 代表封面" />
+            <div>
+              <div>
+                ${selectionVisible && itemId ? `<span class="selection-checkbox inline ${selected ? "is-selected" : ""}" data-select-item="${itemId}" aria-label="選取單品"></span>` : ""}
+                <strong>No.${idx + 1}</strong>&nbsp;<strong>${escapeHtml(row.brand)}</strong>
+              </div>
+              <p class="meta">單品數：${row.count}</p>
             </div>
-            <p class="latest-category meta">單品數：${row.count}</p>
-          </div>
-        </article>`
-      )
-      .join("");
-    const orderedBrands = rows.map((row) => row.brand);
-    const photoItems = sortedByPurchase(state.items).filter((item) => orderedBrands.includes(String(item.brand || "").trim() || "未填品牌")).slice(0, 30);
-    queuePhotoRefs(photoItems.map((item) => item.itemPhotos?.[0]));
-    rankingDetailPhotos.innerHTML = photoItems.length
-      ? `<div class="photo-grid">
-        ${photoItems
-        .map(
-          (item) => {
-            const selected = selectionVisible && selectedItemIds.has(item.id);
-            return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${item.id}">
-                ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
-                <img class="cover-grid" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
-              </button>`;
-          }
-        )
-        .join("")}
-      </div>`
-      : '<p class="meta">目前沒有照片。</p>';
-
-    for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
+          </article>
+        </button>`;
+      }).join("")}
+      </div>
+    `;
+    for (const btn of rankingDetailStats.querySelectorAll("[data-open-item-detail]")) {
       const itemId = String(btn.dataset.openItemDetail || "");
       bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
     }
-    bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
+    bindSelectionCheckboxes(rankingDetailStats, "rankingDetail");
     return;
   }
 
   const rows = buildRankingData(metric, period);
   if (!rows.length) {
     rankingDetailStats.innerHTML = '<p class="meta">目前沒有資料。</p>';
-    rankingDetailPhotos.innerHTML = "";
     return;
   }
   queuePhotoRefs(rows.map((row) => row.item.itemPhotos?.[0]));
@@ -4292,32 +4284,11 @@ function renderRankingDetailPage() {
     </div>
   `;
 
-  rankingDetailPhotos.innerHTML = `
-    <div class="photo-grid">
-      ${rows
-      .map(
-        (row) => {
-          const selected = selectionVisible && selectedItemIds.has(row.item.id);
-          return `<button type="button" class="photo-open-btn ${selectionVisible ? "selection-visible" : ""} ${selected ? "is-selected" : ""}" data-open-item-detail="${row.item.id}">
-              ${selectionVisible ? `<span class="selection-checkbox corner ${selected ? "is-selected" : ""}" data-select-item="${row.item.id}" aria-label="選取單品"></span>` : ""}
-              <img class="cover-grid" src="${photoSrc(row.item.itemPhotos?.[0])}" alt="${escapeHtml(row.item.name)}" />
-            </button>`;
-        }
-      )
-      .join("")}
-    </div>
-  `;
-
   for (const btn of rankingDetailStats.querySelectorAll("[data-open-item-detail]")) {
     const itemId = String(btn.dataset.openItemDetail || "");
     bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
   }
-  for (const btn of rankingDetailPhotos.querySelectorAll("[data-open-item-detail]")) {
-    const itemId = String(btn.dataset.openItemDetail || "");
-    bindLongPressSelectable(btn, itemId, "rankingDetail", () => openItemDetail(itemId));
-  }
   bindSelectionCheckboxes(rankingDetailStats, "rankingDetail");
-  bindSelectionCheckboxes(rankingDetailPhotos, "rankingDetail");
 }
 
 function formatNumber(value, digits = 0) {

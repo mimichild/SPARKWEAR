@@ -1394,6 +1394,24 @@ fieldset label {
   gap: 6px;
 }
 
+.detail-usage-field {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-usage-input {
+  width: 100%;
+}
+
+.detail-usage-action {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.detail-usage-plus-btn {
+  min-width: 88px;
+}
+
 .existing-photos-grid {
   margin-top: 8px;
   display: grid;

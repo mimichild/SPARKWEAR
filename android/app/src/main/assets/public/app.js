@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.71+91";
+const APP_VERSION_LABEL = "v1.0.72+92";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -191,6 +191,7 @@ const itemFormTitle = document.getElementById("itemFormTitle");
 const itemPurchaseDateInput = itemForm.querySelector('input[name="purchaseDate"]');
 const itemPurchaseTimeInput = itemForm.querySelector('input[name="purchaseTime"]');
 const itemPhotosInput = itemForm.querySelector('input[name="itemPhotos"]');
+const itemUsageCountInput = itemForm.querySelector('input[name="usageCount"]');
 const openItemForm = document.getElementById("openItemForm");
 const closeItemBtn = document.querySelector("[data-close-item]");
 const itemCategorySelect = document.getElementById("itemCategorySelect");
@@ -576,6 +577,9 @@ closeCategoryItemsPage.addEventListener("click", () => {
 });
 itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
 itemDetailNext.addEventListener("click", () => stepDetailPhoto(1));
+itemDetailRecords?.addEventListener("click", (e) => onItemDetailRecordsClick(e));
+itemDetailRecords?.addEventListener("blur", (e) => onItemDetailUsageBlur(e), true);
+itemDetailRecords?.addEventListener("keydown", (e) => onItemDetailUsageKeydown(e));
 outfitDetailPrev.addEventListener("click", () => stepOutfitDetailPhoto(-1));
 outfitDetailNext.addEventListener("click", () => stepOutfitDetailPhoto(1));
 categoryItemsLatestTab.addEventListener("click", () => {
@@ -1118,6 +1122,7 @@ function openNewItemForm() {
   renderItemColorOptions("");
   stagedItemUploadFiles = null;
   if (itemPhotosInput) itemPhotosInput.value = "";
+  if (itemUsageCountInput) itemUsageCountInput.value = "0";
   if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
   if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
   existingItemPhotosSection.classList.add("hidden");
@@ -2018,6 +2023,7 @@ async function onSaveItem(e) {
   const detachedPhotos = editing ? diffRemovedPhotoRefs(editing.itemPhotos || [], finalPhotos) : [];
 
   const colorPayload = buildItemColorPayload(fd.get("colorId"));
+  const requestedUsageCount = normalizeUsageCount(fd.get("usageCount"), editing?.wearCountTotal || 0);
   const item = {
     id: editing?.id || crypto.randomUUID(),
     brand: String(fd.get("brand") || "").trim(),
@@ -2042,7 +2048,7 @@ async function onSaveItem(e) {
     cons: String(fd.get("cons") || "").trim(),
     remark: String(fd.get("remark") || "").trim(),
     itemPhotos: finalPhotos,
-    wearCountTotal: editing?.wearCountTotal || 0,
+    wearCountTotal: editing?.wearCountTotal || requestedUsageCount,
     createdAt: editing?.createdAt || new Date().toISOString(),
   };
 
@@ -2056,15 +2062,22 @@ async function onSaveItem(e) {
   } else {
     state.items.push(item);
   }
+  const previousManualVoteCounts = { ...(state.manualVoteCounts || {}) };
+  setItemUsageCountTotal(item.id, requestedUsageCount);
   cleanupDetachedPhotoRefs(detachedPhotos);
   cleanupOrphanPhotos();
   normalizeCategoryOrder();
-  recomputeWearCounts();
-  if (!persistAll()) return;
+  if (!persistAll()) {
+    state.manualVoteCounts = previousManualVoteCounts;
+    recomputeWearCounts();
+    return;
+  }
+  queueUsageCountPersistenceSync();
 
   itemForm.reset();
   stagedItemUploadFiles = null;
   if (itemPhotosInput) itemPhotosInput.value = "";
+  if (itemUsageCountInput) itemUsageCountInput.value = "0";
   if (itemPurchaseDateInput) itemPurchaseDateInput.valueAsDate = new Date();
   if (itemPurchaseTimeInput) itemPurchaseTimeInput.value = formatTimeNow();
   editingItemId = null;
@@ -2240,6 +2253,56 @@ function recomputeWearCounts() {
   for (const item of state.items) {
     item.wearCountTotal = counter.get(item.id) || 0;
   }
+}
+
+function buildLoggedWearCounter() {
+  const counter = new Map();
+  for (const log of state.dailyLogs || []) {
+    for (const itemId of log.wornItemIds || []) {
+      counter.set(itemId, (counter.get(itemId) || 0) + 1);
+    }
+  }
+  return counter;
+}
+
+function normalizeUsageCount(value, fallback = 0) {
+  const fallbackValue = Number.isFinite(Number(fallback)) ? Math.max(0, Math.floor(Number(fallback))) : 0;
+  if (value == null || value === "") return fallbackValue;
+  const next = Number(value);
+  if (!Number.isFinite(next)) return fallbackValue;
+  if (next <= 0) return 0;
+  return Math.floor(next);
+}
+
+function setItemUsageCountTotal(itemId, nextTotal) {
+  const item = state.items.find((row) => row.id === itemId);
+  if (!item) return null;
+  const requestedTotal = normalizeUsageCount(nextTotal, item.wearCountTotal || 0);
+  const loggedCount = buildLoggedWearCounter().get(itemId) || 0;
+  const effectiveTotal = Math.max(requestedTotal, loggedCount);
+  const manualCount = effectiveTotal - loggedCount;
+  if (manualCount > 0) {
+    state.manualVoteCounts[itemId] = manualCount;
+  } else {
+    delete state.manualVoteCounts[itemId];
+  }
+  recomputeWearCounts();
+  return { item, requestedTotal, effectiveTotal, loggedCount };
+}
+
+async function syncUsageCountPersistenceInBackground() {
+  try {
+    await Promise.all([
+      PersistenceService.set("closet_items", JSON.stringify(state.items)),
+      PersistenceService.set("closet_manual_vote_counts", JSON.stringify(state.manualVoteCounts)),
+    ]);
+  } catch (err) {
+    console.warn("usage count background sync failed:", err);
+  }
+}
+
+function queueUsageCountPersistenceSync() {
+  void syncUsageCountPersistenceInBackground();
 }
 
 function persistAll() {
@@ -3332,27 +3395,7 @@ function openItemDetail(itemId) {
   detailPhotoIndex = 0;
   renderDetailPhoto();
 
-  itemDetailRecords.innerHTML = `
-    <div><strong>購買日期：</strong>${escapeHtml(item.purchaseDate || "未填")}</div>
-    <div><strong>分類：</strong>${escapeHtml(item.category || "未填")}</div>
-    <div><strong>顏色：</strong>${escapeHtml(getItemColorList(item).join(" / ") || "未填")}</div>
-    <div><strong>原價：</strong>${item.originalPrice ?? "未填"}</div>
-    <div><strong>特價：</strong>${item.specialPrice ?? "未填"}</div>
-    <div><strong>優惠價：</strong>${item.discountPrice ?? "未填"}</div>
-    <div><strong>來源：</strong>${escapeHtml(item.origin || "未填")}</div>
-    <div><strong>分級：</strong>${escapeHtml(item.grade || "未填")}</div>
-    <div><strong>季節：</strong>${escapeHtml((item.seasons || []).join(" / ") || "未填")}</div>
-    <div><strong>尺寸：</strong>${escapeHtml(item.size || "未填")}</div>
-    <div><strong>體重：</strong>${escapeHtml(item.weight || "未填")}</div>
-    <div><strong>身材：</strong>${escapeHtml(item.bodyType || "未填")}</div>
-    <div><strong>建議體重：</strong>${escapeHtml(item.suggestedWeight || "未填")}</div>
-    <div><strong>小紀錄：</strong>${escapeHtml(item.miniNote || "-")}</div>
-    <div><strong>優點：</strong>${escapeHtml(item.pros || "-")}</div>
-    <div><strong>缺點：</strong>${escapeHtml(item.cons || "-")}</div>
-    <div><strong>備註：</strong>${escapeHtml(item.remark || "-")}</div>
-    <div><strong>使用次數：</strong>${item.wearCountTotal || 0}</div>
-    <div><strong>平均使用價格：</strong>${averageUsePriceText(item)}</div>
-  `;
+  renderItemDetailRecords(item);
   renderItemUsedOutfits(item.id);
 
   itemDetailDialog.showModal();
@@ -3385,6 +3428,7 @@ function openItemEditForm() {
   itemForm.grade.value = item.grade || "";
   renderItemOriginOptions(item.origin || "");
   renderItemColorOptions(item.colorId || "");
+  if (itemUsageCountInput) itemUsageCountInput.value = String(normalizeUsageCount(item.wearCountTotal, 0));
   itemForm.miniNote.value = item.miniNote || "";
   itemForm.pros.value = item.pros || "";
   itemForm.cons.value = item.cons || "";
@@ -3395,6 +3439,102 @@ function openItemEditForm() {
   renderExistingItemPhotos(item.itemPhotos || []);
   itemDetailDialog.close();
   itemDialog.showModal();
+}
+
+function renderItemDetailRecords(item) {
+  if (!itemDetailRecords) return;
+  itemDetailRecords.innerHTML = `
+    <div><strong>購買日期：</strong>${escapeHtml(item.purchaseDate || "未填")}</div>
+    <div><strong>分類：</strong>${escapeHtml(item.category || "未填")}</div>
+    <div><strong>顏色：</strong>${escapeHtml(getItemColorList(item).join(" / ") || "未填")}</div>
+    <div><strong>原價：</strong>${item.originalPrice ?? "未填"}</div>
+    <div><strong>特價：</strong>${item.specialPrice ?? "未填"}</div>
+    <div><strong>優惠價：</strong>${item.discountPrice ?? "未填"}</div>
+    <div><strong>來源：</strong>${escapeHtml(item.origin || "未填")}</div>
+    <div><strong>分級：</strong>${escapeHtml(item.grade || "未填")}</div>
+    <div><strong>季節：</strong>${escapeHtml((item.seasons || []).join(" / ") || "未填")}</div>
+    <div><strong>尺寸：</strong>${escapeHtml(item.size || "未填")}</div>
+    <div><strong>體重：</strong>${escapeHtml(item.weight || "未填")}</div>
+    <div><strong>身材：</strong>${escapeHtml(item.bodyType || "未填")}</div>
+    <div><strong>建議體重：</strong>${escapeHtml(item.suggestedWeight || "未填")}</div>
+    <div><strong>小紀錄：</strong>${escapeHtml(item.miniNote || "-")}</div>
+    <div><strong>優點：</strong>${escapeHtml(item.pros || "-")}</div>
+    <div><strong>缺點：</strong>${escapeHtml(item.cons || "-")}</div>
+    <div><strong>備註：</strong>${escapeHtml(item.remark || "-")}</div>
+    <div class="detail-usage-field">
+      <strong>使用次數：</strong>
+      <input
+        class="detail-usage-input"
+        type="number"
+        min="0"
+        step="1"
+        inputmode="numeric"
+        value="${normalizeUsageCount(item.wearCountTotal, 0)}"
+        data-edit-usage-count="${escapeAttr(item.id)}"
+      />
+    </div>
+    <div class="detail-usage-action">
+      <button type="button" class="secondary-btn detail-usage-plus-btn" data-increment-usage="${escapeAttr(item.id)}">+1</button>
+    </div>
+    <div><strong>平均使用價格：</strong>${averageUsePriceText(item)}</div>
+  `;
+}
+
+function renderUsageDependentViews() {
+  renderLatest();
+  renderPhotosWall();
+  renderCategoryTab();
+  renderTagTab();
+  renderRankingTab();
+  if (categoryItemsPage?.classList.contains("active")) renderCategoryItemsPage();
+  if (rankingDetailPage?.classList.contains("active")) renderRankingDetailPage();
+  if (voteDialog?.open) renderManualVoteList();
+  if (outfitDetailDialog?.open && currentOutfitDetailId) openOutfitDetail(currentOutfitDetailId);
+}
+
+function persistItemUsageCountChange(itemId, nextTotal, { alertOnClamp = false } = {}) {
+  const previousManualVoteCounts = { ...(state.manualVoteCounts || {}) };
+  const result = setItemUsageCountTotal(itemId, nextTotal);
+  if (!result) return;
+  if (!persistAll()) {
+    state.manualVoteCounts = previousManualVoteCounts;
+    recomputeWearCounts();
+    renderItemDetailRecords(result.item);
+    return;
+  }
+  renderItemDetailRecords(result.item);
+  renderUsageDependentViews();
+  queueUsageCountPersistenceSync();
+  if (alertOnClamp && result.effectiveTotal !== result.requestedTotal) {
+    alert(`此單品已有 ${result.loggedCount} 筆穿搭紀錄，使用次數已自動調整為 ${result.effectiveTotal}。`);
+  }
+}
+
+function onItemDetailRecordsClick(e) {
+  const target = e.target instanceof Element ? e.target : null;
+  const btn = target?.closest("[data-increment-usage]");
+  if (!btn) return;
+  const itemId = String(btn.dataset.incrementUsage || "");
+  if (!itemId) return;
+  const input = itemDetailRecords?.querySelector("[data-edit-usage-count]");
+  const currentValue = normalizeUsageCount(input?.value, state.items.find((row) => row.id === itemId)?.wearCountTotal || 0);
+  persistItemUsageCountChange(itemId, currentValue + 1);
+}
+
+function onItemDetailUsageBlur(e) {
+  const target = e.target instanceof HTMLInputElement ? e.target : null;
+  if (!target?.matches("[data-edit-usage-count]")) return;
+  const itemId = String(target.dataset.editUsageCount || "");
+  if (!itemId) return;
+  persistItemUsageCountChange(itemId, target.value, { alertOnClamp: true });
+}
+
+function onItemDetailUsageKeydown(e) {
+  const target = e.target instanceof HTMLInputElement ? e.target : null;
+  if (!target?.matches("[data-edit-usage-count]")) return;
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  target.blur();
 }
 
 function openDeleteItemConfirm() {
@@ -5241,14 +5381,11 @@ function numberOrNull(v) {
 }
 
 function averageUsePriceText(item) {
-  const prices = [item.originalPrice, item.specialPrice, item.discountPrice]
-    .map((x) => (x == null ? NaN : Number(x)))
-    .filter((x) => Number.isFinite(x) && x > 0);
-  if (!prices.length) return "未填價格";
-  const minPrice = Math.min(...prices);
-  const count = Number(item.wearCountTotal || 0);
-  if (count <= 0) return "尚無使用次數";
-  return (minPrice / count).toFixed(2);
+  const purchasePrice = itemEffectivePrice(item);
+  if (purchasePrice == null) return "未填價格";
+  const count = normalizeUsageCount(item?.wearCountTotal, 0);
+  if (count <= 0) return Number.isInteger(purchasePrice) ? String(purchasePrice) : purchasePrice.toFixed(2);
+  return (purchasePrice / count).toFixed(2);
 }
 
 let photoDbPromise = null;

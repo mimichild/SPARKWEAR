@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.72+92";
+const APP_VERSION_LABEL = "v1.0.76+96";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -99,6 +99,8 @@ const state = {
   refColors: load(REF_COLORS_KEY, null),
   customColors: load(CUSTOM_COLORS_KEY, []),
   purchaseSort: load("closet_purchase_sort", "desc"),
+  rankingQuery: "",
+  rankingDetailQuery: "",
   outfitSort: load("closet_outfit_sort", "desc"),
   tagUsageSort: load("closet_tag_usage_sort", "none"),
   rankingSort: load("closet_ranking_sort", "desc"),
@@ -164,6 +166,13 @@ const bulkDeleteClosetBtn = document.getElementById("bulkDeleteClosetBtn");
 const closetSearchBar = document.getElementById("closetSearchBar");
 const closetSearchInput = document.getElementById("closetSearchInput");
 const clearClosetSearch = document.getElementById("clearClosetSearch");
+const rankingSearchBar = document.getElementById("rankingSearchBar");
+const rankingSearchInput = document.getElementById("rankingSearchInput");
+const clearRankingSearch = document.getElementById("clearRankingSearch");
+const closetFloatingNav = document.getElementById("closetFloatingNav");
+const closetFloatingBack = document.getElementById("closetFloatingBack");
+const closetFloatingSearch = document.getElementById("closetFloatingSearch");
+const closetFloatingAdd = document.getElementById("closetFloatingAdd");
 const toggleOutfitSearch = document.getElementById("toggleOutfitSearch");
 const bulkDeleteOutfitBtn = document.getElementById("bulkDeleteOutfitBtn");
 const outfitSearchBar = document.getElementById("outfitSearchBar");
@@ -284,6 +293,9 @@ const closetMainTabs = document.querySelector(".closet-main-tabs");
 const closetTabOrderList = document.getElementById("closetTabOrderList");
 const rankingDetailPage = document.getElementById("rankingDetailPage");
 const rankingDetailTitle = document.getElementById("rankingDetailTitle");
+const rankingDetailSearchBar = document.getElementById("rankingDetailSearchBar");
+const rankingDetailSearchInput = document.getElementById("rankingDetailSearchInput");
+const clearRankingDetailSearch = document.getElementById("clearRankingDetailSearch");
 const rankingDetailStats = document.getElementById("rankingDetailStats");
 const rankingPeriodSelect = document.getElementById("rankingPeriodSelect");
 const closeRankingDetailPage = document.getElementById("closeRankingDetailPage");
@@ -489,7 +501,7 @@ for (const btn of closetItemsTabs) btn.addEventListener("click", () => {
   clearSelectionMode();
   switchClosetItemsTab(btn.dataset.closetItemsTab);
 });
-openItemForm.addEventListener("click", () => openNewItemForm());
+openItemForm?.addEventListener("click", () => openNewItemForm());
 closeItemBtn.addEventListener("click", () => {
   editingItemId = null;
   stagedItemUploadFiles = null;
@@ -573,6 +585,7 @@ closeCategoryItemsPage.addEventListener("click", () => {
   categoryItemsSearchBar.classList.add("hidden");
   state.categoryItemsQuery = "";
   categoryItemsSearchInput.value = "";
+  updateFloatingNavVisibility();
   saveActiveViewState();
 });
 itemDetailPrev.addEventListener("click", () => stepDetailPhoto(-1));
@@ -802,20 +815,37 @@ outfitSearchBrand.addEventListener("input", renderOutfitItemChecklist);
 outfitSearchName.addEventListener("input", renderOutfitItemChecklist);
 outfitSearchTag.addEventListener("input", renderOutfitItemChecklist);
 outfitSearchCategory.addEventListener("change", renderOutfitItemChecklist);
-toggleClosetSearch.addEventListener("click", () => {
-  closetSearchBar.classList.toggle("hidden");
-  if (!closetSearchBar.classList.contains("hidden")) closetSearchInput.focus();
-});
-toggleClosetPhotoSearch?.addEventListener("click", () => {
-  closetSearchBar.classList.toggle("hidden");
-  if (!closetSearchBar.classList.contains("hidden")) closetSearchInput.focus();
-});
+toggleClosetSearch?.addEventListener("click", () => toggleClosetSearchUi());
+toggleClosetPhotoSearch?.addEventListener("click", () => toggleClosetSearchUi());
+closetFloatingBack?.addEventListener("click", () => handleFloatingBack());
+closetFloatingSearch?.addEventListener("click", () => handleFloatingSearch());
+closetFloatingAdd?.addEventListener("click", () => openNewItemForm());
 closetSearchInput.addEventListener("input", () => {
   state.closetQuery = closetSearchInput.value.trim().toLowerCase();
   renderLatest();
   renderPhotosWall();
   renderCategoryTab();
   renderTagTab();
+});
+rankingSearchInput?.addEventListener("input", () => {
+  state.rankingQuery = rankingSearchInput.value.trim();
+  renderRankingTab();
+});
+clearRankingSearch?.addEventListener("click", () => {
+  state.rankingQuery = "";
+  if (rankingSearchInput) rankingSearchInput.value = "";
+  renderRankingTab();
+  rankingSearchInput?.focus();
+});
+rankingDetailSearchInput?.addEventListener("input", () => {
+  state.rankingDetailQuery = rankingDetailSearchInput.value.trim();
+  renderRankingDetailPage();
+});
+clearRankingDetailSearch?.addEventListener("click", () => {
+  state.rankingDetailQuery = "";
+  if (rankingDetailSearchInput) rankingDetailSearchInput.value = "";
+  renderRankingDetailPage();
+  rankingDetailSearchInput?.focus();
 });
 toggleOutfitSearch.addEventListener("click", () => {
   outfitSearchBar.classList.toggle("hidden");
@@ -931,6 +961,7 @@ async function initApp() {
   renderAll();
   restoreActiveViewState();
   updateBottomAdVisibility();
+  updateFloatingNavVisibility();
 }
 
 function showHome() {
@@ -939,7 +970,10 @@ function showHome() {
   homePage.classList.add("active");
   closetPage.classList.remove("active");
   outfitPage.classList.remove("active");
+  resetRankingMainSearch(true);
+  resetRankingDetailSearch(true);
   updateBottomAdVisibility();
+  updateFloatingNavVisibility();
   saveActiveViewState();
 }
 
@@ -949,7 +983,12 @@ function openPage(type) {
   homePage.classList.remove("active");
   closetPage.classList.toggle("active", type === "closet");
   outfitPage.classList.toggle("active", type === "outfit");
+  if (type !== "closet") {
+    resetRankingMainSearch(true);
+    resetRankingDetailSearch(true);
+  }
   updateBottomAdVisibility();
+  updateFloatingNavVisibility();
   saveActiveViewState();
 }
 
@@ -1008,6 +1047,176 @@ function dismissOutfitForm() {
   outfitFormDialog?.close();
 }
 
+function isRankingMainView() {
+  return currentMainPage() === "closet" && activeClosetSubTab() === "ranking" && !rankingDetailPage?.classList.contains("active");
+}
+
+function isCategoryItemsView() {
+  return Boolean(categoryItemsPage?.classList.contains("active"));
+}
+
+function updateFloatingNavVisibility() {
+  const shouldShow = Boolean(
+    (closetPage.classList.contains("active") && !document.body.classList.contains("category-items-open"))
+    || categoryItemsPage?.classList.contains("active")
+    || rankingDetailPage?.classList.contains("active")
+  );
+  closetFloatingNav?.classList.toggle("is-visible", shouldShow);
+}
+
+function toggleInlineSearchBar(searchBar, inputEl, forceVisible, scrollHost = null) {
+  if (!searchBar) return;
+  const shouldShow = typeof forceVisible === "boolean" ? forceVisible : searchBar.classList.contains("hidden");
+  searchBar.classList.toggle("hidden", !shouldShow);
+  if (!shouldShow) return;
+  if (typeof scrollHost?.scrollTo === "function") {
+    scrollHost.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  window.requestAnimationFrame(() => {
+    if (!inputEl) return;
+    try {
+      inputEl.focus({ preventScroll: true });
+    } catch {
+      inputEl.focus();
+    }
+  });
+}
+
+function getRankingDetailItems() {
+  const metric = normalizeRankingMetric(rankingDetailMetric || "usage");
+  const period = normalizeRankingPeriod(state.rankingPeriod);
+  const orderedByPurchase = sortedByPurchase(state.items || []);
+  if (metric === "brand") {
+    const itemsByBrand = new Map();
+    for (const item of orderedByPurchase) {
+      const brand = String(item.brand || "").trim() || "未填品牌";
+      const bucket = itemsByBrand.get(brand) || [];
+      bucket.push(item);
+      itemsByBrand.set(brand, bucket);
+    }
+    return buildBrandRankingData().flatMap((row) => itemsByBrand.get(row.brand) || []);
+  }
+  if (metric === "color") {
+    const itemsByColor = new Map();
+    for (const item of orderedByPurchase) {
+      const color = getItemColorLabel(item) || "未選擇";
+      const bucket = itemsByColor.get(color) || [];
+      bucket.push(item);
+      itemsByColor.set(color, bucket);
+    }
+    return buildColorRankingData(period).flatMap((row) => itemsByColor.get(row.color) || []);
+  }
+  return buildRankingData(metric, period).map((row) => row.item);
+}
+
+function renderRankingSearchItemList(target, items, selectionScope = "closet") {
+  if (!target) return;
+  queuePhotoRefs(items.map((item) => item.itemPhotos?.[0]));
+  if (!items.length) {
+    target.innerHTML = '<p class="meta">找不到符合名稱或品牌的單品。</p>';
+    return;
+  }
+  const selectionVisible = selectionContext === selectionScope && selectedItemIds.size > 0;
+  target.innerHTML = `
+    <div class="list">
+      ${items.map((item) => `
+        <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" data-open-item-detail="${escapeAttr(item.id)}">
+          <article class="item-row ${selectionVisible && selectedItemIds.has(item.id) ? "selected-lines" : ""}">
+            <img class="cover-sm" src="${photoSrc(item.itemPhotos?.[0])}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <div>
+                ${selectionVisible ? `<span class="selection-checkbox inline ${selectedItemIds.has(item.id) ? "is-selected" : ""}" data-select-item="${item.id}" aria-label="選取單品"></span>` : ""}
+                <strong>${escapeHtml(item.brand || "未填品牌")}</strong>&nbsp;${escapeHtml(item.name)}
+              </div>
+              <p class="meta">${escapeHtml(item.category || "未分類")}</p>
+            </div>
+          </article>
+        </button>
+      `).join("")}
+    </div>
+  `;
+  for (const btn of target.querySelectorAll("[data-open-item-detail]")) {
+    const itemId = String(btn.dataset.openItemDetail || "");
+    bindLongPressSelectable(btn, itemId, selectionScope, () => openItemDetail(itemId));
+  }
+  bindSelectionCheckboxes(target, selectionScope);
+}
+
+function normalizeSearchKeyword(value) {
+  return String(value || "").toLowerCase().replace(/\s+/g, "");
+}
+
+function getItemsBySearchQuery(items, query) {
+  const normalizedQuery = normalizeSearchKeyword(query);
+  if (!normalizedQuery) return [];
+  return items.filter((item) => {
+    const normalizedName = normalizeSearchKeyword(item?.name || "");
+    const normalizedBrand = normalizeSearchKeyword(item?.brand || "");
+    return normalizedName.includes(normalizedQuery) || normalizedBrand.includes(normalizedQuery);
+  });
+}
+
+function resetRankingMainSearch(clearVisibility = false) {
+  state.rankingQuery = "";
+  if (rankingSearchInput) rankingSearchInput.value = "";
+  if (clearVisibility) rankingSearchBar?.classList.add("hidden");
+}
+
+function resetRankingDetailSearch(clearVisibility = false) {
+  state.rankingDetailQuery = "";
+  if (rankingDetailSearchInput) rankingDetailSearchInput.value = "";
+  if (clearVisibility) rankingDetailSearchBar?.classList.add("hidden");
+}
+
+function handleFloatingBack() {
+  if (isCategoryItemsView()) {
+    closeCategoryItemsPage?.click();
+    return;
+  }
+  if (rankingDetailPage?.classList.contains("active")) {
+    closeRankingDetail();
+    return;
+  }
+  if (!closetPage.classList.contains("active")) return;
+  showHome();
+}
+
+function handleFloatingSearch() {
+  if (isCategoryItemsView()) {
+    toggleInlineSearchBar(categoryItemsSearchBar, categoryItemsSearchInput, undefined, categoryItemsPage);
+    return;
+  }
+  if (rankingDetailPage?.classList.contains("active")) {
+    toggleInlineSearchBar(rankingDetailSearchBar, rankingDetailSearchInput, undefined, rankingDetailPage);
+    return;
+  }
+  if (isRankingMainView()) {
+    closetSearchBar?.classList.add("hidden");
+    toggleInlineSearchBar(rankingSearchBar, rankingSearchInput, undefined, document.querySelector(".app"));
+    return;
+  }
+  toggleClosetSearchUi();
+}
+
+function toggleClosetSearchUi(forceVisible) {
+  if (!closetSearchBar) return;
+  const shouldShow = typeof forceVisible === "boolean" ? forceVisible : closetSearchBar.classList.contains("hidden");
+  closetSearchBar.classList.toggle("hidden", !shouldShow);
+  if (!shouldShow) return;
+  const scrollHost = document.querySelector(".app");
+  if (typeof scrollHost?.scrollTo === "function") {
+    scrollHost.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  window.requestAnimationFrame(() => {
+    if (!closetSearchInput) return;
+    try {
+      closetSearchInput.focus({ preventScroll: true });
+    } catch {
+      closetSearchInput.focus();
+    }
+  });
+}
+
 function switchSub(tab) {
   for (const btn of subTabs) btn.classList.toggle("active", btn.dataset.subTab === tab);
   closetItems?.classList.toggle("active", tab === "items");
@@ -1015,10 +1224,13 @@ function switchSub(tab) {
   closetCategory.classList.toggle("active", tab === "category");
   closetTags.classList.toggle("active", tab === "tags");
   closetRanking.classList.toggle("active", tab === "ranking");
+  if (tab === "ranking") closetSearchBar?.classList.add("hidden");
+  if (tab !== "ranking") resetRankingMainSearch(true);
   if (tab === "items") switchClosetItemsTab(closetItemsView);
   const sortBar = document.querySelector(".sort-bar");
   const showPurchaseSort = tab === "items";
   if (sortBar) sortBar.classList.toggle("hidden", !showPurchaseSort);
+  updateFloatingNavVisibility();
   saveActiveViewState();
 }
 
@@ -1303,6 +1515,7 @@ function closeTopOverlay() {
     categoryItemsSearchBar.classList.add("hidden");
     state.categoryItemsQuery = "";
     categoryItemsSearchInput.value = "";
+    updateFloatingNavVisibility();
     saveActiveViewState();
     return true;
   }
@@ -3737,6 +3950,8 @@ function renderCategoryTab() {
 
 function openCategoryItemsPage(category, preferredView = "latest") {
   clearSelectionMode();
+  resetRankingMainSearch(true);
+  resetRankingDetailSearch(true);
   currentCategoryItemsName = category;
   categoryItemsView = preferredView === "photos" ? "photos" : "latest";
   state.categoryItemsQuery = "";
@@ -3745,6 +3960,7 @@ function openCategoryItemsPage(category, preferredView = "latest") {
   document.body.classList.add("category-items-open");
   renderCategoryItemsPage();
   categoryItemsPage.classList.add("active");
+  updateFloatingNavVisibility();
   saveActiveViewState();
 }
 
@@ -4033,6 +4249,8 @@ function updateRankingDetailTitle() {
 
 function openRankingDetail(metric, direction) {
   clearSelectionMode();
+  resetRankingMainSearch(true);
+  resetRankingDetailSearch(true);
   rankingDetailMetric = normalizeRankingMetric(metric);
   if (direction === "asc" || direction === "desc") {
     state.rankingSort = direction;
@@ -4046,6 +4264,7 @@ function openRankingDetail(metric, direction) {
 
   rankingDetailPage?.classList.add("active");
   document.body.classList.add("ranking-detail-open");
+  updateFloatingNavVisibility();
   saveActiveViewState();
 }
 
@@ -4053,6 +4272,8 @@ function closeRankingDetail() {
   rankingDetailMetric = "";
   rankingDetailPage?.classList.remove("active");
   document.body.classList.remove("ranking-detail-open");
+  resetRankingDetailSearch(true);
+  updateFloatingNavVisibility();
   saveActiveViewState();
 }
 
@@ -4237,6 +4458,12 @@ function previewPhotoSrc(item) {
 
 function renderRankingTab() {
   if (!rankingList) return;
+  const query = String(state.rankingQuery || "").trim();
+  if (query) {
+    const items = getItemsBySearchQuery(sortedByPurchase(state.items || []), query);
+    renderRankingSearchItemList(rankingList, items, "closet");
+    return;
+  }
   rankingList.innerHTML = `
     <div class="list">
       <button type="button" class="item-open-btn" data-open-ranking="usage" data-ranking-dir="desc">
@@ -4305,6 +4532,12 @@ function renderRankingTab() {
 
 function renderRankingDetailPage() {
   if (!rankingDetailPage || !rankingDetailStats) return;
+  const query = String(state.rankingDetailQuery || "").trim();
+  if (query) {
+    const items = getItemsBySearchQuery(getRankingDetailItems(), query);
+    renderRankingSearchItemList(rankingDetailStats, items, "rankingDetail");
+    return;
+  }
   const metric = normalizeRankingMetric(rankingDetailMetric || "usage");
   const period = normalizeRankingPeriod(state.rankingPeriod);
   updateRankingDetailTitle();

@@ -267,6 +267,37 @@ body.with-bottom-ad {
   font-weight: 400;
 }
 
+.page-head-balanced {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.page-head-balanced .head-side-spacer {
+  min-width: 28px;
+}
+
+.page-head-balanced h1 {
+  grid-column: 2;
+  text-align: center;
+}
+
+.page-head-balanced .head-actions {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.page-head-title-only {
+  justify-content: center;
+}
+
+.page-head-title-only h1 {
+  text-align: center;
+}
+
+.page-head-title-only .head-actions {
+  display: none;
+}
+
 .head-actions {
   display: flex;
   align-items: center;
@@ -473,6 +504,83 @@ button,
 
 .sub-panel.active {
   display: block;
+}
+
+#closetPage {
+  padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
+}
+
+.closet-floating-nav {
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + var(--safe-bottom) + var(--bottom-ad-height));
+  transform: translateX(-50%);
+  width: min(calc(100vw - 28px), 952px);
+  height: 50px;
+  display: none;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(39, 35, 29, 0.14);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 980;
+  overflow: hidden;
+}
+
+.closet-floating-nav.is-visible {
+  display: flex;
+}
+
+.closet-floating-nav-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.closet-floating-nav-btn + .closet-floating-nav-btn {
+  border-left: 1px solid rgba(39, 35, 29, 0.08);
+}
+
+.closet-floating-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16px;
+}
+
+.closet-floating-nav-label {
+  font-size: 11px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.nav-icon-arrow {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.nav-icon-pencil {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#closetPage .fab {
+  display: none;
 }
 
 .ranking-detail-layout {
@@ -1485,6 +1593,11 @@ fieldset label {
 #categoryItemsPage.overlay-page.active,
 #rankingDetailPage.overlay-page.active {
   padding-top: 0;
+}
+
+#categoryItemsPage.overlay-page.active,
+#rankingDetailPage.overlay-page.active {
+  padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
 }
 
 body.category-items-open .status-bar-filler,

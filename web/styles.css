@@ -267,6 +267,37 @@ body.with-bottom-ad {
   font-weight: 400;
 }
 
+.page-head-balanced {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.page-head-balanced .head-side-spacer {
+  min-width: 28px;
+}
+
+.page-head-balanced h1 {
+  grid-column: 2;
+  text-align: center;
+}
+
+.page-head-balanced .head-actions {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.page-head-title-only {
+  justify-content: center;
+}
+
+.page-head-title-only h1 {
+  text-align: center;
+}
+
+.page-head-title-only .head-actions {
+  display: none;
+}
+
 .head-actions {
   display: flex;
   align-items: center;
@@ -475,22 +506,100 @@ button,
   display: block;
 }
 
+#closetPage {
+  padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
+}
+
+#outfitPage {
+  padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
+}
+
+.closet-floating-nav {
+  position: fixed;
+  left: 50%;
+  bottom: calc(12px + var(--safe-bottom) + var(--bottom-ad-height));
+  transform: translateX(-50%);
+  width: min(calc(100vw - 28px), 952px);
+  height: 50px;
+  display: none;
+  align-items: stretch;
+  border: 1px solid rgba(39, 35, 29, 0.08);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 1px 8px rgba(39, 35, 29, 0.08);
+  z-index: 980;
+  overflow: hidden;
+}
+
+.closet-floating-nav.is-visible {
+  display: flex;
+}
+
+.closet-floating-nav-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.closet-floating-nav-btn + .closet-floating-nav-btn {
+  border-left: 1px solid rgba(39, 35, 29, 0.08);
+}
+
+.closet-floating-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16px;
+}
+
+.closet-floating-nav-label {
+  font-size: 11px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.nav-icon-arrow {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.nav-icon-pencil {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#closetPage .fab {
+  display: none;
+}
+
+#outfitPage .fab {
+  display: none;
+}
+
+#outfitPage #toggleOutfitSearch,
+#outfitPage [data-back-home] {
+  display: none;
+}
+
 .ranking-detail-layout {
   display: block;
 }
 
 .ranking-detail-col .photo-grid {
   margin-top: 0;
-}
-
-.color-dot {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
-  border: 1px solid #e5e5e5;
 }
 
 .sortable-list {
@@ -812,6 +921,7 @@ button,
 .list {
   display: grid;
   gap: 10px;
+  width: 100%;
 }
 
 .product-grid {
@@ -852,10 +962,11 @@ button,
 }
 
 .latest-row {
-  border-bottom: 1px solid #e9e9e9;
+  border-bottom: 1px solid #eeeeee;
   border-radius: 0;
   background: #fff;
   margin: 0;
+  width: 100%;
 }
 
 .latest-open-btn {
@@ -909,11 +1020,12 @@ button,
   grid-template-columns: 56px 1fr;
   gap: 10px;
   border: 0;
-  border-bottom: 1px solid #e9e9e9;
+  border-bottom: 1px solid #eeeeee;
   border-radius: 0;
   background: #fff;
   padding: 8px;
   align-items: center;
+  width: 100%;
 }
 
 .ranking-row {
@@ -947,6 +1059,8 @@ button,
   all: unset;
   display: block;
   cursor: pointer;
+  width: 100%;
+  min-width: 0;
 }
 
 .order-row {
@@ -1209,6 +1323,43 @@ fieldset label {
   padding-inline: 12px;
 }
 
+.color-chooser {
+  margin-top: 12px;
+}
+
+.color-select-row {
+  margin-top: 6px;
+}
+
+.color-management-section {
+  margin-top: 12px;
+}
+
+.color-management-section .actions {
+  margin-top: 10px;
+}
+
+.color-management-section .actions button {
+  width: 100%;
+}
+
+.color-management-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.color-management-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-management-row .color-management-chip {
+  flex: 1;
+  justify-content: center;
+}
+
 .origin-mode-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1362,6 +1513,24 @@ fieldset label {
   gap: 6px;
 }
 
+.detail-usage-field {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-usage-input {
+  width: 100%;
+}
+
+.detail-usage-action {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.detail-usage-plus-btn {
+  min-width: 88px;
+}
+
 .existing-photos-grid {
   margin-top: 8px;
   display: grid;
@@ -1435,6 +1604,11 @@ fieldset label {
 #categoryItemsPage.overlay-page.active,
 #rankingDetailPage.overlay-page.active {
   padding-top: 0;
+}
+
+#categoryItemsPage.overlay-page.active,
+#rankingDetailPage.overlay-page.active {
+  padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
 }
 
 body.category-items-open .status-bar-filler,

@@ -131,8 +131,16 @@
         <div id="rankingList" class="list"></div>
       </section>
 
-      <button id="openItemForm" class="fab" aria-label="新增衣物"><span class="pencil-icon">✎</span></button>
+      <button id="handleFloatingAdd" class="fab" aria-label="新增" type="button"><span class="icon-plus"
+          aria-hidden="true"></span></button>
     </section>
+
+    <div id="closetSelectionBar" class="selection-action-bar" aria-label="批次操作">
+      <button id="closetBulkMoveBtn" class="selection-action-btn" type="button">分類</button>
+      <button id="closetBulkDeleteBtn" class="selection-action-btn" type="button">刪除</button>
+    </div>
+
+
 
     <section id="outfitPage" class="page">
       <header class="page-head">
@@ -165,6 +173,10 @@
 
       <section id="outfitGrid" class="photo-grid"></section>
       <button id="openOutfitMenu" class="fab" aria-label="穿搭筆記本"><span class="pencil-icon">✎</span></button>
+      <div id="outfitSelectionBar" class="selection-action-bar" aria-label="穿搭批次操作">
+        <button id="outfitBulkCancelBtn" class="selection-action-btn" type="button">取消</button>
+        <button id="outfitBulkDeleteBtn" class="selection-action-btn" type="button">刪除</button>
+      </div>
     </section>
   </main>
   <nav id="closetFloatingNav" class="closet-floating-nav" aria-label="底部導航">

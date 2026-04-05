@@ -510,6 +510,10 @@ button,
   padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
 }
 
+#outfitPage {
+  padding-bottom: calc(84px + var(--safe-bottom) + var(--bottom-ad-height));
+}
+
 .closet-floating-nav {
   position: fixed;
   left: 50%;
@@ -519,12 +523,10 @@ button,
   height: 50px;
   display: none;
   align-items: stretch;
-  border: 1px solid rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(39, 35, 29, 0.08);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 10px 24px rgba(39, 35, 29, 0.14);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: #ffffff;
+  box-shadow: 0 1px 8px rgba(39, 35, 29, 0.08);
   z-index: 980;
   overflow: hidden;
 }
@@ -580,6 +582,15 @@ button,
 }
 
 #closetPage .fab {
+  display: none;
+}
+
+#outfitPage .fab {
+  display: none;
+}
+
+#outfitPage #toggleOutfitSearch,
+#outfitPage [data-back-home] {
   display: none;
 }
 

@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.76+96";
+const APP_VERSION_LABEL = "v1.0.77+97";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -138,6 +138,7 @@ const importReplaceBtn = document.getElementById("importReplaceBtn");
 const cancelImportBtn = document.getElementById("cancelImportBtn");
 const bottomAdBanner = document.getElementById("bottomAdBanner");
 const bottomAdsenseSlot = document.getElementById("bottomAdsenseSlot");
+const appScrollHost = document.querySelector(".app");
 
 const ADSENSE_CLIENT_ID = "ca-pub-xxxxxxxxxxxxxxxx";
 const ADSENSE_BOTTOM_SLOT_ID = "0000000000";
@@ -559,7 +560,7 @@ confirmOutfitCancelBtn?.addEventListener("click", () => {
   dismissOutfitForm();
   cancelOutfitConfirmDialog?.close();
 });
-openVoteFormAction.addEventListener("click", () => {
+openVoteFormAction?.addEventListener("click", () => {
   outfitMenuDialog.close();
   voteDialog.showModal();
   renderVoteSearchCategoryOptions();
@@ -819,7 +820,7 @@ toggleClosetSearch?.addEventListener("click", () => toggleClosetSearchUi());
 toggleClosetPhotoSearch?.addEventListener("click", () => toggleClosetSearchUi());
 closetFloatingBack?.addEventListener("click", () => handleFloatingBack());
 closetFloatingSearch?.addEventListener("click", () => handleFloatingSearch());
-closetFloatingAdd?.addEventListener("click", () => openNewItemForm());
+closetFloatingAdd?.addEventListener("click", () => handleFloatingAdd());
 closetSearchInput.addEventListener("input", () => {
   state.closetQuery = closetSearchInput.value.trim().toLowerCase();
   renderLatest();
@@ -848,8 +849,7 @@ clearRankingDetailSearch?.addEventListener("click", () => {
   rankingDetailSearchInput?.focus();
 });
 toggleOutfitSearch.addEventListener("click", () => {
-  outfitSearchBar.classList.toggle("hidden");
-  if (!outfitSearchBar.classList.contains("hidden")) outfitSearchInput.focus();
+  toggleInlineSearchBar(outfitSearchBar, outfitSearchInput, undefined, appScrollHost);
 });
 outfitSearchInput.addEventListener("input", () => {
   state.outfitQuery = outfitSearchInput.value.trim().toLowerCase();
@@ -1058,6 +1058,7 @@ function isCategoryItemsView() {
 function updateFloatingNavVisibility() {
   const shouldShow = Boolean(
     (closetPage.classList.contains("active") && !document.body.classList.contains("category-items-open"))
+    || outfitPage.classList.contains("active")
     || categoryItemsPage?.classList.contains("active")
     || rankingDetailPage?.classList.contains("active")
   );
@@ -1177,11 +1178,19 @@ function handleFloatingBack() {
     closeRankingDetail();
     return;
   }
+  if (outfitPage.classList.contains("active")) {
+    showHome();
+    return;
+  }
   if (!closetPage.classList.contains("active")) return;
   showHome();
 }
 
 function handleFloatingSearch() {
+  if (outfitPage.classList.contains("active")) {
+    toggleInlineSearchBar(outfitSearchBar, outfitSearchInput, undefined, appScrollHost);
+    return;
+  }
   if (isCategoryItemsView()) {
     toggleInlineSearchBar(categoryItemsSearchBar, categoryItemsSearchInput, undefined, categoryItemsPage);
     return;
@@ -1196,6 +1205,14 @@ function handleFloatingSearch() {
     return;
   }
   toggleClosetSearchUi();
+}
+
+function handleFloatingAdd() {
+  if (outfitPage.classList.contains("active")) {
+    outfitMenuDialog?.showModal();
+    return;
+  }
+  openNewItemForm();
 }
 
 function toggleClosetSearchUi(forceVisible) {
@@ -2639,12 +2656,21 @@ function matchesClosetQuery(item) {
 function matchesOutfitQuery(log) {
   const q = state.outfitQuery;
   if (!q) return true;
-  const itemNames = (log.wornItemIds || [])
+  const wornItemText = (log.wornItemIds || [])
     .map((id) => state.items.find((x) => x.id === id))
     .filter(Boolean)
-    .map((x) => `${x.brand || ""} ${x.name || ""}`)
+    .map((x) => [x.brand || "", x.name || "", x.category || "", x.origin || ""].join(" "))
     .join(" ");
-  const text = [log.date || "", log.time || "", log.weather || "", log.temperature || "", log.note || "", log.county || "", log.place || "", itemNames]
+  const text = [
+    log.date || "",
+    log.time || "",
+    log.weather || "",
+    log.temperature || "",
+    log.note || "",
+    log.county || "",
+    log.place || "",
+    wornItemText,
+  ]
     .join(" ")
     .toLowerCase();
   return text.includes(q);

@@ -549,7 +549,7 @@ button,
   cursor: pointer;
 }
 
-.closet-floating-nav-btn + .closet-floating-nav-btn {
+.closet-floating-nav-btn+.closet-floating-nav-btn {
   border-left: 1px solid rgba(39, 35, 29, 0.08);
 }
 
@@ -1306,6 +1306,50 @@ fieldset label {
   gap: 8px;
   margin-top: 12px;
 }
+
+.dialog-action-bar {
+  position: sticky;
+  bottom: calc(-14px - var(--safe-bottom));
+  left: -14px;
+  right: -14px;
+  width: calc(100% + 28px);
+  height: 50pt;
+  display: flex;
+  background: #ffffff;
+  border-top: 1px solid rgba(39, 35, 29, 0.08);
+  box-shadow: 0 -1px 8px rgba(39, 35, 29, 0.08);
+  margin: 24px -14px calc(-14px - var(--safe-bottom)) -14px;
+  z-index: 1000;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  overflow: hidden;
+}
+
+
+.dialog-action-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.dialog-action-btn:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.dialog-action-btn+.dialog-action-btn {
+  border-left: 1px solid rgba(39, 35, 29, 0.08);
+}
+
 
 .origin-field-row {
   display: flex;

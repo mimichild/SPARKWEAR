@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.77+97";
+const APP_VERSION_LABEL = "v1.0.66+102";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -164,6 +164,9 @@ const toggleClosetSearch = document.getElementById("toggleClosetSearch");
 const toggleClosetPhotoSearch = document.getElementById("toggleClosetPhotoSearch");
 const bulkMoveClosetBtn = document.getElementById("bulkMoveClosetBtn");
 const bulkDeleteClosetBtn = document.getElementById("bulkDeleteClosetBtn");
+const closetSelectionBar = document.getElementById("closetSelectionBar");
+const closetBulkMoveBtn = document.getElementById("closetBulkMoveBtn");
+const closetBulkDeleteBtn = document.getElementById("closetBulkDeleteBtn");
 const closetSearchBar = document.getElementById("closetSearchBar");
 const closetSearchInput = document.getElementById("closetSearchInput");
 const clearClosetSearch = document.getElementById("clearClosetSearch");
@@ -176,6 +179,9 @@ const closetFloatingSearch = document.getElementById("closetFloatingSearch");
 const closetFloatingAdd = document.getElementById("closetFloatingAdd");
 const toggleOutfitSearch = document.getElementById("toggleOutfitSearch");
 const bulkDeleteOutfitBtn = document.getElementById("bulkDeleteOutfitBtn");
+const outfitSelectionBar = document.getElementById("outfitSelectionBar");
+const outfitBulkCancelBtn = document.getElementById("outfitBulkCancelBtn");
+const outfitBulkDeleteBtn = document.getElementById("outfitBulkDeleteBtn");
 const outfitSearchBar = document.getElementById("outfitSearchBar");
 const outfitSearchInput = document.getElementById("outfitSearchInput");
 const clearOutfitSearch = document.getElementById("clearOutfitSearch");
@@ -535,9 +541,10 @@ closeCategoryEdit.addEventListener("click", () => categoryEditDialog.close());
 categoryEditForm.addEventListener("submit", onSaveCategoryEdit);
 addCategoryBtn.addEventListener("click", onAddCategory);
 
-openOutfitMenu.addEventListener("click", () => outfitMenuDialog.showModal());
+openOutfitMenu.addEventListener("click", () => openNewOutfitForm());
 closeOutfitMenu.addEventListener("click", () => outfitMenuDialog.close());
-openOutfitFormAction.addEventListener("click", () => {
+
+function openNewOutfitForm() {
   outfitMenuDialog.close();
   editingOutfitId = null;
   outfitFormTitle.textContent = "新增穿搭";
@@ -550,7 +557,9 @@ openOutfitFormAction.addEventListener("click", () => {
   outfitFormDialog.showModal();
   renderOutfitSearchCategoryOptions();
   renderOutfitItemChecklist();
-});
+}
+
+openOutfitFormAction.addEventListener("click", () => openNewOutfitForm());
 backOutfitFormBtn?.addEventListener("click", () => {
   if (cancelOutfitConfirmDialog?.open) return;
   cancelOutfitConfirmDialog?.showModal();
@@ -614,9 +623,19 @@ toggleCategoryItemsSearch.addEventListener("click", () => {
 });
 bulkMoveClosetBtn.addEventListener("click", () => openBulkCategoryDialog("closet"));
 bulkDeleteClosetBtn.addEventListener("click", () => openBulkDeleteDialog("closet"));
+closetBulkMoveBtn.addEventListener("click", () => {
+  if (selectionContext) openBulkCategoryDialog(selectionContext);
+});
+closetBulkDeleteBtn.addEventListener("click", () => {
+  if (selectionContext) openBulkDeleteDialog(selectionContext);
+});
 bulkMoveCategoryItemsBtn.addEventListener("click", () => openBulkCategoryDialog("categoryItems"));
 bulkDeleteCategoryItemsBtn.addEventListener("click", () => openBulkDeleteDialog("categoryItems"));
 bulkDeleteOutfitBtn.addEventListener("click", () => openBulkDeleteOutfitDialog());
+outfitBulkCancelBtn.addEventListener("click", () => clearSelectionMode());
+outfitBulkDeleteBtn.addEventListener("click", () => {
+  if (selectionContext === "outfit") openBulkDeleteOutfitDialog();
+});
 categoryItemsSearchInput.addEventListener("input", () => {
   state.categoryItemsQuery = categoryItemsSearchInput.value.trim().toLowerCase();
   renderCategoryItemsPage();
@@ -1209,7 +1228,7 @@ function handleFloatingSearch() {
 
 function handleFloatingAdd() {
   if (outfitPage.classList.contains("active")) {
-    outfitMenuDialog?.showModal();
+    openNewOutfitForm();
     return;
   }
   openNewItemForm();
@@ -3024,6 +3043,13 @@ function updateBulkActionButtons() {
   bulkDeleteClosetBtn.classList.toggle("hidden", !(hasSelection && context === "closet"));
   bulkMoveCategoryItemsBtn.classList.toggle("hidden", !(hasSelection && context === "categoryItems"));
   bulkDeleteCategoryItemsBtn.classList.toggle("hidden", !(hasSelection && context === "categoryItems"));
+
+  const showClosetBar = hasSelection && (context === "closet" || context === "categoryItems");
+  closetSelectionBar.classList.toggle("is-visible", showClosetBar);
+
+  const showOutfitBar = hasSelection && context === "outfit";
+  outfitSelectionBar.classList.toggle("is-visible", showOutfitBar);
+
   bulkDeleteOutfitBtn.classList.toggle("hidden", !(hasSelection && context === "outfit"));
 }
 
@@ -4580,10 +4606,10 @@ function renderRankingDetailPage() {
     rankingDetailStats.innerHTML = `
       <div class="list">
         ${rows.map((row, idx) => {
-        const item = row.previewItem;
-        const itemId = item?.id || "";
-        const selected = selectionVisible && itemId && selectedItemIds.has(itemId);
-        return `
+      const item = row.previewItem;
+      const itemId = item?.id || "";
+      const selected = selectionVisible && itemId && selectedItemIds.has(itemId);
+      return `
           <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" ${itemId ? `data-open-item-detail="${itemId}"` : ""}>
             <article class="item-row ${selected ? "selected-lines" : ""}">
               <img class="cover-sm" src="${previewPhotoSrc(item)}" alt="${escapeHtml(row.color)} 代表封面" />
@@ -4597,7 +4623,7 @@ function renderRankingDetailPage() {
             </article>
           </button>
         `;
-      }).join("")}
+    }).join("")}
       </div>
     `;
     for (const btn of rankingDetailStats.querySelectorAll("[data-open-item-detail]")) {
@@ -4618,10 +4644,10 @@ function renderRankingDetailPage() {
     rankingDetailStats.innerHTML = `
       <div class="list">
         ${rows.map((row, idx) => {
-        const item = row.previewItem;
-        const itemId = item?.id || "";
-        const selected = selectionVisible && itemId && selectedItemIds.has(itemId);
-        return `
+      const item = row.previewItem;
+      const itemId = item?.id || "";
+      const selected = selectionVisible && itemId && selectedItemIds.has(itemId);
+      return `
         <button type="button" class="item-open-btn ${selectionVisible ? "selection-visible" : ""}" ${itemId ? `data-open-item-detail="${itemId}"` : ""}>
           <article class="item-row ${selected ? "selected-lines" : ""}">
             <img class="cover-sm" src="${previewPhotoSrc(item)}" alt="${escapeHtml(row.brand)} 代表封面" />
@@ -4634,7 +4660,7 @@ function renderRankingDetailPage() {
             </div>
           </article>
         </button>`;
-      }).join("")}
+    }).join("")}
       </div>
     `;
     for (const btn of rankingDetailStats.querySelectorAll("[data-open-item-detail]")) {

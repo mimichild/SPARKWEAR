@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.66+102";
+const APP_VERSION_LABEL = "v1.0.62+103";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -270,9 +270,7 @@ const voteSearchTag = document.getElementById("voteSearchTag");
 const voteSearchCategory = document.getElementById("voteSearchCategory");
 
 const outfitDetailDialog = document.getElementById("outfitDetailDialog");
-const editOutfitDetail = document.getElementById("editOutfitDetail");
-const deleteOutfitDetail = document.getElementById("deleteOutfitDetail");
-const closeDetail = document.getElementById("closeDetail");
+
 const detailDate = document.getElementById("detailDate");
 const detailMeta = document.getElementById("detailMeta");
 const detailTemp = document.getElementById("detailTemp");
@@ -308,9 +306,7 @@ const rankingPeriodSelect = document.getElementById("rankingPeriodSelect");
 const closeRankingDetailPage = document.getElementById("closeRankingDetailPage");
 
 const itemDetailDialog = document.getElementById("itemDetailDialog");
-const editItemDetail = document.getElementById("editItemDetail");
-const deleteItemDetail = document.getElementById("deleteItemDetail");
-const closeItemDetail = document.getElementById("closeItemDetail");
+
 const itemDetailTitle = document.getElementById("itemDetailTitle");
 const itemDetailMainPhoto = document.getElementById("itemDetailMainPhoto");
 const itemDetailPrev = document.getElementById("itemDetailPrev");
@@ -582,12 +578,7 @@ closeOutfitBtn.addEventListener("click", () => {
   outfitFormDialog.close();
 });
 closeVoteDialogBtn.addEventListener("click", () => voteDialog.close());
-closeDetail.addEventListener("click", () => outfitDetailDialog.close());
-editOutfitDetail.addEventListener("click", () => openOutfitEditForm());
-deleteOutfitDetail.addEventListener("click", () => openDeleteOutfitConfirm());
-editItemDetail.addEventListener("click", () => openItemEditForm());
-deleteItemDetail.addEventListener("click", () => openDeleteItemConfirm());
-closeItemDetail.addEventListener("click", () => itemDetailDialog.close());
+
 closeCategoryItemsPage.addEventListener("click", () => {
   clearSelectionMode();
   categoryItemsPage.classList.remove("active");

@@ -35,7 +35,8 @@
     </section>
 
     <section id="closetPage" class="page">
-      <header class="page-head">
+      <header class="page-head page-head-balanced">
+        <div class="head-side-spacer" aria-hidden="true"></div>
         <h1>我的衣櫃</h1>
         <div class="head-actions">
           <button id="bulkMoveClosetBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span
@@ -44,9 +45,6 @@
               class="icon-trash" aria-hidden="true"></span></button>
           <button id="openUnlockClosetBtn" class="icon-btn" type="button" data-open-unlock aria-label="商店"><span
               class="icon-store" aria-hidden="true"></span></button>
-          <button id="toggleClosetSearch" class="icon-btn" type="button" aria-label="搜尋"><span class="icon-search"
-              aria-hidden="true"></span></button>
-          <button class="back-btn" data-back-home aria-label="回上一頁">←</button>
         </div>
       </header>
       <div id="closetSearchBar" class="search-bar hidden">
@@ -89,8 +87,6 @@
                 <option value="asc">舊到新</option>
               </select>
             </label>
-            <button id="toggleClosetPhotoSearch" class="icon-btn" type="button" aria-label="搜尋"><span
-                class="icon-search" aria-hidden="true"></span></button>
           </div>
         </div>
         <section id="closetPhotos"></section>
@@ -126,11 +122,25 @@
         <div class="panel-head">
           <h3 class="section-title">排行</h3>
         </div>
+        <div id="rankingSearchBar" class="search-bar hidden">
+          <div class="search-row">
+            <input id="rankingSearchInput" placeholder="搜尋單品名稱" />
+            <button id="clearRankingSearch" type="button">清除</button>
+          </div>
+        </div>
         <div id="rankingList" class="list"></div>
       </section>
 
-      <button id="openItemForm" class="fab" aria-label="新增衣物"><span class="pencil-icon">✎</span></button>
+      <button id="handleFloatingAdd" class="fab" aria-label="新增" type="button"><span class="icon-plus"
+          aria-hidden="true"></span></button>
     </section>
+
+    <div id="closetSelectionBar" class="selection-action-bar" aria-label="批次操作">
+      <button id="closetBulkMoveBtn" class="selection-action-btn" type="button">分類</button>
+      <button id="closetBulkDeleteBtn" class="selection-action-btn" type="button">刪除</button>
+    </div>
+
+
 
     <section id="outfitPage" class="page">
       <header class="page-head">
@@ -147,7 +157,7 @@
       </header>
       <div id="outfitSearchBar" class="search-bar hidden">
         <div class="search-row">
-          <input id="outfitSearchInput" placeholder="搜尋關鍵字（天氣/氣溫/小紀錄/縣市/地點）" />
+          <input id="outfitSearchInput" placeholder="搜尋關鍵字（品牌/商品名稱/天氣/位置/縣市/氣溫）" />
           <button id="clearOutfitSearch" type="button">清除</button>
         </div>
       </div>
@@ -163,8 +173,30 @@
 
       <section id="outfitGrid" class="photo-grid"></section>
       <button id="openOutfitMenu" class="fab" aria-label="穿搭筆記本"><span class="pencil-icon">✎</span></button>
+      <div id="outfitSelectionBar" class="selection-action-bar" aria-label="穿搭批次操作">
+        <button id="outfitBulkCancelBtn" class="selection-action-btn" type="button">取消</button>
+        <button id="outfitBulkDeleteBtn" class="selection-action-btn" type="button">刪除</button>
+      </div>
     </section>
   </main>
+  <nav id="closetFloatingNav" class="closet-floating-nav" aria-label="底部導航">
+    <button id="closetFloatingBack" class="closet-floating-nav-btn" type="button" aria-label="返回">
+      <span class="closet-floating-nav-icon nav-icon-arrow" aria-hidden="true">←</span>
+      <span class="closet-floating-nav-label">返回</span>
+    </button>
+    <button id="closetFloatingSearch" class="closet-floating-nav-btn" type="button" aria-label="搜尋">
+      <span class="closet-floating-nav-icon icon-search" aria-hidden="true"></span>
+      <span class="closet-floating-nav-label">搜尋</span>
+    </button>
+    <button id="closetFloatingAdd" class="closet-floating-nav-btn" type="button" aria-label="新增">
+      <svg class="closet-floating-nav-icon nav-icon-pencil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15.5 4.5L19.5 8.5"></path>
+        <path d="M5 19L9.2 18.1L18.6 8.7C19.1 8.2 19.1 7.4 18.6 6.9L17.1 5.4C16.6 4.9 15.8 4.9 15.3 5.4L5.9 14.8L5 19Z">
+        </path>
+      </svg>
+      <span class="closet-floating-nav-label">新增</span>
+    </button>
+  </nav>
   <div id="bottomAdBanner" class="bottom-ad hidden" aria-hidden="true">
     <ins id="bottomAdsenseSlot" class="adsbygoogle" style="display:block" data-ad-format="auto"
       data-full-width-responsive="true"></ins>
@@ -217,6 +249,21 @@
         </label>
       </div>
 
+      <section class="color-chooser">
+        <label>
+          顏色
+          <div class="origin-field-row color-select-row">
+            <select id="itemColorSelect" name="colorId"></select>
+            <button id="openColorManagementBtn" class="origin-add-btn" type="button">編輯</button>
+          </div>
+        </label>
+      </section>
+
+      <label>
+        使用次數
+        <input type="number" name="usageCount" min="0" step="1" inputmode="numeric" placeholder="請填寫使用次數（預設為 0）" />
+      </label>
+
       <fieldset>
         <legend>季節</legend>
         <label><input type="checkbox" name="seasons" value="春季" />春季</label>
@@ -235,9 +282,9 @@
       </section>
       <label>首圖與商品照片（第一張做首圖）<input type="file" name="itemPhotos" accept="image/*" multiple /></label>
 
-      <div class="actions">
-        <button type="button" data-close-item>取消</button>
-        <button type="submit">儲存</button>
+      <div class="dialog-action-bar">
+        <button type="button" class="dialog-action-btn" data-close-item>取消</button>
+        <button type="submit" class="dialog-action-btn">儲存</button>
       </div>
     </form>
   </dialog>
@@ -275,12 +322,37 @@
     </article>
   </dialog>
 
+  <dialog id="colorManagementDialog">
+    <article class="dialog-card">
+      <h2>顏色管理</h2>
+      <p class="meta">可新增顏色，也可刪除目前顏色。刪除後，已使用該顏色的單品會自動改回「未選擇」。</p>
+      <section class="color-management-section">
+        <label>新增顏色<input id="newColorInput" name="colorName" maxlength="20" placeholder="例如：湖水綠" /></label>
+        <div class="actions">
+          <button id="addColorBtn" type="button">確認新增</button>
+        </div>
+      </section>
+      <section class="color-management-section">
+        <label>
+          刪除顏色
+          <select id="colorDeleteSelect"></select>
+        </label>
+        <div class="actions">
+          <button id="confirmDeleteColorBtn" class="danger-btn" type="button">確認刪除</button>
+        </div>
+      </section>
+      <div id="colorManagementList" class="color-management-list"></div>
+      <div class="actions">
+        <button id="closeColorManagement" type="button">關閉</button>
+      </div>
+    </article>
+  </dialog>
+
   <dialog id="outfitMenuDialog">
     <article class="dialog-card">
       <h2>穿搭筆記本</h2>
       <div class="actions single-col">
         <button id="openOutfitFormAction" type="button">新增穿搭</button>
-        <button id="openVoteFormAction" type="button">票選衣服</button>
         <button id="closeOutfitMenu" type="button">取消</button>
       </div>
     </article>
@@ -314,9 +386,9 @@
         </div>
         <div id="outfitItemChecklist" class="list"></div>
       </div>
-      <div class="actions">
-        <button type="button" data-close-outfit>取消</button>
-        <button type="submit">儲存</button>
+      <div class="dialog-action-bar">
+        <button type="button" class="dialog-action-btn" data-close-outfit>取消</button>
+        <button type="submit" class="dialog-action-btn">儲存</button>
       </div>
     </form>
   </dialog>
@@ -357,12 +429,8 @@
 
   <dialog id="outfitDetailDialog">
     <article class="dialog-card">
-      <div class="detail-top-actions">
-        <button id="editOutfitDetail" class="secondary-btn" type="button">編輯</button>
-        <button id="deleteOutfitDetail" class="danger-btn" type="button">刪除</button>
-        <button id="closeDetail" class="close-btn" type="button" aria-label="回上一頁">←</button>
-      </div>
-      <h2 id="detailDate"></h2>
+
+      <h2 id="detailDate" tabindex="-1" autofocus></h2>
       <section class="carousel">
         <button id="outfitDetailPrev" class="carousel-btn" type="button" aria-label="上一張">◀</button>
         <img id="outfitDetailMainPhoto" class="detail-photo" alt="穿搭照片" />
@@ -376,11 +444,24 @@
         <div id="detailNote"></div>
         <div id="detailItems"></div>
       </section>
+      <div class="detail-fixed-nav" id="outfitFixedNav">
+        <button id="closeDetailBottom" class="detail-fixed-nav-btn" type="button" onclick="outfitDetailDialog.close()">
+          <span class="detail-fixed-nav-icon">←</span>
+          <span>返回</span>
+        </button>
+        <button id="editOutfitDetailBottom" class="detail-fixed-nav-btn" type="button" onclick="openOutfitEditForm()">
+          <span>編輯</span>
+        </button>
+        <button id="deleteOutfitDetailBottom" class="detail-fixed-nav-btn" type="button"
+          onclick="openDeleteOutfitConfirm()">
+          <span>刪除</span>
+        </button>
+      </div>
     </article>
   </dialog>
 
   <section id="categoryItemsPage" class="overlay-page">
-    <header class="page-head">
+    <header class="page-head page-head-title-only">
       <h1 id="categoryItemsTitle">分類</h1>
       <div class="head-actions">
         <button id="bulkMoveCategoryItemsBtn" class="icon-btn hidden" type="button" aria-label="批次分類"><span
@@ -408,12 +489,15 @@
   </section>
 
   <section id="rankingDetailPage" class="overlay-page">
-    <header class="page-head">
+    <header class="page-head page-head-title-only">
       <h1 id="rankingDetailTitle">排行</h1>
-      <div class="head-actions">
-        <button id="closeRankingDetailPage" class="back-btn" type="button" aria-label="回上一頁">←</button>
-      </div>
     </header>
+    <div id="rankingDetailSearchBar" class="search-bar hidden">
+      <div class="search-row">
+        <input id="rankingDetailSearchInput" placeholder="搜尋單品名稱" />
+        <button id="clearRankingDetailSearch" type="button">清除</button>
+      </div>
+    </div>
     <div class="search-bar">
       <div class="search-row">
         <span></span>
@@ -429,22 +513,13 @@
         </label>
       </div>
     </div>
-    <nav class="sub-tabs category-inner-tabs">
-      <button class="sub-btn active" type="button" data-ranking-detail-tab="clothes">單品</button>
-      <button class="sub-btn" type="button" data-ranking-detail-tab="photos">照片</button>
-    </nav>
     <section id="rankingDetailStats" class="list sub-panel active"></section>
-    <section id="rankingDetailPhotos" class="list sub-panel"></section>
   </section>
 
   <dialog id="itemDetailDialog">
     <article class="dialog-card">
-      <div class="detail-top-actions">
-        <button id="editItemDetail" class="secondary-btn" type="button">編輯</button>
-        <button id="deleteItemDetail" class="danger-btn" type="button">刪除</button>
-        <button id="closeItemDetail" class="close-btn" type="button" aria-label="回上一頁">←</button>
-      </div>
-      <h2 id="itemDetailTitle"></h2>
+
+      <h2 id="itemDetailTitle" tabindex="-1" autofocus></h2>
       <section class="carousel">
         <button id="itemDetailPrev" class="carousel-btn" type="button" aria-label="上一張">◀</button>
         <img id="itemDetailMainPhoto" class="detail-photo" alt="商品照片" />
@@ -453,6 +528,20 @@
       <p id="itemDetailCounter" class="meta"></p>
       <section id="itemDetailRecords" class="detail-records"></section>
       <section id="itemUsedOutfits" class="detail-records"></section>
+      <div class="detail-fixed-nav" id="itemFixedNav">
+        <button id="closeItemDetailBottom" class="detail-fixed-nav-btn" type="button"
+          onclick="itemDetailDialog.close()">
+          <span class="detail-fixed-nav-icon">←</span>
+          <span>返回</span>
+        </button>
+        <button id="editItemDetailBottom" class="detail-fixed-nav-btn" type="button" onclick="openItemEditForm()">
+          <span>編輯</span>
+        </button>
+        <button id="deleteItemDetailBottom" class="detail-fixed-nav-btn" type="button"
+          onclick="openDeleteItemConfirm()">
+          <span>刪除</span>
+        </button>
+      </div>
     </article>
   </dialog>
 

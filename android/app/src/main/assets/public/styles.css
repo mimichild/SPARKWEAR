@@ -1431,38 +1431,11 @@ fieldset label {
   margin-right: 4px;
 }
 
-.detail-top-actions {
-  position: sticky;
-  top: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 10px 0;
-  background: inherit;
-  z-index: 1100;
-}
 
-.detail-top-actions button {
-  width: auto;
-  min-width: 44px;
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  background: var(--surface);
-  color: var(--ink);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
 
-.detail-top-actions .close-btn {
-  font-size: 1.2rem;
-  font-weight: 400;
-}
+
+
+
 
 
 
@@ -1622,19 +1595,9 @@ fieldset label {
   background: #fff5f5;
 }
 
-.detail-top-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
 
-.detail-top-actions .close-btn,
-.detail-top-actions .secondary-btn,
-.detail-top-actions .danger-btn {
-  float: none;
-  margin: 0;
-  width: auto;
-}
+
+
 
 .detail-photo {
   width: 100%;
@@ -1784,17 +1747,7 @@ body.ranking-detail-open .status-bar-filler {
   margin-top: 0;
 }
 
-#itemDetailDialog .detail-top-actions .close-btn,
-#itemDetailDialog .detail-top-actions .secondary-btn,
-#itemDetailDialog .detail-top-actions .danger-btn,
-#outfitDetailDialog .detail-top-actions .close-btn,
-#outfitDetailDialog .detail-top-actions .secondary-btn,
-#outfitDetailDialog .detail-top-actions .danger-btn {
-  border: 1px solid var(--theme);
-  background: var(--theme);
-  color: #fff;
-  font-weight: 300;
-}
+
 
 .selectable-item.is-selected {
   outline: 2px solid var(--theme);

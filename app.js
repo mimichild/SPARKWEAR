@@ -14,7 +14,7 @@ const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.66+102";
+const APP_VERSION_LABEL = "v1.0.62+103";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };

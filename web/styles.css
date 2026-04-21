@@ -1855,6 +1855,10 @@ body.ranking-detail-open .status-bar-filler {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .closet-main-tabs {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
   .category-inner-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

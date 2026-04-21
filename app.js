@@ -10,11 +10,12 @@ const SELECTED_TABS_KEY = "closet_selected_tabs";
 const FEATURE_ORDER_KEY = "closet_feature_order";
 const FEATURE_ENABLED_KEY = "closet_feature_enabled";
 const FEATURE_DEFAULT_MIGRATION_KEY = "closet_feature_defaults_v2";
+const CLOSET_TAB_LAYOUT_MIGRATION_KEY = "closet_tab_layout_v3";
 const PHOTO_DB_NAME = "closet_photo_db";
 const PHOTO_DB_VERSION = 1;
 const PHOTO_DB_STORE = "photos";
 const LAST_CLEANUP_KEY = "closet_last_cleanup_at";
-const APP_VERSION_LABEL = "v1.0.62+103";
+const APP_VERSION_LABEL = "v1.0.67+108";
 const ColorRegistry = {
   defaults: DEFAULT_COLOR_OPTIONS.slice(),
 };
@@ -492,7 +493,9 @@ if (Array.isArray(state.selectedTabs) && state.selectedTabs.length) {
 }
 
 normalizeCategoryOrder();
-recomputeWearCounts();
+const usageCountsSanitizedOnBoot = recomputeWearCounts();
+if (usageCountsSanitizedOnBoot) persistAll();
+normalizeClosetMainTabsDom();
 
 for (const btn of openPageBtns) btn.addEventListener("click", () => openPage(btn.dataset.openPage));
 for (const btn of backBtns) btn.addEventListener("click", showHome);
@@ -968,6 +971,7 @@ async function initApp() {
   }
   await hydrateFeatureOrder();
   applyFeatureDefaultsIfNeeded();
+  applyClosetTabLayoutMigrationIfNeeded();
   renderAll();
   restoreActiveViewState();
   updateBottomAdVisibility();
@@ -2480,6 +2484,9 @@ function normalizeCategoryOrder() {
 }
 
 function recomputeWearCounts() {
+  const sanitizedManualVoteCounts = normalizeManualVoteCounts(state.manualVoteCounts);
+  const manualVoteChanged = !sameManualVoteCounts(state.manualVoteCounts, sanitizedManualVoteCounts);
+  if (manualVoteChanged) state.manualVoteCounts = sanitizedManualVoteCounts;
   const counter = new Map();
   for (const item of state.items) counter.set(item.id, 0);
   for (const log of state.dailyLogs) {
@@ -2488,11 +2495,15 @@ function recomputeWearCounts() {
     }
   }
   for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
-    counter.set(itemId, (counter.get(itemId) || 0) + Number(count || 0));
+    counter.set(itemId, (counter.get(itemId) || 0) + normalizeUsageCount(count, 0));
   }
+  let itemUsageChanged = false;
   for (const item of state.items) {
-    item.wearCountTotal = counter.get(item.id) || 0;
+    const nextTotal = normalizeUsageCount(counter.get(item.id), 0);
+    if (normalizeUsageCount(item.wearCountTotal, 0) !== nextTotal) itemUsageChanged = true;
+    item.wearCountTotal = nextTotal;
   }
+  return manualVoteChanged || itemUsageChanged;
 }
 
 function buildLoggedWearCounter() {
@@ -2514,6 +2525,28 @@ function normalizeUsageCount(value, fallback = 0) {
   return Math.floor(next);
 }
 
+function normalizeManualVoteCounts(source) {
+  const result = {};
+  for (const [itemId, count] of Object.entries(source || {})) {
+    const normalizedItemId = String(itemId || "").trim();
+    if (!normalizedItemId) continue;
+    const normalizedCount = normalizeUsageCount(count, 0);
+    if (normalizedCount > 0) result[normalizedItemId] = normalizedCount;
+  }
+  return result;
+}
+
+function sameManualVoteCounts(a, b) {
+  const aEntries = Object.entries(a || {}).sort(([left], [right]) => left.localeCompare(right));
+  const bEntries = Object.entries(b || {}).sort(([left], [right]) => left.localeCompare(right));
+  if (aEntries.length !== bEntries.length) return false;
+  for (let i = 0; i < aEntries.length; i += 1) {
+    if (aEntries[i][0] !== bEntries[i][0]) return false;
+    if (normalizeUsageCount(aEntries[i][1], 0) !== normalizeUsageCount(bEntries[i][1], 0)) return false;
+  }
+  return true;
+}
+
 function setItemUsageCountTotal(itemId, nextTotal) {
   const item = state.items.find((row) => row.id === itemId);
   if (!item) return null;
@@ -2532,6 +2565,7 @@ function setItemUsageCountTotal(itemId, nextTotal) {
 
 async function syncUsageCountPersistenceInBackground() {
   try {
+    state.manualVoteCounts = normalizeManualVoteCounts(state.manualVoteCounts);
     await Promise.all([
       PersistenceService.set("closet_items", JSON.stringify(state.items)),
       PersistenceService.set("closet_manual_vote_counts", JSON.stringify(state.manualVoteCounts)),
@@ -2552,6 +2586,7 @@ function persistAll() {
     state.customOrigins = normalizeOriginList(state.customOrigins);
     state.deletedOrigins = normalizeDeletedOriginList(state.deletedOrigins);
     state.customColors = deriveCustomColorNames(state.refColors);
+    state.manualVoteCounts = normalizeManualVoteCounts(state.manualVoteCounts);
     save("closet_items", state.items);
     save("closet_daily_logs", state.dailyLogs);
     save("closet_category_order", state.categoryOrder);
@@ -4170,6 +4205,22 @@ function normalizeFeatureEnabled(list) {
   return normalized.length ? normalized : DEFAULT_FEATURE_ENABLED.slice();
 }
 
+function normalizeClosetMainTabsDom() {
+  if (!closetMainTabs) return;
+  const buttons = Array.from(closetMainTabs.querySelectorAll(".sub-btn"));
+  for (let i = 0; i < buttons.length; i += 1) {
+    const btn = buttons[i];
+    const key = DEFAULT_CLOSET_TAB_ORDER[i];
+    if (!key) {
+      btn.remove();
+      continue;
+    }
+    btn.dataset.subTab = key;
+    btn.textContent = CLOSET_TAB_LABELS[key] || key;
+    btn.type = "button";
+  }
+}
+
 function visibleClosetTabOrder() {
   const order = normalizeClosetTabOrder(state.closetTabOrder);
   const enabled = new Set(normalizeFeatureEnabled(state.featureEnabled));
@@ -4199,6 +4250,7 @@ function ensureActiveClosetTabVisible() {
 
 function applyClosetTabOrder() {
   if (!closetMainTabs) return;
+  normalizeClosetMainTabsDom();
   const order = normalizeClosetTabOrder(state.closetTabOrder);
   state.closetTabOrder = order;
   state.selectedTabs = order.slice();
@@ -4221,6 +4273,7 @@ function applyClosetTabOrder() {
 
 function applyClosetTabOrderAnimated() {
   if (!closetMainTabs) return;
+  normalizeClosetMainTabsDom();
   const order = normalizeClosetTabOrder(state.closetTabOrder);
   state.closetTabOrder = order;
   state.selectedTabs = order.slice();
@@ -4387,10 +4440,10 @@ function buildUsageCounter(period) {
       counter.set(itemId, (counter.get(itemId) || 0) + 1);
     }
   }
-  if (period === "all") {
-    for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
-      counter.set(itemId, (counter.get(itemId) || 0) + Number(count || 0));
-    }
+  // 手動調整的使用次數沒有日期維度，所有排行期間都必須併入，
+  // 這樣靈魂摯愛／來約會吧／超值巔峰／萬般不值才會跟著衣櫃使用次數變動同步更新。
+  for (const [itemId, count] of Object.entries(state.manualVoteCounts || {})) {
+    counter.set(itemId, (counter.get(itemId) || 0) + normalizeUsageCount(count, 0));
   }
   return counter;
 }
@@ -5447,7 +5500,7 @@ function normalizeImportedData(source) {
   return {
     items,
     dailyLogs,
-    manualVoteCounts: data.manualVoteCounts && typeof data.manualVoteCounts === "object" ? data.manualVoteCounts : {},
+    manualVoteCounts: normalizeManualVoteCounts(data.manualVoteCounts && typeof data.manualVoteCounts === "object" ? data.manualVoteCounts : {}),
     categoryOrder: Array.isArray(data.categoryOrder) ? data.categoryOrder : [],
     categoryColors: data.categoryColors && typeof data.categoryColors === "object" ? data.categoryColors : {},
     refColors: normalizeRefColorList(data.refColors, [
@@ -5533,11 +5586,11 @@ async function applyImportedData(mode) {
 }
 
 function mergeVoteCounts(a, b) {
-  const merged = { ...(a || {}) };
-  for (const [k, v] of Object.entries(b || {})) {
-    merged[k] = Number(merged[k] || 0) + Number(v || 0);
+  const merged = normalizeManualVoteCounts(a);
+  for (const [k, v] of Object.entries(normalizeManualVoteCounts(b))) {
+    merged[k] = normalizeUsageCount(merged[k], 0) + normalizeUsageCount(v, 0);
   }
-  return merged;
+  return normalizeManualVoteCounts(merged);
 }
 
 const PersistenceService = {
@@ -5632,6 +5685,26 @@ function applyFeatureDefaultsIfNeeded() {
   void persistFeatureOrder(state.closetTabOrder);
   try {
     localStorage.setItem(FEATURE_DEFAULT_MIGRATION_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
+function applyClosetTabLayoutMigrationIfNeeded() {
+  try {
+    if (localStorage.getItem(CLOSET_TAB_LAYOUT_MIGRATION_KEY) === "1") return;
+  } catch {
+    // ignore
+  }
+  state.closetTabOrder = DEFAULT_CLOSET_TAB_ORDER.slice();
+  state.selectedTabs = DEFAULT_CLOSET_TAB_ORDER.slice();
+  state.featureEnabled = DEFAULT_CLOSET_TAB_ORDER.slice();
+  save("closet_tab_order", state.closetTabOrder);
+  syncSelectedTabs(state.closetTabOrder);
+  saveFeatureEnabled();
+  void persistFeatureOrder(state.closetTabOrder);
+  try {
+    localStorage.setItem(CLOSET_TAB_LAYOUT_MIGRATION_KEY, "1");
   } catch {
     // ignore
   }

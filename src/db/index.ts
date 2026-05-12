@@ -1,0 +1,87 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { CREATE_TABLES_SQL } from './schema';
+export { DB_NAME } from './schema';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_ORIGINS,
+  DEFAULT_COLORS,
+} from '../constants/defaults';
+import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY } from '../constants/theme';
+
+export async function initDatabase(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync(CREATE_TABLES_SQL);
+  await seedDefaults(db);
+}
+
+async function seedDefaults(db: SQLiteDatabase): Promise<void> {
+  const now = new Date().toISOString();
+
+  const catCount = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM categories'
+  );
+  if (catCount?.count === 0) {
+    for (let i = 0; i < DEFAULT_CATEGORIES.length; i++) {
+      const { name, color } = DEFAULT_CATEGORIES[i];
+      const id = `cat-default-${i}`;
+      await db.runAsync(
+        'INSERT INTO categories (id, name, color, sort_order, is_default, created_at) VALUES (?, ?, ?, ?, 1, ?)',
+        [id, name, color, i, now]
+      );
+    }
+  }
+
+  const originCount = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM origins'
+  );
+  if (originCount?.count === 0) {
+    for (let i = 0; i < DEFAULT_ORIGINS.length; i++) {
+      const name = DEFAULT_ORIGINS[i];
+      const id = `origin-default-${i}`;
+      await db.runAsync(
+        'INSERT INTO origins (id, name, is_default, deleted, created_at) VALUES (?, ?, 1, 0, ?)',
+        [id, name, now]
+      );
+    }
+  }
+
+  const colorCount = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM colors'
+  );
+  if (colorCount?.count === 0) {
+    for (let i = 0; i < DEFAULT_COLORS.length; i++) {
+      const name = DEFAULT_COLORS[i];
+      const id = `color-default-${i}`;
+      await db.runAsync(
+        'INSERT INTO colors (id, name, is_default, created_at) VALUES (?, ?, 1, ?)',
+        [id, name, now]
+      );
+    }
+  }
+
+  const themeRow = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM settings WHERE key = 'themeColor'"
+  );
+  if (!themeRow) {
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('themeColor', ?)",
+      [DEFAULT_THEME_COLOR]
+    );
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('fontKey', ?)",
+      [DEFAULT_FONT_KEY]
+    );
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('isProUnlocked', 'false')"
+    );
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('purchaseSort', 'desc')"
+    );
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('outfitSort', 'desc')"
+    );
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('rankingPeriod', 'month')"
+    );
+  }
+}
+

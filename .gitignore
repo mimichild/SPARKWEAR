@@ -39,3 +39,16 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# test artifacts
+/coverage
+/tmp/e2e-*.png
+
+# Expo build output
+*.apk
+*.aab
+*.ipa
+
+# logs
+*.log
+/tmp/expo-*.log

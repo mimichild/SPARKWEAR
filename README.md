@@ -13,7 +13,10 @@ npm run web
 
 開啟瀏覽器前往 → **http://localhost:8081**
 
-> 注意：Web 版僅供 UI 預覽，部分功能（照片選取、SQLite 儲存）需在真實裝置上執行。
+> ⚠️ **Web 版限制（重要）**
+> - **資料不會儲存**：SQLite 是 native 限定，web 版使用 no-op mock，新增的單品/穿搭在 web 上**不會持久化**
+> - **照片無法選取**：`expo-image-picker` 只在 Android/iOS 上有效
+> - Web 版僅供**UI 外觀預覽**，完整功能請使用 Expo Go 在手機測試
 
 ---
 

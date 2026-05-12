@@ -3,7 +3,7 @@ import {
   View, Text, Pressable, StyleSheet, SafeAreaView, Platform,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, Link } from 'expo-router';
 import { useOutfits, useFilteredOutfits } from '../../src/hooks/useOutfits';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import { useUIStore } from '../../src/stores/uiStore';
@@ -127,12 +127,9 @@ export default function OutfitsScreen() {
 
       {/* FAB */}
       {!isSelectionMode && (
-        <Pressable
-          style={[styles.fab, { backgroundColor: themeColor }]}
-          onPress={() => router.push('/outfits/form')}
-        >
+        <Link href="/outfits/form" style={[styles.fab, { backgroundColor: themeColor }]}>
           <Text style={styles.fabText}>+</Text>
-        </Pressable>
+        </Link>
       )}
 
       <ConfirmDialog

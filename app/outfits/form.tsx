@@ -137,7 +137,7 @@ export default function OutfitFormScreen() {
       } else {
         await saveOutfit(db, data);
       }
-      router.back();
+      router.replace('/outfits');
     } catch (e) {
       Alert.alert('儲存失敗', e instanceof Error ? e.message : '請稍後再試');
     } finally {
@@ -152,7 +152,7 @@ export default function OutfitFormScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={[styles.header, { backgroundColor: themeColor }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn}>
+        <Pressable onPress={() => router.canDismiss?.() ? router.dismiss() : router.replace('/outfits')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>取消</Text>
         </Pressable>
         <Text style={styles.headerTitle}>{isEdit ? '編輯穿搭' : '新增穿搭'}</Text>

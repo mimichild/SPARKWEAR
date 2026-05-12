@@ -177,7 +177,8 @@ export default function ItemFormScreen() {
       } else {
         await saveItem(db, data);
       }
-      router.back();
+      // router.replace ensures navigation works even without history (web direct URL)
+      router.replace('/closet');
     } catch (e) {
       Alert.alert('儲存失敗', e instanceof Error ? e.message : '請稍後再試');
     } finally {
@@ -196,7 +197,7 @@ export default function ItemFormScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={[styles.header, { backgroundColor: themeColor }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn}>
+        <Pressable onPress={() => router.canDismiss?.() ? router.dismiss() : router.replace('/closet')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>取消</Text>
         </Pressable>
         <Text style={styles.headerTitle}>{isEdit ? '編輯單品' : '記錄新品'}</Text>

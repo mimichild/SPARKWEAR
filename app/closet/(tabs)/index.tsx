@@ -3,7 +3,7 @@ import {
   View, Text, Pressable, StyleSheet, SafeAreaView, Platform,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, Link } from 'expo-router';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { useUIStore } from '../../../src/stores/uiStore';
@@ -119,12 +119,9 @@ keyExtractor={item => item.id}
       )}
 
       {!isSelectionMode && (
-        <Pressable
-          style={[styles.fab, { backgroundColor: themeColor }]}
-          onPress={() => router.push('/closet/item/form')}
-        >
+        <Link href="/closet/item/form" style={[styles.fab, { backgroundColor: themeColor }]}>
           <Text style={styles.fabText}>+</Text>
-        </Pressable>
+        </Link>
       )}
 
       <ConfirmDialog

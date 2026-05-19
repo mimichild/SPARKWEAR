@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, SafeAreaView, Platform,
+  View, Text, Pressable, StyleSheet,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useFocusEffect, Link } from 'expo-router';
 import { useOutfits, useFilteredOutfits } from '../../src/hooks/useOutfits';
@@ -17,6 +18,7 @@ const NUM_COLUMNS = 3;
 export default function OutfitsScreen() {
   const router = useRouter();
   const { themeColor, outfitSort, setOutfitSort } = useSettingsStore();
+  const insets = useSafeAreaInsets();
   const {
     outfitQuery: query, setOutfitQuery,
     selectedOutfitIds, toggleOutfitSelection, clearSelection,
@@ -66,9 +68,9 @@ export default function OutfitsScreen() {
   ), [handlePress, handleLongPress, selectedOutfitIds, isSelectionMode, themeColor]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColor }]}>
+      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.back()} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>← 返回</Text>
         </Pressable>
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: 12,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   headerActions: { flexDirection: 'row', gap: 12 },

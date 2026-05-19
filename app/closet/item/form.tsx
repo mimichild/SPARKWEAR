@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, SafeAreaView, Alert, Platform,
+  StyleSheet, Alert,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import type { Item, Season, Grade, Photo } from '../../../src/types';
@@ -23,6 +24,7 @@ export default function ItemFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const db = useSQLiteContext();
   const { themeColor, isProUnlocked } = useSettingsStore();
+  const insets = useSafeAreaInsets();
   const isEdit = !!id;
   const photoLimit = isProUnlocked ? PHOTO_MAX_PRO : PHOTO_MAX_FREE;
 
@@ -195,8 +197,8 @@ export default function ItemFormScreen() {
   const visiblePhotos = existingPhotos.filter(p => !removedPhotoIds.has(p.id));
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { backgroundColor: themeColor }]}>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.canDismiss?.() ? router.dismiss() : router.replace('/closet')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>取消</Text>
         </Pressable>
@@ -387,7 +389,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: 12,
   },
   headerTitle: { fontSize: 17, fontWeight: '600', color: '#fff' },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 4 },

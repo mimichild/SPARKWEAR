@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import {
-  View, Text, ScrollView, Pressable, Image,
-  StyleSheet, SafeAreaView, Platform, Alert,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, FlatList, Image } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import { getItemById, deleteItem } from '../../../src/services/itemService';
@@ -10,19 +8,25 @@ import { getCategories, getOrigins, getColors } from '../../../src/services/cate
 import { getPhotoUri, deletePhotos } from '../../../src/services/photoService';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
-import type { Item, Category, Origin, Color } from '../../../src/types';
+import type { Item, Category, Origin, Color, Photo } from '../../../src/types';
+
+const MISSING_URI =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="100%" height="100%" fill="#e5e0d8"/></svg>'
+  );
 
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useSQLiteContext();
   const { themeColor } = useSettingsStore();
+  const insets = useSafeAreaInsets();
 
   const [item, setItem] = useState<Item | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [origins, setOrigins] = useState<Origin[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
-  const [photoIndex, setPhotoIndex] = useState(0);
   const [deleteVisible, setDeleteVisible] = useState(false);
 
   useEffect(() => {
@@ -42,100 +46,114 @@ export default function ItemDetailScreen() {
 
   const handleDelete = async () => {
     if (!item) return;
-    // In a real flow we'd pass actual Photo objects; here we just delete by id
+    // Delete photo files before removing DB record
+    if (item.photoIds.length > 0) {
+      const photoObjects = item.photoIds.map(path => ({
+        id: path, path, mimeType: 'image/jpeg', createdAt: '',
+      } as Photo));
+      await deletePhotos(photoObjects);
+    }
     await deleteItem(db, item.id);
     router.back();
   };
 
   if (!item) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}><Text style={styles.loading}>載入中...</Text></View>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        <View style={styles.center}>
+          <Text style={styles.loading}>載入中...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   const catName = categories.find(c => c.id === item.categoryId)?.name ?? '';
   const originName = origins.find(o => o.id === item.originId)?.name ?? '';
-  const colorNames = item.colorIds.map(cid => colors.find(c => c.id === cid)?.name).filter(Boolean).join('、');
+  const colorNames = item.colorIds
+    .map(cid => colors.find(c => c.id === cid)?.name)
+    .filter(Boolean)
+    .join('、');
   const photos = item.photoIds;
+  const coverUri = photos.length > 0 ? getPhotoUri(photos[0]) : MISSING_URI;
+
+  const detailsData = [
+    { label: '品牌',    value: item.brand,                                    visible: !!item.brand },
+    { label: '購買日期', value: item.purchaseDate,                              visible: !!item.purchaseDate },
+    { label: '分類',    value: catName,                                        visible: !!catName },
+    { label: '來源',    value: originName,                                     visible: !!originName },
+    { label: '顏色',    value: colorNames,                                     visible: !!colorNames },
+    { label: '分級',    value: item.grade,                                     visible: !!item.grade },
+    { label: '尺寸',    value: item.size,                                      visible: !!item.size },
+    { label: '原價',    value: item.originalPrice  != null ? `$${item.originalPrice}`  : '', visible: item.originalPrice  != null },
+    { label: '特價',    value: item.specialPrice   != null ? `$${item.specialPrice}`   : '', visible: item.specialPrice   != null },
+    { label: '優惠價',  value: item.discountPrice  != null ? `$${item.discountPrice}`  : '', visible: item.discountPrice  != null },
+    { label: '體重',    value: item.weight ? `${item.weight} kg` : '',         visible: !!item.weight },
+    { label: '身材',    value: item.bodyType,                                  visible: !!item.bodyType },
+    { label: '建議體重', value: item.suggestedWeight,                           visible: !!item.suggestedWeight },
+    { label: '使用次數', value: `${item.usageCount} 次`,                        visible: true },
+    { label: '季節',    value: item.seasons.join('、'),                        visible: item.seasons.length > 0 },
+    { label: '小紀錄',  value: item.miniNote,   visible: !!item.miniNote,  multiline: true },
+    { label: '優點',    value: item.pros,       visible: !!item.pros,      multiline: true },
+    { label: '缺點',    value: item.cons,       visible: !!item.cons,      multiline: true },
+    { label: '備註',    value: item.remark,     visible: !!item.remark,    multiline: true },
+  ].filter(d => d.visible) as { label: string; value: string; multiline?: boolean }[];
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { backgroundColor: themeColor }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn}>
-          <Text style={styles.headerBtnText}>← 返回</Text>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>←</Text>
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>{item.name}</Text>
-        <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push(`/closet/item/form?id=${item.id}`)} style={styles.headerBtn}>
-            <Text style={styles.headerBtnText}>編輯</Text>
-          </Pressable>
-          <Pressable onPress={() => setDeleteVisible(true)} style={styles.headerBtn}>
-            <Text style={[styles.headerBtnText, { color: '#ffcdd2' }]}>刪除</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.headerTitle}>我的衣櫃</Text>
       </View>
 
-      <ScrollView style={styles.scroll}>
-        {/* Photo carousel */}
-        {photos.length > 0 ? (
-          <View style={styles.carouselBox}>
+      <FlatList
+        data={detailsData}
+        keyExtractor={(_item, index) => index.toString()}
+        ListHeaderComponent={() => (
+          <View style={styles.itemCard}>
+            <View style={styles.itemInfo}>
+              {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
+              <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+              {catName && <Text style={styles.itemCategory}>{catName}</Text>}
+            </View>
             <Image
-              source={{ uri: getPhotoUri(photos[photoIndex]) }}
-              style={styles.mainPhoto}
+              source={{ uri: coverUri }}
+              style={styles.itemPhoto}
               resizeMode="cover"
             />
-            {photos.length > 1 && (
-              <View style={styles.carouselNav}>
-                <Pressable
-                  onPress={() => setPhotoIndex(i => Math.max(0, i - 1))}
-                  style={[styles.navBtn, photoIndex === 0 && styles.navBtnDisabled]}
-                >
-                  <Text style={styles.navBtnText}>◀</Text>
-                </Pressable>
-                <Text style={styles.photoCounter}>{photoIndex + 1} / {photos.length}</Text>
-                <Pressable
-                  onPress={() => setPhotoIndex(i => Math.min(photos.length - 1, i + 1))}
-                  style={[styles.navBtn, photoIndex === photos.length - 1 && styles.navBtnDisabled]}
-                >
-                  <Text style={styles.navBtnText}>▶</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.noPhoto}>
-            <Text style={styles.noPhotoText}>無照片</Text>
           </View>
         )}
-
-        {/* Details */}
-        <View style={styles.section}>
-          <Row label="商品名稱" value={item.name} />
-          {item.brand && <Row label="品牌" value={item.brand} />}
-          {item.purchaseDate && <Row label="購買日期" value={item.purchaseDate} />}
-          {catName && <Row label="分類" value={catName} />}
-          {originName && <Row label="來源" value={originName} />}
-          {colorNames && <Row label="顏色" value={colorNames} />}
-          {item.grade && <Row label="分級" value={item.grade} />}
-          {item.size && <Row label="尺寸" value={item.size} />}
-          {item.originalPrice != null && <Row label="原價" value={`$${item.originalPrice}`} />}
-          {item.specialPrice != null && <Row label="特價" value={`$${item.specialPrice}`} />}
-          {item.discountPrice != null && <Row label="優惠價" value={`$${item.discountPrice}`} />}
-          {item.weight && <Row label="體重" value={`${item.weight} kg`} />}
-          {item.bodyType && <Row label="身材" value={item.bodyType} />}
-          {item.suggestedWeight && <Row label="建議體重" value={item.suggestedWeight} />}
-          <Row label="使用次數" value={`${item.usageCount} 次`} />
-          {item.seasons.length > 0 && <Row label="季節" value={item.seasons.join('、')} />}
-          {item.miniNote && <Row label="小紀錄" value={item.miniNote} multiline />}
-          {item.pros && <Row label="優點" value={item.pros} multiline />}
-          {item.cons && <Row label="缺點" value={item.cons} multiline />}
-          {item.remark && <Row label="備註" value={item.remark} multiline />}
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+        renderItem={({ item: detail }) => (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>{detail.label}</Text>
+            <Text
+              style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
+              numberOfLines={detail.multiline ? undefined : 1}
+            >
+              {detail.value}
+            </Text>
+          </View>
+        )}
+        ListFooterComponent={() => (
+          <View style={styles.actions}>
+            <Pressable
+              onPress={() => router.push(`/closet/item/form?id=${item.id}`)}
+              style={[styles.actionBtn, { borderColor: themeColor }]}
+            >
+              <Text style={[styles.actionBtnText, { color: themeColor }]}>編輯</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setDeleteVisible(true)}
+              style={[styles.actionBtn, styles.deleteBtn]}
+            >
+              <Text style={[styles.actionBtnText, styles.deleteBtnText]}>刪除</Text>
+            </Pressable>
+          </View>
+        )}
+        showsVerticalScrollIndicator={false}
+      />
 
       <ConfirmDialog
         visible={deleteVisible}
@@ -150,53 +168,63 @@ export default function ItemDetailScreen() {
   );
 }
 
-function Row({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, multiline && styles.rowMultiline]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#faf9f7' },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
   },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: '#fff', marginHorizontal: 8 },
-  headerActions: { flexDirection: 'row', gap: 8 },
-  headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
-  headerBtnText: { fontSize: 14, color: '#fff' },
-  scroll: { flex: 1 },
-  carouselBox: { backgroundColor: '#000' },
-  mainPhoto: { width: '100%', aspectRatio: 3 / 4 },
-  carouselNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 8, gap: 16, backgroundColor: '#111',
+  backBtn: { padding: 4 },
+  backText: { fontSize: 20, color: '#fff' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+
+  itemCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    margin: 12,
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  navBtn: { padding: 8 },
-  navBtnDisabled: { opacity: 0.3 },
-  navBtnText: { color: '#fff', fontSize: 18 },
-  photoCounter: { color: '#ccc', fontSize: 13 },
-  noPhoto: {
-    height: 200, backgroundColor: '#e5e0d8',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  noPhotoText: { color: '#aaa', fontSize: 14 },
-  section: {
-    backgroundColor: '#fff', margin: 12, borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 8,
-  },
+  itemInfo: { flex: 1, justifyContent: 'center' },
+  itemBrand: { fontSize: 14, fontWeight: '700', color: '#222', marginBottom: 4 },
+  itemName: { fontSize: 15, color: '#222', marginBottom: 6 },
+  itemCategory: { fontSize: 12, color: '#aaa' },
+  itemPhoto: { width: 80, height: 100, borderRadius: 8, backgroundColor: '#e5e0d8' },
+
   row: {
-    flexDirection: 'row', paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0f0f0',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f0ede8',
+    backgroundColor: '#fff',
   },
   rowLabel: { width: 90, fontSize: 13, color: '#888', fontWeight: '500' },
   rowValue: { flex: 1, fontSize: 14, color: '#333' },
   rowMultiline: { lineHeight: 20 },
+
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    backgroundColor: '#faf9f7',
+  },
+  actionBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  deleteBtn: { borderColor: '#e57373' },
+  actionBtnText: { fontSize: 14, fontWeight: '600' },
+  deleteBtnText: { color: '#e57373' },
+
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loading: { color: '#aaa', fontSize: 14 },
 });

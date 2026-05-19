@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, SafeAreaView, Alert, Platform, FlatList,
+  StyleSheet, Alert, FlatList,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../src/db/context';
 import { saveOutfit, updateOutfit, getOutfitById } from '../../src/services/outfitService';
@@ -22,6 +23,7 @@ export default function OutfitFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const db = useSQLiteContext();
   const { themeColor, isProUnlocked } = useSettingsStore();
+  const insets = useSafeAreaInsets();
   const isEdit = !!id;
   const photoLimit = isProUnlocked ? PHOTO_MAX_PRO : PHOTO_MAX_FREE;
 
@@ -150,8 +152,8 @@ export default function OutfitFormScreen() {
   const catName = (cid: string) => categories.find(c => c.id === cid)?.name ?? '';
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { backgroundColor: themeColor }]}>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.canDismiss?.() ? router.dismiss() : router.replace('/outfits')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>取消</Text>
         </Pressable>
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: 12,
   },
   headerTitle: { fontSize: 17, fontWeight: '600', color: '#fff' },
   headerBtn: { paddingHorizontal: 4 },

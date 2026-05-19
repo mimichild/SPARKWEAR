@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable, Image,
-  StyleSheet, SafeAreaView, Platform,
+  StyleSheet,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../src/db/context';
 import { getOutfitById, deleteOutfit } from '../../src/services/outfitService';
@@ -17,6 +18,7 @@ export default function OutfitDetailScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { themeColor } = useSettingsStore();
+  const insets = useSafeAreaInsets();
 
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [linkedItems, setLinkedItems] = useState<Item[]>([]);
@@ -52,8 +54,8 @@ export default function OutfitDetailScreen() {
   const photos = outfit.photoIds;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { backgroundColor: themeColor }]}>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.back()} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>← 返回</Text>
         </Pressable>
@@ -162,7 +164,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: 12,
   },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: '#fff', marginHorizontal: 8 },
   headerActions: { flexDirection: 'row', gap: 8 },

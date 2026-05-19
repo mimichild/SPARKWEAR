@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, SafeAreaView, Platform,
+  View, Text, Pressable, StyleSheet,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useFocusEffect, Link } from 'expo-router';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
@@ -17,6 +18,7 @@ const NUM_COLUMNS = 2;
 export default function ItemsTab() {
   const router = useRouter();
   const { themeColor, purchaseSort, setPurchaseSort } = useSettingsStore();
+  const insets = useSafeAreaInsets();
   const {
     closetQuery: query, setClosetQuery,
     selectedItemIds, toggleItemSelection, clearSelection,
@@ -67,8 +69,8 @@ export default function ItemsTab() {
   ), [handlePress, handleLongPress, selectedItemIds, isSelectionMode, themeColor]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.header, { backgroundColor: themeColor }]}>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>我的衣櫃</Text>
         <View style={styles.headerActions}>
           {isSelectionMode ? (
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: 12,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   headerActions: { flexDirection: 'row', gap: 12 },

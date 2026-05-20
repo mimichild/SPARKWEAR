@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, Alert, StyleSheet,
+  View, Text, TextInput, Pressable, ScrollView, Alert, StyleSheet, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import {
 import { getStorageStats } from '../../src/services/photoService';
 import { cleanupOrphanPhotos } from '../../src/services/orphanService';
 import { exportBackup, importBackupFromPicker } from '../../src/services/backupService';
+import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import {
   moveTabUp, moveTabDown, toggleTab, isValidVipCode, formatBytes,
 } from '../../src/utils/settingsUtils';
@@ -51,6 +52,11 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
+
+  // 匯出進度 overlay
+  const [exportOverlayVisible, setExportOverlayVisible] = useState(false);
+  const [exportProgress, setExportProgress] = useState<number | undefined>(undefined);
+  const [exportMsg, setExportMsg] = useState('');
 
   const loadStorage = useCallback(async () => {
     const stats = await getStorageStats();
@@ -124,21 +130,70 @@ export default function SettingsScreen() {
     }
   }, [db, loadStorage]);
 
-  const handleExport = useCallback(async () => {
+  const doExport = useCallback(async (saveToDevice: boolean) => {
     setExporting(true);
+    setExportOverlayVisible(true);
+    setExportProgress(undefined);
+    setExportMsg('讀取資料中…');
+
+    let completed = false;
     try {
-      await exportBackup(db, (stage) => {
-        if (stage === 'packing') setImportProgress('打包照片中…');
-        else if (stage === 'sharing') setImportProgress('開啟分享…');
+      completed = await exportBackup(db, saveToDevice, (stage, current, total) => {
+        if (stage === 'reading') {
+          setExportMsg('讀取資料中…');
+          setExportProgress(undefined);
+        } else if (stage === 'packing') {
+          const pct = total > 0 ? (current / total) * 0.6 : 0;
+          setExportMsg(`打包照片 ${current} / ${total}`);
+          setExportProgress(pct);
+        } else if (stage === 'compressing') {
+          setExportMsg('壓縮中…');
+          setExportProgress(0.6 + (current / 100) * 0.3);
+        } else if (stage === 'saving') {
+          setExportMsg('寫入檔案中…');
+          setExportProgress(0.95);
+        } else if (stage === 'done') {
+          setExportMsg('完成');
+          setExportProgress(1);
+        }
       });
     } catch (e) {
       console.warn('[export] failed', e);
-      Alert.alert('匯出失敗', '請稍後再試');
+      Alert.alert('匯出失敗', e instanceof Error ? e.message : '請稍後再試');
     } finally {
+      setExportOverlayVisible(false);
+      setExportProgress(undefined);
+      setExportMsg('');
       setExporting(false);
-      setImportProgress('');
+    }
+
+    if (completed && saveToDevice) {
+      Alert.alert('匯出完成', '備份已儲存至手機');
     }
   }, [db]);
+
+  const handleExport = useCallback(() => {
+    if (Platform.OS === 'android') {
+      Alert.alert(
+        '匯出備份',
+        '將所有單品、穿搭與照片打包成 ZIP 檔案，請選擇儲存方式：',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '分享至…', onPress: () => doExport(false) },
+          { text: '儲存至手機', onPress: () => doExport(true) },
+        ]
+      );
+    } else {
+      Alert.alert(
+        '匯出備份',
+        '將所有單品、穿搭與照片打包成 ZIP 檔案。\n\n完成後會開啟分享視窗，選擇「儲存至檔案」即可存至手機。',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '確認匯出', onPress: () => doExport(false) },
+        ]
+      );
+    }
+  }, [doExport]);
 
   const handleImport = useCallback(async (mode: ImportMode) => {
     setImporting(true);
@@ -389,7 +444,7 @@ export default function SettingsScreen() {
         {/* 備份與還原 */}
         <Text style={styles.sectionTitle}>備份與還原</Text>
         <View style={styles.card}>
-          {(exporting || importing) && importProgress ? (
+          {importing && importProgress ? (
             <Text style={styles.progressText}>{importProgress}</Text>
           ) : null}
           <Pressable
@@ -428,6 +483,13 @@ export default function SettingsScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      <ProgressOverlay
+        visible={exportOverlayVisible}
+        title="匯出備份中"
+        progress={exportProgress}
+        message={exportMsg}
+      />
     </SafeAreaView>
   );
 }

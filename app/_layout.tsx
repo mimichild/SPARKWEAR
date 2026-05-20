@@ -64,13 +64,14 @@ export default function RootLayout() {
   }, []);
 
   return (
-    // fontKey 作為 key：字型變更時強制整棵樹重新渲染，立即看到效果
-    <GestureHandlerRootView key={fontKey} style={{ flex: 1 }}>
+    // SQLiteProvider 不放在 key 裡，避免 fontKey 變更時關閉資料庫連線
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SQLiteProvider databaseName={DB_NAME} onInit={initDatabase}>
           <TrashCleanup />
           <StatusBar style="auto" backgroundColor={themeColor} />
-          <Stack screenOptions={{ headerShown: false }}>
+          {/* key={fontKey} 只套在 Stack 上，字型切換時重設導航狀態，但不重建 DB */}
+          <Stack key={fontKey} screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="closet" />
             <Stack.Screen name="outfits" />

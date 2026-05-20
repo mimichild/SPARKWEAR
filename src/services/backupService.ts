@@ -146,19 +146,18 @@ export function mapV4OutfitToV5(
 
 export async function exportBackup(
   db: SQLiteDatabase,
+  saveToDevice: boolean,
   onProgress?: (stage: string, current: number, total: number) => void
-): Promise<void> {
+): Promise<boolean> {  // returns false if user cancelled (e.g. SAF picker dismissed)
   if (Platform.OS === 'web') throw new Error('Export is not supported on web');
 
   onProgress?.('reading', 0, 1);
-  const [items, outfits, categories, origins, colors, voteCountsMap] = await Promise.all([
-    getItems(db),
-    getOutfits(db),
-    getCategories(db),
-    getOrigins(db),
-    getColors(db),
-    getAllVoteCounts(db),
-  ]);
+  const items        = await getItems(db);
+  const outfits      = await getOutfits(db);
+  const categories   = await getCategories(db);
+  const origins      = await getOrigins(db);
+  const colors       = await getColors(db);
+  const voteCountsMap = await getAllVoteCounts(db);
 
   const zip = new JSZip();
   const photoFolder = zip.folder('photos')!;
@@ -231,29 +230,47 @@ export async function exportBackup(
 
   zip.file('manifest.json', JSON.stringify(manifest));
 
-  onProgress?.('sharing', 0, 1);
+  onProgress?.('saving', 0, 1);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const zipPath = `${FileSystem.cacheDirectory}sparkwear_${timestamp}.zip`;
+  const filename = `sparkwear_${timestamp}.zip`;
+  const zipPath = `${FileSystem.cacheDirectory}${filename}`;
 
-  // Generate as Blob → object URL → downloadAsync avoids holding the whole ZIP
-  // as a base64 string in JS heap (prevents OOM on large backups)
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const blobUrl = URL.createObjectURL(blob);
-  try {
-    await FileSystem.downloadAsync(blobUrl, zipPath);
-  } finally {
-    URL.revokeObjectURL(blobUrl);
-  }
+  // 壓縮 ZIP，使用 onUpdate 回報進度
+  const base64 = await zip.generateAsync(
+    { type: 'base64' },
+    (meta) => onProgress?.('compressing', meta.percent, 100)
+  );
+  await FileSystem.writeAsStringAsync(zipPath, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
 
-  const available = await Sharing.isAvailableAsync();
-  if (available) {
-    await Sharing.shareAsync(zipPath, {
-      mimeType: 'application/zip',
-      dialogTitle: 'SPARKWEAR 備份',
+  if (saveToDevice && Platform.OS === 'android') {
+    // Android：讓使用者選擇資料夾，直接寫入手機（不經分享選單）
+    const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!perm.granted) return false; // 使用者取消資料夾選擇
+    onProgress?.('saving', 0, 1);
+    const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+      perm.directoryUri,
+      filename,
+      'application/zip'
+    );
+    await FileSystem.writeAsStringAsync(destUri, base64, {
+      encoding: FileSystem.EncodingType.Base64,
     });
+  } else {
+    // iOS 或選擇分享：開啟系統分享選單（iOS 可選「儲存至檔案」）
+    onProgress?.('saving', 0, 1);
+    const available = await Sharing.isAvailableAsync();
+    if (available) {
+      await Sharing.shareAsync(zipPath, {
+        mimeType: 'application/zip',
+        dialogTitle: 'SPARKWEAR 備份',
+      });
+    }
   }
 
   onProgress?.('done', 1, 1);
+  return true;
 }
 
 // ── Import ────────────────────────────────────────────────────

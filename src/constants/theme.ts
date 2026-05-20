@@ -15,27 +15,26 @@ export const THEME_PRESETS = [
 
 export const DEFAULT_THEME_COLOR = '#f1aba7';
 
+// css 保留供相容性；native 是 React Native 在 iOS/Android 上可直接使用的字型名稱
 export const APP_FONT_OPTIONS = [
-  { key: 'default',           label: '新細明體（預設）', css: '"PMingLiU", "MingLiU", "Noto Sans TC", sans-serif' },
-  { key: 'noto_sans_tc',      label: 'Noto Sans TC',     css: '"Noto Sans TC", "PingFang TC", sans-serif' },
-  { key: 'noto_serif_tc',     label: 'Noto Serif TC',    css: '"Noto Serif TC", "PMingLiU", serif' },
-  { key: 'microsoft_jhenghei',label: '微軟正黑體',         css: '"Microsoft JhengHei", "PingFang TC", sans-serif' },
-  { key: 'pingfang_tc',       label: 'PingFang TC',      css: '"PingFang TC", "Microsoft JhengHei", sans-serif' },
-  { key: 'roboto',            label: 'Roboto',            css: 'Roboto, "Segoe UI", Arial, sans-serif' },
-  { key: 'open_sans',         label: 'Open Sans',         css: '"Open Sans", "Segoe UI", sans-serif' },
-  { key: 'lato',              label: 'Lato',              css: 'Lato, "Segoe UI", sans-serif' },
-  { key: 'arial',             label: 'Arial',             css: 'Arial, Helvetica, sans-serif' },
-  { key: 'helvetica',         label: 'Helvetica',         css: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
-  { key: 'georgia',           label: 'Georgia',           css: 'Georgia, serif' },
-  { key: 'times_new_roman',   label: 'Times New Roman',   css: '"Times New Roman", Times, serif' },
-  { key: 'trebuchet_ms',      label: 'Trebuchet MS',      css: '"Trebuchet MS", sans-serif' },
-  { key: 'verdana',           label: 'Verdana',           css: 'Verdana, Geneva, sans-serif' },
-  { key: 'tahoma',            label: 'Tahoma',            css: 'Tahoma, Geneva, sans-serif' },
-  { key: 'segoe_ui',          label: 'Segoe UI',          css: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif' },
-  { key: 'calibri',           label: 'Calibri',           css: 'Calibri, "Segoe UI", sans-serif' },
-  { key: 'courier_new',       label: 'Courier New',       css: '"Courier New", Courier, monospace' },
-  { key: 'consolas',          label: 'Consolas',          css: 'Consolas, monospace' },
-  { key: 'monaco',            label: 'Monaco',            css: 'Monaco, monospace' },
+  { key: 'default',           label: '系統預設',          css: 'system-ui, sans-serif',                                  native: undefined            },
+  { key: 'pingfang_tc',       label: 'PingFang TC',       css: '"PingFang TC", sans-serif',                              native: 'PingFang TC'        },
+  { key: 'helvetica',         label: 'Helvetica Neue',    css: '"Helvetica Neue", sans-serif',                           native: 'Helvetica Neue'     },
+  { key: 'arial',             label: 'Arial',             css: 'Arial, sans-serif',                                      native: 'Arial'              },
+  { key: 'georgia',           label: 'Georgia',           css: 'Georgia, serif',                                         native: 'Georgia'            },
+  { key: 'times_new_roman',   label: 'Times New Roman',   css: '"Times New Roman", serif',                               native: 'Times New Roman'    },
+  { key: 'trebuchet_ms',      label: 'Trebuchet MS',      css: '"Trebuchet MS", sans-serif',                             native: 'Trebuchet MS'       },
+  { key: 'verdana',           label: 'Verdana',           css: 'Verdana, sans-serif',                                    native: 'Verdana'            },
+  { key: 'baskerville',       label: 'Baskerville',       css: 'Baskerville, serif',                                     native: 'Baskerville'        },
+  { key: 'palatino',          label: 'Palatino',          css: '"Palatino Linotype", Palatino, serif',                   native: 'Palatino'           },
+  { key: 'futura',            label: 'Futura',            css: 'Futura, "Century Gothic", sans-serif',                   native: 'Futura'             },
+  { key: 'gill_sans',         label: 'Gill Sans',         css: '"Gill Sans", "Gill Sans MT", sans-serif',                native: 'Gill Sans'          },
+  { key: 'optima',            label: 'Optima',            css: 'Optima, "Segoe UI", sans-serif',                         native: 'Optima'             },
+  { key: 'courier_new',       label: 'Courier New',       css: '"Courier New", monospace',                               native: 'Courier New'        },
+  { key: 'monaco',            label: 'Monaco',            css: 'Monaco, monospace',                                      native: 'Monaco'             },
+  // 以下需手動安裝字型，未安裝時自動降級為系統字型
+  { key: 'noto_sans_tc',      label: 'Noto Sans TC',      css: '"Noto Sans TC", "PingFang TC", sans-serif',              native: 'NotoSansTC-Regular' },
+  { key: 'noto_serif_tc',     label: 'Noto Serif TC',     css: '"Noto Serif TC", serif',                                 native: 'NotoSerifTC-Regular'},
 ] as const;
 
 export const DEFAULT_FONT_KEY = 'default';

@@ -35,6 +35,8 @@ describe('theme — 主題設定', () => {
         expect(font.key).toBeTruthy();
         expect(font.label).toBeTruthy();
         expect(font.css).toBeTruthy();
+        // native 可以是 undefined（系統預設）或字串
+        expect('native' in font).toBe(true);
       });
     });
 

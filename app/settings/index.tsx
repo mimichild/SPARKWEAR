@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../src/db/context';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import {
-  THEME_PRESETS, APP_FONT_OPTIONS, DEFAULT_THEME_COLOR,
+  THEME_PRESETS, APP_FONT_OPTIONS, DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY,
 } from '../../src/constants/theme';
 import {
   APP_VERSION, DEFAULT_TAB_ORDER, DEFAULT_ENABLED_TABS, CLOSET_TAB_LABELS,
@@ -283,7 +283,12 @@ export default function SettingsScreen() {
                     onPress={() => setFontKey(opt.key)}
                     style={[styles.fontRow, selected && styles.fontRowSelected]}
                   >
-                    <Text style={styles.fontLabel}>{opt.label}</Text>
+                    <Text style={[
+                      styles.fontLabel,
+                      opt.native ? { fontFamily: opt.native } : undefined,
+                    ]}>
+                      {opt.label}
+                    </Text>
                     {selected ? (
                       <Text style={[styles.fontCheck, { color: themeColor || DEFAULT_THEME_COLOR }]}>✓</Text>
                     ) : null}

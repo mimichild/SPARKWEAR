@@ -78,9 +78,9 @@ export default function ItemsTab() {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← 返回</Text>
+          <Text style={styles.backBtnText}>返回</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>我的衣櫃</Text>
+        <Text style={styles.headerTitle}>單品</Text>
         <View style={styles.headerActions}>
           {isSelectionMode ? (
             <>

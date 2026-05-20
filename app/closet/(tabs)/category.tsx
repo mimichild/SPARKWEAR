@@ -48,7 +48,10 @@ export default function CategoryTab() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>分類瀏覽</Text>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>返回</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>分類</Text>
       </View>
       <ScrollView contentContainerStyle={styles.list}>
         {categories.map(renderCategory)}
@@ -73,7 +76,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  backBtnText: { fontSize: 14, color: '#fff' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
   list: { padding: 16, gap: 8 },
   chip: {
     flexDirection: 'row', alignItems: 'center',

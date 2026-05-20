@@ -96,7 +96,10 @@ export default function RankingTab() {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>排行榜</Text>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>返回</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>排行</Text>
         <Pressable onPress={openVote} style={styles.voteBtn}>
           <Text style={styles.voteBtnText}>票選</Text>
         </Pressable>
@@ -230,7 +233,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  backBtnText: { fontSize: 14, color: '#fff' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
   voteBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4 },
   voteBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   metricRow: { maxHeight: 44, borderBottomWidth: 1, borderBottomColor: '#f0ede8' },

@@ -14,7 +14,10 @@ export default function ClosetTabsLayout() {
         tabBarActiveTintColor: themeColor,
         tabBarInactiveTintColor: '#999',
         tabBarStyle: { borderTopColor: '#eee' },
-        tabBarLabelStyle: { fontSize: 12 },
+        tabBarLabelStyle: { fontSize: 17 },
+        tabBarIcon: () => null,
+        tabBarIconStyle: { display: 'none' },
+        tabBarItemStyle: { paddingTop: 8 },
       }}
     >
       {tabs.map((tab) => (

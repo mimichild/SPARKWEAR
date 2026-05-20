@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Item, Season, Grade, SortOrder } from '../types';
+import { deletePhotos } from './photoService';
+import type { Photo } from '../types';
 
 // ── Serialization helpers ─────────────────────────────────────
 
@@ -41,6 +43,7 @@ type ItemRow = {
   usage_count: number; seasons: string; mini_note: string | null;
   pros: string | null; cons: string | null; remark: string | null;
   photo_ids: string; created_at: string; updated_at: string;
+  deleted_at: string | null;
 };
 
 function rowToItem(row: ItemRow): Item {
@@ -70,6 +73,7 @@ function rowToItem(row: ItemRow): Item {
     photoIds: JSON.parse(row.photo_ids || '[]'),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? undefined,
   };
 }
 
@@ -81,7 +85,7 @@ export async function getItems(
 ): Promise<Item[]> {
   const order = sort === 'asc' ? 'ASC' : 'DESC';
   const rows = await db.getAllAsync<ItemRow>(
-    `SELECT * FROM items ORDER BY purchase_date ${order}, created_at ${order}`
+    `SELECT * FROM items WHERE deleted_at IS NULL ORDER BY purchase_date ${order}, created_at ${order}`
   );
   return rows.map(rowToItem);
 }
@@ -90,7 +94,7 @@ export async function getItemById(
   db: SQLiteDatabase,
   id: string
 ): Promise<Item | null> {
-  const row = await db.getFirstAsync<ItemRow>('SELECT * FROM items WHERE id = ?', [id]);
+  const row = await db.getFirstAsync<ItemRow>('SELECT * FROM items WHERE id = ? AND deleted_at IS NULL', [id]);
   return row ? rowToItem(row) : null;
 }
 
@@ -167,6 +171,53 @@ export async function updateItem(
 export async function deleteItem(db: SQLiteDatabase, id: string): Promise<void> {
   await db.runAsync('DELETE FROM vote_counts WHERE item_id = ?', [id]);
   await db.runAsync('DELETE FROM items WHERE id = ?', [id]);
+}
+
+// ── 暫存區（軟刪除）──────────────────────────────────────────
+
+export async function moveToTrash(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync(
+    'UPDATE items SET deleted_at = ? WHERE id = ?',
+    [new Date().toISOString(), id]
+  );
+}
+
+export async function restoreFromTrash(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE items SET deleted_at = NULL WHERE id = ?', [id]);
+}
+
+export async function getTrashItems(db: SQLiteDatabase): Promise<Item[]> {
+  const rows = await db.getAllAsync<ItemRow>(
+    'SELECT * FROM items WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC'
+  );
+  return rows.map(rowToItem);
+}
+
+export async function cleanupExpiredTrash(db: SQLiteDatabase): Promise<void> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const expired = await db.getAllAsync<{ id: string; photo_ids: string }>(
+    'SELECT id, photo_ids FROM items WHERE deleted_at IS NOT NULL AND deleted_at < ?',
+    [cutoff]
+  );
+  for (const row of expired) {
+    const photoIds: string[] = JSON.parse(row.photo_ids || '[]');
+    if (photoIds.length > 0) {
+      const photos = photoIds.map(p => ({ id: p, path: p, mimeType: 'image/jpeg', createdAt: '' } as Photo));
+      await deletePhotos(photos);
+    }
+    await deleteItem(db, row.id);
+  }
+}
+
+export async function updateItemCategory(
+  db: SQLiteDatabase,
+  id: string,
+  categoryId: string | undefined
+): Promise<void> {
+  await db.runAsync(
+    'UPDATE items SET category_id = ?, updated_at = ? WHERE id = ?',
+    [categoryId ?? null, new Date().toISOString(), id]
+  );
 }
 
 export async function incrementUsageCount(db: SQLiteDatabase, id: string): Promise<void> {

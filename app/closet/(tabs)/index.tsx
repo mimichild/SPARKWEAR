@@ -1,7 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import {
-  View, Text, Pressable, StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -11,6 +9,8 @@ import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { useUIStore } from '../../../src/stores/uiStore';
 import { ItemCard } from '../../../src/components/items/ItemCard';
 import { SearchBar } from '../../../src/components/shared/SearchBar';
+import { BatchActionBar } from '../../../src/components/shared/BatchActionBar';
+import { CategoryPickerModal } from '../../../src/components/shared/CategoryPickerModal';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
 import type { Item } from '../../../src/types';
 
@@ -24,7 +24,7 @@ export default function ItemsTab() {
     isSelectionMode, enterSelectionMode,
   } = useUIStore();
 
-  const { items, loading, removeItem, reload } = useItems(purchaseSort);
+  const { items, loading, trashItem, recategorizeItem, reload } = useItems(purchaseSort);
   const { categories, reload: reloadCats } = useCategories();
   const filtered = useFilteredItems(items, query);
 
@@ -34,11 +34,11 @@ export default function ItemsTab() {
     return map;
   }, [categories]);
 
-  // Reload items when screen comes back into focus (e.g. after adding/editing)
   useFocusEffect(useCallback(() => { reload(); reloadCats(); }, [reload, reloadCats]));
 
   const [showSearch, setShowSearch] = useState(false);
-  const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
+  const [trashConfirmVisible, setTrashConfirmVisible] = useState(false);
+  const [catPickerVisible, setCatPickerVisible] = useState(false);
 
   const handleLongPress = useCallback((itemId: string) => {
     if (!isSelectionMode) enterSelectionMode();
@@ -46,20 +46,21 @@ export default function ItemsTab() {
   }, [isSelectionMode, enterSelectionMode, toggleItemSelection]);
 
   const handlePress = useCallback((item: Item) => {
-    if (isSelectionMode) {
-      toggleItemSelection(item.id);
-    } else {
-      router.push(`/closet/item/${item.id}`);
-    }
+    if (isSelectionMode) toggleItemSelection(item.id);
+    else router.push(`/closet/item/${item.id}`);
   }, [isSelectionMode, toggleItemSelection, router]);
 
-  const handleBulkDelete = useCallback(async () => {
-    for (const id of Array.from(selectedItemIds)) {
-      await removeItem(id);
-    }
+  const handleBulkTrash = useCallback(async () => {
+    for (const id of Array.from(selectedItemIds)) await trashItem(id);
     clearSelection();
-    setBulkDeleteVisible(false);
-  }, [selectedItemIds, removeItem, clearSelection]);
+    setTrashConfirmVisible(false);
+  }, [selectedItemIds, trashItem, clearSelection]);
+
+  const handleBulkRecategorize = useCallback(async (categoryId: string) => {
+    for (const id of Array.from(selectedItemIds)) await recategorizeItem(id, categoryId);
+    clearSelection();
+    setCatPickerVisible(false);
+  }, [selectedItemIds, recategorizeItem, clearSelection]);
 
   const renderItem = useCallback(({ item }: { item: Item }) => (
     <ItemCard
@@ -83,14 +84,9 @@ export default function ItemsTab() {
         <Text style={styles.headerTitle}>單品</Text>
         <View style={styles.headerActions}>
           {isSelectionMode ? (
-            <>
-              <Pressable onPress={() => setBulkDeleteVisible(true)} style={styles.headerBtn}>
-                <Text style={styles.headerBtnText}>刪除({selectedItemIds.size})</Text>
-              </Pressable>
-              <Pressable onPress={clearSelection} style={styles.headerBtn}>
-                <Text style={styles.headerBtnText}>取消</Text>
-              </Pressable>
-            </>
+            <Pressable onPress={clearSelection} style={styles.headerBtn}>
+              <Text style={styles.headerBtnText}>取消</Text>
+            </Pressable>
           ) : (
             <>
               <Pressable onPress={() => setShowSearch(s => !s)} style={styles.headerBtn}>
@@ -107,7 +103,7 @@ export default function ItemsTab() {
         </View>
       </View>
 
-      {showSearch && (
+      {showSearch && !isSelectionMode && (
         <SearchBar value={query} onChangeText={setClosetQuery} placeholder="搜尋品牌/名稱/備註..." />
       )}
 
@@ -120,10 +116,16 @@ export default function ItemsTab() {
           </Text>
         </View>
       ) : (
-        <FlashList
-          data={filtered}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
+        <FlashList data={filtered} renderItem={renderItem} keyExtractor={item => item.id} />
+      )}
+
+      {isSelectionMode && (
+        <BatchActionBar
+          count={selectedItemIds.size}
+          onDelete={() => setTrashConfirmVisible(true)}
+          onRecategorize={() => setCatPickerVisible(true)}
+          onCancel={clearSelection}
+          themeColor={themeColor}
         />
       )}
 
@@ -137,13 +139,21 @@ export default function ItemsTab() {
       )}
 
       <ConfirmDialog
-        visible={bulkDeleteVisible}
-        title="批次刪除"
-        message={`確定要刪除 ${selectedItemIds.size} 件單品嗎？`}
-        confirmLabel="刪除"
+        visible={trashConfirmVisible}
+        title="移至暫存區"
+        message={`確定要將 ${selectedItemIds.size} 件單品移至暫存區嗎？\n30 天內可在設定中還原。`}
+        confirmLabel="移至暫存區"
         danger
-        onConfirm={handleBulkDelete}
-        onCancel={() => setBulkDeleteVisible(false)}
+        onConfirm={handleBulkTrash}
+        onCancel={() => setTrashConfirmVisible(false)}
+      />
+
+      <CategoryPickerModal
+        visible={catPickerVisible}
+        categories={categories}
+        onSelect={handleBulkRecategorize}
+        onCancel={() => setCatPickerVisible(false)}
+        themeColor={themeColor}
       />
     </SafeAreaView>
   );
@@ -153,8 +163,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#faf9f7' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: 12,
+    paddingHorizontal: 16, paddingVertical: 12, paddingTop: 12,
   },
   backBtn: { paddingRight: 8, paddingVertical: 2 },
   backBtnText: { fontSize: 14, color: '#fff' },

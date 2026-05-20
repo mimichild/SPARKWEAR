@@ -47,6 +47,7 @@ export interface Item {
   photoIds: string[];
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 export interface Outfit {

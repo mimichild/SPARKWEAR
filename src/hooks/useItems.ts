@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSQLiteContext } from '../db/context';
-import { getItems, saveItem, updateItem, deleteItem, filterItems } from '../services/itemService';
+import { getItems, saveItem, updateItem, deleteItem, moveToTrash, restoreFromTrash, updateItemCategory, filterItems } from '../services/itemService';
 import type { Item, SortOrder } from '../types';
 import { deletePhotos } from '../services/photoService';
 
@@ -53,7 +53,32 @@ export function useItems(sort: SortOrder = 'desc') {
     [db]
   );
 
-  return { items, loading, error, reload: load, addItem, editItem, removeItem };
+  const trashItem = useCallback(
+    async (id: string) => {
+      await moveToTrash(db, id);
+      setItems(prev => prev.filter(item => item.id !== id));
+    },
+    [db]
+  );
+
+  const recategorizeItem = useCallback(
+    async (id: string, categoryId: string | undefined) => {
+      await updateItemCategory(db, id, categoryId);
+      setItems(prev =>
+        prev.map(item => item.id === id ? { ...item, categoryId, updatedAt: new Date().toISOString() } : item)
+      );
+    },
+    [db]
+  );
+
+  const restoreItem = useCallback(
+    async (id: string) => {
+      await restoreFromTrash(db, id);
+    },
+    [db]
+  );
+
+  return { items, loading, error, reload: load, addItem, editItem, removeItem, trashItem, recategorizeItem, restoreItem };
 }
 
 export function useFilteredItems(items: Item[], query: string) {

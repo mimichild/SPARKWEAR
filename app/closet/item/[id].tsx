@@ -8,13 +8,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
-import { getItemById, deleteItem, incrementUsageCount } from '../../../src/services/itemService';
+import { getItemById, moveToTrash, incrementUsageCount } from '../../../src/services/itemService';
 import { getCategories, getOrigins, getColors } from '../../../src/services/categoryService';
-import { deletePhotos, getPhotoUri } from '../../../src/services/photoService';
+import { getPhotoUri } from '../../../src/services/photoService';
 import { getOutfitsByItemId } from '../../../src/services/outfitService';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
-import type { Item, Category, Origin, Color, Photo, Outfit } from '../../../src/types';
+import type { Item, Category, Origin, Color, Outfit } from '../../../src/types';
 
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -50,14 +50,7 @@ export default function ItemDetailScreen() {
 
   const handleDelete = async () => {
     if (!item) return;
-    // Delete photo files before removing DB record
-    if (item.photoIds.length > 0) {
-      const photoObjects = item.photoIds.map(path => ({
-        id: path, path, mimeType: 'image/jpeg', createdAt: '',
-      } as Photo));
-      await deletePhotos(photoObjects);
-    }
-    await deleteItem(db, item.id);
+    await moveToTrash(db, item.id);
     router.back();
   };
 
@@ -248,9 +241,9 @@ export default function ItemDetailScreen() {
 
       <ConfirmDialog
         visible={deleteVisible}
-        title="確認刪除"
-        message={`確定要刪除「${item.name}」嗎？此操作無法復原。`}
-        confirmLabel="刪除"
+        title="移至暫存區"
+        message={`確定要將「${item.name}」移至暫存區嗎？\n30 天內可在設定中還原。`}
+        confirmLabel="移至暫存區"
         danger
         onConfirm={handleDelete}
         onCancel={() => setDeleteVisible(false)}

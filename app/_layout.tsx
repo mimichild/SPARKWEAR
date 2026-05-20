@@ -6,6 +6,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSettingsStore, resolveFontFamily } from '../src/stores/settingsStore';
 import { SQLiteProvider, DB_NAME, initDatabase } from '../src/db/provider';
+import { useSQLiteContext } from '../src/db/context';
+import { cleanupExpiredTrash } from '../src/services/itemService';
 
 // ── 全域字型注入 ───────────────────────────────────────────────
 // Text.defaultProps.style 只對無 style prop 的 Text 有效；
@@ -48,6 +50,12 @@ function patchJsxRuntime() {
 patchJsxRuntime();
 // ─────────────────────────────────────────────────────────────
 
+function TrashCleanup() {
+  const db = useSQLiteContext();
+  useEffect(() => { cleanupExpiredTrash(db).catch(() => {}); }, [db]);
+  return null;
+}
+
 export default function RootLayout() {
   const { hydrate, themeColor, fontKey } = useSettingsStore();
 
@@ -60,12 +68,14 @@ export default function RootLayout() {
     <GestureHandlerRootView key={fontKey} style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SQLiteProvider databaseName={DB_NAME} onInit={initDatabase}>
+          <TrashCleanup />
           <StatusBar style="auto" backgroundColor={themeColor} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="closet" />
             <Stack.Screen name="outfits" />
             <Stack.Screen name="settings/index" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="settings/trash" options={{ presentation: 'modal' }} />
           </Stack>
         </SQLiteProvider>
       </SafeAreaProvider>

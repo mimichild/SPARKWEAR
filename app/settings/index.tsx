@@ -350,6 +350,18 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
+        {/* 暫存區 */}
+        <Text style={styles.sectionTitle}>暫存區</Text>
+        <View style={styles.card}>
+          <Pressable
+            style={styles.storageRow}
+            onPress={() => router.push('/settings/trash')}
+          >
+            <Text style={styles.storageLabel}>最近刪除的單品（30 天可還原）</Text>
+            <Text style={[styles.storageValue, { color: themeColor || DEFAULT_THEME_COLOR }]}>查看 ›</Text>
+          </Pressable>
+        </View>
+
         {/* 儲存空間 */}
         <Text style={styles.sectionTitle}>儲存空間</Text>
         <View style={styles.card}>

@@ -1,5 +1,5 @@
 export const DB_NAME = 'sparkwear.db';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const CREATE_TABLES_SQL = `
 PRAGMA journal_mode = WAL;
@@ -68,8 +68,11 @@ CREATE TABLE IF NOT EXISTS items (
   remark TEXT,
   photo_ids TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_items_deleted ON items(deleted_at);
 
 CREATE TABLE IF NOT EXISTS outfits (
   id TEXT PRIMARY KEY,

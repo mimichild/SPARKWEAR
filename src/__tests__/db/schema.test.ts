@@ -6,8 +6,8 @@ describe('db/schema', () => {
       expect(DB_NAME).toBe('sparkwear.db');
     });
 
-    it('DB_VERSION 為 1', () => {
-      expect(DB_VERSION).toBe(1);
+    it('DB_VERSION 為 2（含暫存區 migration）', () => {
+      expect(DB_VERSION).toBe(2);
     });
   });
 

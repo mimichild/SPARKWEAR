@@ -10,7 +10,18 @@ import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY } from '../constants/theme';
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(CREATE_TABLES_SQL);
+  await runMigrations(db);
   await seedDefaults(db);
+}
+
+async function runMigrations(db: SQLiteDatabase): Promise<void> {
+  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const current = row?.user_version ?? 0;
+  if (current < 2) {
+    // v1 → v2：items 加 deleted_at（暫存區功能）
+    try { await db.runAsync('ALTER TABLE items ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
+    await db.runAsync('PRAGMA user_version = 2');
+  }
 }
 
 async function seedDefaults(db: SQLiteDatabase): Promise<void> {

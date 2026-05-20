@@ -216,7 +216,10 @@ export interface LegacyOutfit {
   temperature?: string;
   county?: string;
   place?: string;
-  notes?: string;
+  notes?: string;      // V4 常見欄位名
+  feeling?: string;    // 部分版本用 feeling
+  thoughts?: string;   // 部分版本用 thoughts
+  memo?: string;       // 部分版本用 memo
   outfitPhotos?: LegacyPhotoRef[];
   wornItemIds?: string[];
   createdAt?: string;

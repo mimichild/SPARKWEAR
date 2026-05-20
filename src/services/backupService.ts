@@ -134,7 +134,7 @@ export function mapV4OutfitToV5(
     temperature: legacy.temperature,
     county: legacy.county,
     place: legacy.place,
-    note: legacy.notes,
+    note: legacy.notes ?? legacy.feeling ?? legacy.thoughts ?? legacy.memo,
     photoIds,
     itemIds: legacy.wornItemIds ?? [],
     createdAt: now,

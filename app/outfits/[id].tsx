@@ -92,7 +92,7 @@ export default function OutfitDetailScreen() {
           {outfit.temperature && <Row label="氣溫"   value={outfit.temperature} />}
           {outfit.county      && <Row label="縣市"   value={outfit.county} />}
           {outfit.place       && <Row label="地點"   value={outfit.place} />}
-          {outfit.note        && <Row label="小紀錄" value={outfit.note} multiline />}
+          {outfit.note        && <Row label="穿搭想法" value={outfit.note} multiline />}
         </View>
 
         {/* 搭配單品照片牆 */}

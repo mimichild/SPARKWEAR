@@ -167,5 +167,8 @@ const styles = StyleSheet.create({
     elevation: 4, shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
   },
-  fabText: { fontSize: 28, color: '#fff', lineHeight: 32 },
+  fabText: {
+    fontSize: 36, color: '#fff', fontWeight: '100',
+    lineHeight: 36, includeFontPadding: false, textAlignVertical: 'center',
+  },
 });

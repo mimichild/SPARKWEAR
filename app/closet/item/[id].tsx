@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Image, Dimensions } from 'react-native';
+
+const THUMB_W = Math.floor(Dimensions.get('window').width / 5);
+const THUMB_H = Math.round(THUMB_W * 4 / 3);
+const OUTFITS_PER_PAGE = 10;
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +29,7 @@ export default function ItemDetailScreen() {
   const [colors, setColors] = useState<Color[]>([]);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [itemOutfits, setItemOutfits] = useState<Outfit[]>([]);
+  const [outfitPage, setOutfitPage] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -161,42 +166,69 @@ export default function ItemDetailScreen() {
         ))}
 
         {/* 使用該單品的穿搭 */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>使用該單品的穿搭</Text>
-          {itemOutfits.length > 0 && (
-            <Text style={styles.sectionCount}>{itemOutfits.length} 筆</Text>
-          )}
-        </View>
-        {itemOutfits.length === 0 ? (
-          <View style={styles.emptyRow}>
-            <Text style={styles.emptyText}>尚無穿搭紀錄</Text>
-          </View>
-        ) : (
-          itemOutfits.map(outfit => (
-            <Pressable
-              key={outfit.id}
-              style={styles.outfitRow}
-              onPress={() => router.push(`/outfits/${outfit.id}`)}
-            >
-              {outfit.photoIds.length > 0 ? (
-                <Image
-                  source={{ uri: getPhotoUri(outfit.photoIds[0]) }}
-                  style={styles.outfitPhoto}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.outfitPhotoEmpty} />
-              )}
-              <View style={styles.outfitInfo}>
-                <Text style={styles.outfitDate}>{outfit.date}</Text>
-                {outfit.note ? (
-                  <Text style={styles.outfitNote} numberOfLines={1}>{outfit.note}</Text>
-                ) : null}
+        {(() => {
+          const totalPages = Math.max(1, Math.ceil(itemOutfits.length / OUTFITS_PER_PAGE));
+          const paged = itemOutfits.slice(outfitPage * OUTFITS_PER_PAGE, (outfitPage + 1) * OUTFITS_PER_PAGE);
+          return (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>使用該單品的穿搭</Text>
+                {itemOutfits.length > 0 && (
+                  <Text style={styles.sectionCount}>{itemOutfits.length} 筆</Text>
+                )}
               </View>
-              <Text style={styles.outfitArrow}>›</Text>
-            </Pressable>
-          ))
-        )}
+
+              {itemOutfits.length === 0 ? (
+                <View style={styles.emptyRow}>
+                  <Text style={styles.emptyText}>尚無穿搭紀錄</Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.outfitGrid}>
+                    {paged.map(outfit => {
+                      const uri = outfit.photoIds.length > 0
+                        ? getPhotoUri(outfit.photoIds[0]) : null;
+                      return (
+                        <Pressable
+                          key={outfit.id}
+                          style={styles.outfitThumb}
+                          onPress={() => router.push(`/outfits/${outfit.id}`)}
+                        >
+                          {uri ? (
+                            <Image source={{ uri }} style={styles.outfitThumbImg} resizeMode="cover" />
+                          ) : (
+                            <View style={styles.outfitThumbEmpty} />
+                          )}
+                          <Text style={styles.outfitThumbDate} numberOfLines={1}>{outfit.date}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {totalPages > 1 && (
+                    <View style={styles.pagination}>
+                      <Pressable
+                        onPress={() => setOutfitPage(p => Math.max(0, p - 1))}
+                        disabled={outfitPage === 0}
+                        style={styles.pageBtn}
+                      >
+                        <Text style={[styles.pageBtnText, outfitPage === 0 && styles.pageBtnDisabled]}>‹</Text>
+                      </Pressable>
+                      <Text style={styles.pageIndicator}>{outfitPage + 1} / {totalPages}</Text>
+                      <Pressable
+                        onPress={() => setOutfitPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={outfitPage === totalPages - 1}
+                        style={styles.pageBtn}
+                      >
+                        <Text style={[styles.pageBtnText, outfitPage === totalPages - 1 && styles.pageBtnDisabled]}>›</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </>
+              )}
+            </>
+          );
+        })()}
 
         <View style={styles.actions}>
           <Pressable
@@ -302,28 +334,50 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#666' },
   sectionCount: { fontSize: 12, color: '#aaa' },
   emptyRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 20,
     backgroundColor: '#fff',
     alignItems: 'center',
   },
   emptyText: { fontSize: 13, color: '#bbb' },
-  outfitRow: {
+  outfitGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#fff',
+  },
+  outfitThumb: {
+    width: THUMB_W,
+    paddingBottom: 6,
+  },
+  outfitThumbImg: {
+    width: THUMB_W,
+    height: THUMB_H,
+  },
+  outfitThumbEmpty: {
+    width: THUMB_W,
+    height: THUMB_H,
+    backgroundColor: '#e5e0d8',
+  },
+  outfitThumbDate: {
+    fontSize: 9,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 2,
+    paddingHorizontal: 1,
+  },
+  pagination: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0ede8',
     backgroundColor: '#fff',
-    gap: 12,
+    gap: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#f0ede8',
   },
-  outfitPhoto: { width: 50, height: 66, borderRadius: 6 },
-  outfitPhotoEmpty: { width: 50, height: 66, borderRadius: 6, backgroundColor: '#e5e0d8' },
-  outfitInfo: { flex: 1 },
-  outfitDate: { fontSize: 14, color: '#333', fontWeight: '500' },
-  outfitNote: { fontSize: 12, color: '#888', marginTop: 2 },
-  outfitArrow: { fontSize: 22, color: '#ccc' },
+  pageBtn: { padding: 8 },
+  pageBtnText: { fontSize: 26, color: '#555', lineHeight: 28 },
+  pageBtnDisabled: { color: '#ddd' },
+  pageIndicator: { fontSize: 13, color: '#666', minWidth: 40, textAlign: 'center' },
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loading: { color: '#aaa', fontSize: 14 },

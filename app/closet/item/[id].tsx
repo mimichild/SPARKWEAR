@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -121,24 +121,19 @@ export default function ItemDetailScreen() {
         <Text style={styles.headerTitle}>我的衣櫃</Text>
       </View>
 
-      <FlatList
-        data={detailsData}
-        keyExtractor={(_item, index) => index.toString()}
-        ListHeaderComponent={() => (
-          <>
-            {/* 全寬 3:4 照片輪播 */}
-            <PhotoCarousel photoPaths={photos} accentColor={themeColor} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* 全寬 3:4 照片輪播 */}
+        <PhotoCarousel photoPaths={photos} accentColor={themeColor} />
 
-            {/* 單品標題卡 */}
-            <View style={styles.itemCard}>
-              {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
-              <Text style={styles.itemName}>{item.name}</Text>
-              {catName && <Text style={styles.itemCategory}>{catName}</Text>}
-            </View>
-          </>
-        )}
-        renderItem={({ item: detail }) => (
-          <View style={styles.row}>
+        {/* 單品標題卡 */}
+        <View style={styles.itemCard}>
+          {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
+          <Text style={styles.itemName}>{item.name}</Text>
+          {catName && <Text style={styles.itemCategory}>{catName}</Text>}
+        </View>
+
+        {detailsData.map((detail, index) => (
+          <View key={index} style={styles.row}>
             <Text style={styles.rowLabel}>{detail.label}</Text>
             {detail.isUsage ? (
               <View style={styles.usageRow}>
@@ -159,25 +154,23 @@ export default function ItemDetailScreen() {
               </Text>
             )}
           </View>
-        )}
-        ListFooterComponent={() => (
-          <View style={styles.actions}>
-            <Pressable
-              onPress={() => router.push(`/closet/item/form?id=${item.id}`)}
-              style={[styles.actionBtn, { borderColor: themeColor }]}
-            >
-              <Text style={[styles.actionBtnText, { color: themeColor }]}>編輯</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setDeleteVisible(true)}
-              style={[styles.actionBtn, styles.deleteBtn]}
-            >
-              <Text style={[styles.actionBtnText, styles.deleteBtnText]}>刪除</Text>
-            </Pressable>
-          </View>
-        )}
-        showsVerticalScrollIndicator={false}
-      />
+        ))}
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() => router.push(`/closet/item/form?id=${item.id}`)}
+            style={[styles.actionBtn, { borderColor: themeColor }]}
+          >
+            <Text style={[styles.actionBtnText, { color: themeColor }]}>編輯</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setDeleteVisible(true)}
+            style={[styles.actionBtn, styles.deleteBtn]}
+          >
+            <Text style={[styles.actionBtnText, styles.deleteBtnText]}>刪除</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
 
       <ConfirmDialog
         visible={deleteVisible}

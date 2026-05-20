@@ -95,32 +95,74 @@ describe('sortByMetric', () => {
 
   const voteCounts: Record<string, number> = { a: 3, b: 0, c: 0 };
 
-  it('usage desc：usageCount + voteCount 高到低', () => {
+  it('usage desc（預設）：usageCount + voteCount 高到低', () => {
     // a: 2+3=5, b: 5+0=5, c: 1+0=1 → b,a,c（同分時 usageCount 高者優先：b=5 > a=2）
-    const r = sortByMetric(items, 'usage', voteCounts);
+    const r = sortByMetric(items, 'usage', voteCounts, 'desc');
     expect(r.map(i => i.id)).toEqual(['b', 'a', 'c']);
   });
 
-  it('price_asc：originalPrice 低到高（無價格排最後）', () => {
-    const noPrice = makeItem({ id: 'd', name: 'D', usageCount: 0 });
-    const r = sortByMetric([...items, noPrice], 'price_asc', {});
-    expect(r.map(i => i.id)).toEqual(['b', 'a', 'c', 'd']);
-  });
-
-  it('price_desc：originalPrice 高到低', () => {
-    const r = sortByMetric(items, 'price_desc', {});
+  it('usage asc：usageCount + voteCount 低到高', () => {
+    const r = sortByMetric(items, 'usage', voteCounts, 'asc');
     expect(r.map(i => i.id)).toEqual(['c', 'a', 'b']);
   });
 
-  it('cp：C/P 值低到高（Infinity 排最後）', () => {
-    // a: 500/2=250, b: 200/5=40, c: 800/1=800 → b,a,c
-    const r = sortByMetric(items, 'cp', {});
+  it('price desc：originalPrice 高到低', () => {
+    const r = sortByMetric(items, 'price', {}, 'desc');
+    expect(r.map(i => i.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('price asc：originalPrice 低到高（無價格排最後）', () => {
+    const noPrice = makeItem({ id: 'd', name: 'D', usageCount: 0 });
+    const r = sortByMetric([...items, noPrice], 'price', {}, 'asc');
+    expect(r.map(i => i.id)).toEqual(['b', 'a', 'c', 'd']);
+  });
+
+  it('cp desc (↑)：最划算排前（price/use 最低），Infinity 排最後', () => {
+    // a: 500/2=250, b: 200/5=40, c: 800/1=800 → b最划算, a次之, c最貴
+    const r = sortByMetric(items, 'cp', {}, 'desc');
     expect(r.map(i => i.id)).toEqual(['b', 'a', 'c']);
   });
 
-  it('cp：usageCount=0 → Infinity → 排最後', () => {
+  it('cp asc (↓)：最不划算排前（price/use 最高），Infinity 排最後', () => {
+    // c=800, a=250, b=40 → c,a,b
+    const r = sortByMetric(items, 'cp', {}, 'asc');
+    expect(r.map(i => i.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('cp：usageCount=0 → Infinity → 排最後（不論 asc/desc）', () => {
     const zero = makeItem({ id: 'z', name: 'Z', usageCount: 0, originalPrice: 100 });
-    const r = sortByMetric([...items, zero], 'cp', {});
+    const r = sortByMetric([...items, zero], 'cp', {}, 'asc');
     expect(r[r.length - 1].id).toBe('z');
+  });
+
+  it('brand_count desc：品牌數量多的排前面', () => {
+    const branded = [
+      makeItem({ id: '1', name: 'A', brand: 'ZARA' }),
+      makeItem({ id: '2', name: 'B', brand: 'ZARA' }),
+      makeItem({ id: '3', name: 'C', brand: 'UNIQLO' }),
+    ];
+    const r = sortByMetric(branded, 'brand_count', {}, 'desc');
+    // ZARA:2 排前，UNIQLO:1 排後
+    expect(r.slice(0, 2).map(i => i.brand)).toEqual(['ZARA', 'ZARA']);
+    expect(r[2].brand).toBe('UNIQLO');
+  });
+
+  it('brand_count：沒有品牌的排最後', () => {
+    const items2 = [
+      makeItem({ id: '1', name: 'A', brand: 'ZARA' }),
+      makeItem({ id: '2', name: 'B' }), // no brand
+    ];
+    const r = sortByMetric(items2, 'brand_count', {}, 'desc');
+    expect(r[r.length - 1].brand).toBeUndefined();
+  });
+
+  it('color_count：沒有顏色的排最後', () => {
+    const items3 = [
+      makeItem({ id: '1', name: 'A', colorIds: ['black'] }),
+      makeItem({ id: '2', name: 'B', colorIds: [] }),
+    ];
+    const r = sortByMetric(items3, 'color_count', {}, 'desc');
+    expect(r[0].id).toBe('1');
+    expect(r[1].id).toBe('2');
   });
 });

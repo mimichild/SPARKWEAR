@@ -1,6 +1,7 @@
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E';
 export type Season = '春季' | '夏季' | '秋季' | '冬季';
-export type RankingMetric = 'usage' | 'price_asc' | 'price_desc' | 'cp';
+export type RankingMetric = 'usage' | 'price' | 'cp' | 'brand_count' | 'color_count';
+export type SortDir = 'asc' | 'desc';
 export type RankingPeriod = 'month' | 'quarter' | 'year' | 'rolling' | 'all';
 export type SortOrder = 'asc' | 'desc';
 export type ImportMode = 'merge' | 'replace';
@@ -219,6 +220,16 @@ export interface LegacyOutfit {
   outfitPhotos?: LegacyPhotoRef[];
   wornItemIds?: string[];
   createdAt?: string;
+}
+
+/** 排行榜統一顯示單元（item 行 或 聚合行） */
+export interface RankEntry {
+  id: string;
+  title: string;
+  subtitle?: string;
+  scoreText: string;
+  photoPath?: string;
+  itemId?: string; // 有值時可導到單品詳情
 }
 
 export interface ImportResult {

@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', gap: 12 },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   headerBtnText: { fontSize: 14, color: '#fff' },
-  cell: { width: CELL_WIDTH, height: CELL_HEIGHT },
+  cell: { width: CELL_WIDTH, height: CELL_HEIGHT, padding: 1 },
   photo: { width: '100%', height: '100%' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#bbb', fontSize: 14 },

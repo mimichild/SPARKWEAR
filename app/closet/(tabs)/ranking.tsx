@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, ScrollView, Modal, FlatList,
+  View, Text, Pressable, StyleSheet, ScrollView, Modal, FlatList, Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -10,14 +10,19 @@ import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { addVote } from '../../../src/services/itemService';
 import { getPhotoUri } from '../../../src/services/photoService';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
-import type { RankingMetric, RankingPeriod, Item } from '../../../src/types';
+import type { RankingMetric, RankingPeriod, SortDir, RankEntry } from '../../../src/types';
 
 const METRICS: { key: RankingMetric; label: string }[] = [
-  { key: 'usage',      label: '使用次數' },
-  { key: 'price_asc',  label: '金額↑' },
-  { key: 'price_desc', label: '金額↓' },
-  { key: 'cp',         label: 'C/P值' },
+  { key: 'usage',       label: '使用次數' },
+  { key: 'cp',          label: 'C/P值' },
+  { key: 'price',       label: '金額' },
+  { key: 'brand_count', label: '品牌數量' },
+  { key: 'color_count', label: '顏色' },
 ];
+
+const DEFAULT_DIRS: Record<RankingMetric, SortDir> = {
+  usage: 'desc', cp: 'desc', price: 'desc', brand_count: 'desc', color_count: 'desc',
+};
 
 const PERIODS: { key: RankingPeriod; label: string }[] = [
   { key: 'month',   label: '當月' },
@@ -41,19 +46,30 @@ export default function RankingTab() {
 
   const [metric, setMetric] = useState<RankingMetric>('usage');
   const [period, setPeriod] = useState<RankingPeriod>('all');
-  const { ranked, loading, reload } = useRanking(metric, period);
+  const [dirs, setDirs] = useState<Record<RankingMetric, SortDir>>(DEFAULT_DIRS);
+  const dir = dirs[metric];
+  const { ranked, loading, reload } = useRanking(metric, period, dir);
+
+  const handleMetricPress = useCallback((key: RankingMetric) => {
+    if (key === metric) {
+      // 再點一下切換方向
+      setDirs(prev => ({ ...prev, [key]: prev[key] === 'desc' ? 'asc' : 'desc' }));
+    } else {
+      setMetric(key);
+    }
+  }, [metric]);
 
   // Vote modal state
   const [voteVisible, setVoteVisible] = useState(false);
   const [selectedForVote, setSelectedForVote] = useState<Set<string>>(new Set());
   const [voteSearch, setVoteSearch] = useState('');
-  const [voteItems, setVoteItems] = useState<Item[]>([]);
+  const [voteEntries, setVoteEntries] = useState<RankEntry[]>([]);
   const [confirmVote, setConfirmVote] = useState(false);
 
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
   const openVote = useCallback(() => {
-    setVoteItems(ranked);
+    setVoteEntries(ranked);
     setSelectedForVote(new Set());
     setVoteSearch('');
     setVoteVisible(true);
@@ -61,36 +77,20 @@ export default function RankingTab() {
 
   const handleConfirmVote = useCallback(async () => {
     for (const id of Array.from(selectedForVote)) {
-      await addVote(db, id);
+      await addVote(db, id); // id 是 itemId（票選時存的是 itemId）
     }
     setConfirmVote(false);
     setVoteVisible(false);
     reload();
   }, [selectedForVote, db, reload]);
 
-  const filteredVoteItems = voteSearch
-    ? voteItems.filter(i =>
-        i.name.includes(voteSearch) ||
-        (i.brand ?? '').includes(voteSearch)
+  const filteredVoteEntries = voteSearch
+    ? voteEntries.filter(e =>
+        e.title.includes(voteSearch) ||
+        (e.subtitle ?? '').includes(voteSearch)
       )
-    : voteItems;
+    : voteEntries;
 
-  const formatScore = (item: Item, metric: RankingMetric): string => {
-    switch (metric) {
-      case 'usage':    return `${item.usageCount} 次`;
-      case 'price_asc':
-      case 'price_desc': {
-        const p = item.discountPrice ?? item.specialPrice ?? item.originalPrice;
-        return p != null ? `$${p}` : '—';
-      }
-      case 'cp': {
-        const price = item.discountPrice ?? item.specialPrice ?? item.originalPrice;
-        if (price == null || item.usageCount === 0) return '—';
-        return `$${Math.round(price / item.usageCount)}/次`;
-      }
-      default: return '';
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -106,20 +106,36 @@ export default function RankingTab() {
       </View>
 
       {/* Metric selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.metricRow} contentContainerStyle={styles.selectorContent}>
-        {METRICS.map(m => (
-          <Pressable
-            key={m.key}
-            style={[styles.pill, metric === m.key && { backgroundColor: themeColor }]}
-            onPress={() => setMetric(m.key)}
-          >
-            <Text style={[styles.pillText, metric === m.key && styles.pillActive]}>{m.label}</Text>
-          </Pressable>
-        ))}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.metricRow}
+        contentContainerStyle={styles.metricContent}
+      >
+        {METRICS.map(m => {
+          const isActive = metric === m.key;
+          const arrow = isActive ? (dirs[m.key] === 'desc' ? ' ↑' : ' ↓') : '';
+          return (
+            <Pressable
+              key={m.key}
+              style={[styles.pill, isActive && { backgroundColor: themeColor }]}
+              onPress={() => handleMetricPress(m.key)}
+            >
+              <Text style={[styles.pillText, isActive && styles.pillActive]}>
+                {m.label}{arrow}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       {/* Period selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodRow} contentContainerStyle={styles.selectorContent}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.periodRow}
+        contentContainerStyle={styles.periodContent}
+      >
         {PERIODS.map(p => (
           <Pressable
             key={p.key}
@@ -135,32 +151,28 @@ export default function RankingTab() {
       {loading ? (
         <View style={styles.center}><Text style={styles.hint}>載入中...</Text></View>
       ) : ranked.length === 0 ? (
-        <View style={styles.center}><Text style={styles.hint}>此時段沒有單品</Text></View>
+        <View style={styles.center}><Text style={styles.hint}>此時段沒有資料</Text></View>
       ) : (
         <FlatList
           data={ranked}
-          keyExtractor={item => item.id}
-          renderItem={({ item, index }) => {
-            const coverUri = item.photoIds[0] ? getPhotoUri(item.photoIds[0]) : MISSING_URI;
+          keyExtractor={entry => entry.id}
+          renderItem={({ item: entry, index }) => {
+            const coverUri = entry.photoPath ? getPhotoUri(entry.photoPath) : MISSING_URI;
             return (
-              <Pressable style={styles.row} onPress={() => router.push(`/closet/item/${item.id}`)}>
+              <Pressable
+                style={styles.row}
+                onPress={() => entry.itemId ? router.push(`/closet/item/${entry.itemId}`) : undefined}
+              >
                 <Text style={[styles.rank, index < 3 && { color: themeColor, fontWeight: '700' }]}>
-                  #{index + 1}
+                  {index + 1}
                 </Text>
-                <View style={styles.rowImg}>
-                  <View style={styles.thumb}>
-                    {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
-                    <View style={[styles.thumb, { overflow: 'hidden' }]}>
-                      <Text style={styles.thumbFallback}>{item.name[0]}</Text>
-                    </View>
-                  </View>
-                </View>
+                <Image source={{ uri: coverUri }} style={styles.thumb} resizeMode="cover" />
                 <View style={styles.rowInfo}>
-                  {item.brand ? <Text style={styles.rowBrand}>{item.brand}</Text> : null}
-                  <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+                  {entry.subtitle ? <Text style={styles.rowBrand}>{entry.subtitle}</Text> : null}
+                  <Text style={styles.rowName} numberOfLines={1}>{entry.title}</Text>
                 </View>
                 <Text style={[styles.rowScore, { color: themeColor }]}>
-                  {formatScore(item, metric)}
+                  {entry.scoreText}
                 </Text>
               </Pressable>
             );
@@ -178,17 +190,18 @@ export default function RankingTab() {
             </Pressable>
           </View>
           <FlatList
-            data={filteredVoteItems}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => {
-              const checked = selectedForVote.has(item.id);
+            data={filteredVoteEntries}
+            keyExtractor={e => e.id}
+            renderItem={({ item: entry }) => {
+              const voteId = entry.itemId ?? entry.id;
+              const checked = selectedForVote.has(voteId);
               return (
                 <Pressable
                   style={[styles.voteRow, checked && { backgroundColor: `${themeColor}18` }]}
                   onPress={() => {
                     setSelectedForVote(prev => {
                       const next = new Set(prev);
-                      checked ? next.delete(item.id) : next.add(item.id);
+                      checked ? next.delete(voteId) : next.add(voteId);
                       return next;
                     });
                   }}
@@ -197,8 +210,8 @@ export default function RankingTab() {
                     {checked && <Text style={styles.voteCheckMark}>✓</Text>}
                   </View>
                   <View style={styles.voteInfo}>
-                    {item.brand ? <Text style={styles.voteBrand}>{item.brand}</Text> : null}
-                    <Text style={styles.voteName}>{item.name}</Text>
+                    {entry.subtitle ? <Text style={styles.voteBrand}>{entry.subtitle}</Text> : null}
+                    <Text style={styles.voteName}>{entry.title}</Text>
                   </View>
                 </Pressable>
               );
@@ -238,13 +251,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
   voteBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4 },
   voteBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  metricRow: { maxHeight: 44, borderBottomWidth: 1, borderBottomColor: '#f0ede8' },
-  periodRow: { maxHeight: 40 },
-  selectorContent: { paddingHorizontal: 12, paddingVertical: 6, gap: 6 },
-  pill: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#eee' },
+  metricRow: { flexShrink: 0, borderBottomWidth: 1, borderBottomColor: '#f0ede8' },
+  metricContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  periodRow: { flexShrink: 0 },
+  periodContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  pill: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#eee' },
   pillText: { fontSize: 13, color: '#555' },
   pillActive: { color: '#fff' },
-  periodChip: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff' },
+  periodChip: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff' },
   periodText: { fontSize: 13, color: '#888' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   hint: { color: '#bbb', fontSize: 14 },
@@ -255,12 +269,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   rank: { width: 32, fontSize: 14, color: '#aaa', textAlign: 'center' },
-  rowImg: { width: 40 },
   thumb: {
-    width: 40, height: 40, borderRadius: 8, backgroundColor: '#ece9e4',
-    justifyContent: 'center', alignItems: 'center',
+    width: 48, height: 64, borderRadius: 6, backgroundColor: '#ece9e4',
   },
-  thumbFallback: { fontSize: 16, color: '#999' },
   rowInfo: { flex: 1 },
   rowBrand: { fontSize: 11, color: '#aaa' },
   rowName: { fontSize: 14, color: '#222', fontWeight: '500' },

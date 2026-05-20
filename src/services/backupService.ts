@@ -702,7 +702,16 @@ async function insertOutfits(
     : new Set<string>();
   let count = 0;
   for (const outfit of outfits) {
-    if (mode === 'merge' && existing.has(outfit.id)) continue;
+    if (mode === 'merge' && existing.has(outfit.id)) {
+      // 已存在時只補回遺失的 note（不覆蓋使用者已編輯的內容）
+      if (outfit.note) {
+        await db.runAsync(
+          'UPDATE outfits SET note = ? WHERE id = ? AND (note IS NULL OR note = "")',
+          [outfit.note, outfit.id]
+        );
+      }
+      continue;
+    }
     await db.runAsync(
       `INSERT OR IGNORE INTO outfits
         (id, date, time, weather, temperature, county, place, note, photo_ids, item_ids, created_at, updated_at)

@@ -71,6 +71,9 @@ export default function ItemsTab() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>← 返回</Text>
+        </Pressable>
         <Text style={styles.headerTitle}>我的衣櫃</Text>
         <View style={styles.headerActions}>
           {isSelectionMode ? (
@@ -146,7 +149,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12,
     paddingTop: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  backBtnText: { fontSize: 14, color: '#fff' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
   headerActions: { flexDirection: 'row', gap: 12 },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   headerBtnText: { fontSize: 14, color: '#fff' },

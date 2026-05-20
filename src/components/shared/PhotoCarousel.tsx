@@ -21,35 +21,62 @@ interface Props {
 }
 
 export function PhotoCarousel({ photoPaths, accentColor = '#f1aba7' }: Props) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const translateX = useSharedValue(0);
-  const startX     = useSharedValue(0);
+  const raw   = photoPaths.length > 0 ? photoPaths : ['__missing__'];
+  const count = raw.length;
 
-  const photos = photoPaths.length > 0 ? photoPaths : ['__missing__'];
-  const count  = photos.length;
+  // 循環陣列：[last_clone, photo0, photo1, ..., photoN, first_clone]
+  // 單張時直接用原陣列，不需要循環邏輯
+  const loop   = count > 1;
+  const photos = loop ? [raw[count - 1], ...raw, raw[0]] : raw;
+  const total  = photos.length;
+
+  // dotIndex：顯示在圓點上的真實索引（0 ~ count-1）
+  const [dotIndex, setDotIndex] = useState(0);
+
+  // 從虛擬索引（loop 模式下 1 = 第一張真實照片）開始
+  const vIdx       = useSharedValue(loop ? 1 : 0);
+  const translateX = useSharedValue(loop ? -SCREEN_W : 0);
+  const startX     = useSharedValue(loop ? -SCREEN_W : 0);
 
   const pan = Gesture.Pan()
-    // 水平移動 10px 才啟動，垂直移動 10px 就讓給外層 ScrollView
     .activeOffsetX([-10, 10])
     .failOffsetY([-10, 10])
     .onStart(() => {
+      'worklet';
       startX.value = translateX.value;
     })
     .onUpdate(e => {
-      const raw     = startX.value + e.translationX;
-      // 硬限制：不允許超出第一張（x>0）或最後一張（x<-(count-1)*SCREEN_W）
-      translateX.value = Math.min(0, Math.max(-(count - 1) * SCREEN_W, raw));
+      'worklet';
+      translateX.value = startX.value + e.translationX;
     })
     .onEnd(e => {
+      'worklet';
       const threshold = SCREEN_W * 0.3;
-      const base      = Math.round(-startX.value / SCREEN_W);
-      let next        = base;
+      let next = vIdx.value;
+      if (e.translationX < -threshold)      next = vIdx.value + 1;   // 左滑→下一張
+      else if (e.translationX > threshold)  next = vIdx.value - 1;   // 右滑→上一張
 
-      if (e.translationX < -threshold) next = Math.min(count - 1, base + 1);
-      else if (e.translationX > threshold) next = Math.max(0, base - 1);
+      // 超出 clone 邊界時限制到最近的 clone（0 或 total-1）
+      next = Math.max(0, Math.min(total - 1, next));
 
-      translateX.value = withSpring(-next * SCREEN_W, { damping: 20, stiffness: 200 });
-      runOnJS(setActiveIndex)(next);
+      // 動畫結束後處理 clone → 跳回真實位置
+      translateX.value = withSpring(-next * SCREEN_W, { damping: 20, stiffness: 200 }, () => {
+        'worklet';
+        if (loop && next === 0) {
+          // 落在 last_clone → 無聲跳到真實 last（index = count）
+          translateX.value = -count * SCREEN_W;
+          vIdx.value = count;
+          runOnJS(setDotIndex)(count - 1);
+        } else if (loop && next === count + 1) {
+          // 落在 first_clone → 無聲跳到真實 first（index = 1）
+          translateX.value = -SCREEN_W;
+          vIdx.value = 1;
+          runOnJS(setDotIndex)(0);
+        } else {
+          vIdx.value = next;
+          runOnJS(setDotIndex)(loop ? next - 1 : next);
+        }
+      });
     });
 
   const animStyle = useAnimatedStyle(() => ({
@@ -59,7 +86,7 @@ export function PhotoCarousel({ photoPaths, accentColor = '#f1aba7' }: Props) {
   return (
     <View style={styles.container}>
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.strip, { width: SCREEN_W * count }, animStyle]}>
+        <Animated.View style={[styles.strip, { width: SCREEN_W * total }, animStyle]}>
           {photos.map((path, i) => {
             const uri = path === '__missing__' ? MISSING_URI : getPhotoUri(path);
             return (
@@ -71,12 +98,12 @@ export function PhotoCarousel({ photoPaths, accentColor = '#f1aba7' }: Props) {
 
       {count > 1 && (
         <View style={styles.dots}>
-          {photos.map((_, i) => (
+          {raw.map((_, i) => (
             <View
               key={i}
               style={[
                 styles.dot,
-                i === activeIndex
+                i === dotIndex
                   ? { backgroundColor: accentColor, width: 16 }
                   : { backgroundColor: 'rgba(255,255,255,0.5)' },
               ]}

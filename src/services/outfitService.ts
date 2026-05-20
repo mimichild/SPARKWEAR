@@ -52,6 +52,19 @@ export async function getOutfitById(
   return row ? rowToOutfit(row) : null;
 }
 
+export async function getOutfitsByItemId(
+  db: SQLiteDatabase,
+  itemId: string
+): Promise<Outfit[]> {
+  const rows = await db.getAllAsync<OutfitRow>(
+    `SELECT DISTINCT o.* FROM outfits o, json_each(o.item_ids) j
+     WHERE j.value = ?
+     ORDER BY o.date DESC, o.created_at DESC`,
+    [itemId]
+  );
+  return rows.map(rowToOutfit);
+}
+
 export async function saveOutfit(
   db: SQLiteDatabase,
   data: Omit<Outfit, 'id' | 'createdAt' | 'updatedAt'>

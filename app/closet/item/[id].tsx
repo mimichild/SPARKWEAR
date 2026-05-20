@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import { getItemById, deleteItem, incrementUsageCount } from '../../../src/services/itemService';
 import { getCategories, getOrigins, getColors } from '../../../src/services/categoryService';
-import { deletePhotos } from '../../../src/services/photoService';
+import { deletePhotos, getPhotoUri } from '../../../src/services/photoService';
+import { getOutfitsByItemId } from '../../../src/services/outfitService';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
-import type { Item, Category, Origin, Color, Photo } from '../../../src/types';
+import type { Item, Category, Origin, Color, Photo, Outfit } from '../../../src/types';
 
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,6 +24,7 @@ export default function ItemDetailScreen() {
   const [origins, setOrigins] = useState<Origin[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
   const [deleteVisible, setDeleteVisible] = useState(false);
+  const [itemOutfits, setItemOutfits] = useState<Outfit[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -31,11 +33,13 @@ export default function ItemDetailScreen() {
       getCategories(db),
       getOrigins(db),
       getColors(db),
-    ]).then(([item, cats, origs, cols]) => {
+      getOutfitsByItemId(db, id),
+    ]).then(([item, cats, origs, cols, outfits]) => {
       setItem(item);
       setCategories(cats);
       setOrigins(origs);
       setColors(cols);
+      setItemOutfits(outfits);
     });
   }, [id, db]);
 
@@ -156,6 +160,44 @@ export default function ItemDetailScreen() {
           </View>
         ))}
 
+        {/* 使用該單品的穿搭 */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>使用該單品的穿搭</Text>
+          {itemOutfits.length > 0 && (
+            <Text style={styles.sectionCount}>{itemOutfits.length} 筆</Text>
+          )}
+        </View>
+        {itemOutfits.length === 0 ? (
+          <View style={styles.emptyRow}>
+            <Text style={styles.emptyText}>尚無穿搭紀錄</Text>
+          </View>
+        ) : (
+          itemOutfits.map(outfit => (
+            <Pressable
+              key={outfit.id}
+              style={styles.outfitRow}
+              onPress={() => router.push(`/outfits/${outfit.id}`)}
+            >
+              {outfit.photoIds.length > 0 ? (
+                <Image
+                  source={{ uri: getPhotoUri(outfit.photoIds[0]) }}
+                  style={styles.outfitPhoto}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.outfitPhotoEmpty} />
+              )}
+              <View style={styles.outfitInfo}>
+                <Text style={styles.outfitDate}>{outfit.date}</Text>
+                {outfit.note ? (
+                  <Text style={styles.outfitNote} numberOfLines={1}>{outfit.note}</Text>
+                ) : null}
+              </View>
+              <Text style={styles.outfitArrow}>›</Text>
+            </Pressable>
+          ))
+        )}
+
         <View style={styles.actions}>
           <Pressable
             onPress={() => router.push(`/closet/item/form?id=${item.id}`)}
@@ -245,6 +287,43 @@ const styles = StyleSheet.create({
   deleteBtn: { borderColor: '#e57373' },
   actionBtnText: { fontSize: 14, fontWeight: '600' },
   deleteBtnText: { color: '#e57373' },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#f5f3f0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e8e4de',
+    marginTop: 8,
+  },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#666' },
+  sectionCount: { fontSize: 12, color: '#aaa' },
+  emptyRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  emptyText: { fontSize: 13, color: '#bbb' },
+  outfitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f0ede8',
+    backgroundColor: '#fff',
+    gap: 12,
+  },
+  outfitPhoto: { width: 50, height: 66, borderRadius: 6 },
+  outfitPhotoEmpty: { width: 50, height: 66, borderRadius: 6, backgroundColor: '#e5e0d8' },
+  outfitInfo: { flex: 1 },
+  outfitDate: { fontSize: 14, color: '#333', fontWeight: '500' },
+  outfitNote: { fontSize: 12, color: '#888', marginTop: 2 },
+  outfitArrow: { fontSize: 22, color: '#ccc' },
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loading: { color: '#aaa', fontSize: 14 },

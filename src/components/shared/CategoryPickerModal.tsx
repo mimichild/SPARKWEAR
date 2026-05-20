@@ -25,7 +25,6 @@ export function CategoryPickerModal({ visible, categories, onSelect, onCancel, t
           keyExtractor={c => c.id}
           renderItem={({ item: cat }) => (
             <Pressable style={styles.row} onPress={() => onSelect(cat.id)}>
-              <View style={[styles.dot, { backgroundColor: cat.color }]} />
               <Text style={styles.catName}>{cat.name}</Text>
             </Pressable>
           )}
@@ -59,6 +58,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f8f6f4',
     gap: 12,
   },
-  dot: { width: 12, height: 12, borderRadius: 6 },
   catName: { fontSize: 15, color: '#333' },
 });

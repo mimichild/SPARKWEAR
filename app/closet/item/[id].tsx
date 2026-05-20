@@ -121,7 +121,7 @@ export default function ItemDetailScreen() {
         <Text style={styles.headerTitle}>我的衣櫃</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} directionalLockEnabled={true}>
         {/* 全寬 3:4 照片輪播 */}
         <PhotoCarousel photoPaths={photos} accentColor={themeColor} />
 

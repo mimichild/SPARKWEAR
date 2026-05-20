@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Image, StyleSheet, Dimensions } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, runOnJS,
+  useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS,
 } from 'react-native-reanimated';
 import { getPhotoUri } from '../../services/photoService';
 
@@ -60,7 +60,7 @@ export function PhotoCarousel({ photoPaths, accentColor = '#f1aba7' }: Props) {
       next = Math.max(0, Math.min(total - 1, next));
 
       // 動畫結束後處理 clone → 跳回真實位置
-      translateX.value = withSpring(-next * SCREEN_W, { damping: 20, stiffness: 200 }, () => {
+      translateX.value = withTiming(-next * SCREEN_W, { duration: 220, easing: Easing.out(Easing.cubic) }, () => {
         'worklet';
         if (loop && next === 0) {
           // 落在 last_clone → 無聲跳到真實 last（index = count）

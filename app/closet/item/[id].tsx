@@ -90,13 +90,24 @@ export default function ItemDetailScreen() {
     { label: '體重',    value: item.weight ? `${item.weight} kg` : '',         visible: !!item.weight },
     { label: '身材',    value: item.bodyType,                                  visible: !!item.bodyType },
     { label: '建議體重', value: item.suggestedWeight,                           visible: !!item.suggestedWeight },
-    { label: '使用次數', value: `${item.usageCount} 次`, visible: true, isUsage: true },
     { label: '季節',    value: item.seasons.join('、'),                        visible: item.seasons.length > 0 },
+    { label: '使用次數', value: `${item.usageCount} 次`, visible: true, isUsage: true },
+    (() => {
+      // 最低購買金額（discountPrice → specialPrice → originalPrice 依序取用）
+      const prices = [item.discountPrice, item.specialPrice, item.originalPrice]
+        .filter((p): p is number => p != null);
+      if (prices.length === 0) return null;
+      const minPrice = Math.min(...prices);
+      const avgValue = item.usageCount > 0
+        ? `$${(minPrice / item.usageCount).toFixed(0)}/次`
+        : `$${minPrice}（未使用）`;
+      return { label: '平均使用價格', value: avgValue, visible: true };
+    })(),
     { label: '小紀錄',  value: item.miniNote,   visible: !!item.miniNote,  multiline: true },
     { label: '優點',    value: item.pros,       visible: !!item.pros,      multiline: true },
-    { label: '缺點',    value: item.cons,       visible: !!item.cons,      multiline: true },
-    { label: '備註',    value: item.remark,     visible: !!item.remark,    multiline: true },
-  ].filter(d => d.visible) as { label: string; value: string; multiline?: boolean; isUsage?: boolean }[];
+    { label: '缺點',    value: item.cons || '無',    visible: true, multiline: true },
+    { label: '備註',    value: item.remark || '無',  visible: true, multiline: true },
+  ].filter(d => d != null && d.visible) as { label: string; value: string; multiline?: boolean; isUsage?: boolean }[];
 
   const handleIncrementUsage = async () => {
     if (!item) return;

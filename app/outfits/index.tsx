@@ -65,8 +65,8 @@ export default function OutfitsScreen() {
         onLongPress={() => handleLongPress(item.id)}
       >
         <Image source={{ uri }} style={styles.photo} resizeMode="cover" />
-        {/* 日期遮罩 */}
-        <View style={styles.dateOverlay}>
+        {/* 日期顯示在照片下方，不遮蓋照片 */}
+        <View style={styles.dateRow}>
           <Text style={styles.dateText}>{item.date}</Text>
         </View>
         {/* 選取模式 checkbox */}
@@ -176,18 +176,19 @@ const styles = StyleSheet.create({
 
   cell: {
     width: CELL_W,
-    height: CELL_H,
     padding: 1,
+    backgroundColor: '#fff',
   },
-  photo: { width: '100%', height: '100%' },
-  dateOverlay: {
-    position: 'absolute',
-    bottom: 1, left: 1, right: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+  photo: {
+    width: '100%',
+    aspectRatio: 3 / 4,
   },
-  dateText: { fontSize: 10, color: '#333', textAlign: 'center' },
+  dateRow: {
+    paddingVertical: 3,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  dateText: { fontSize: 10, color: '#666', textAlign: 'center' },
   checkbox: {
     position: 'absolute', top: 7, right: 7, zIndex: 10,
     width: 22, height: 22, borderRadius: 11,
@@ -196,7 +197,9 @@ const styles = StyleSheet.create({
   },
   checkmark: { fontSize: 12, color: '#fff', fontWeight: '700' },
   selectedBorder: {
-    position: 'absolute', top: 1, left: 1, right: 1, bottom: 1,
+    position: 'absolute',
+    top: 1, left: 1, right: 1,
+    aspectRatio: 3 / 4,
     borderWidth: 2,
   },
 

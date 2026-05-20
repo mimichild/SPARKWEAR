@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter, useFocusEffect, Link } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
 import { useCategories } from '../../../src/hooks/useCategories';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
@@ -128,9 +128,12 @@ export default function ItemsTab() {
       )}
 
       {!isSelectionMode && (
-        <Link href="/closet/item/form" style={[styles.fab, { backgroundColor: themeColor }]}>
+        <Pressable
+          onPress={() => router.push('/closet/item/form')}
+          style={[styles.fab, { backgroundColor: themeColor }]}
+        >
           <Text style={styles.fabText}>+</Text>
-        </Link>
+        </Pressable>
       )}
 
       <ConfirmDialog

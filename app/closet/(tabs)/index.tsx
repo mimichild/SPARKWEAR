@@ -78,11 +78,13 @@ export default function ItemsTab() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>返回</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>返回</Text>
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle}>單品</Text>
-        <View style={styles.headerActions}>
+        <View style={styles.headerRight}>
           {isSelectionMode ? (
             <Pressable onPress={clearSelection} style={styles.headerBtn}>
               <Text style={styles.headerBtnText}>取消</Text>
@@ -162,13 +164,14 @@ export default function ItemsTab() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#faf9f7' },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 12, paddingTop: 12,
   },
-  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  headerLeft: { flex: 1 },
+  headerRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  backBtn: { paddingVertical: 2, alignSelf: 'flex-start' },
   backBtnText: { fontSize: 14, color: '#fff' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
-  headerActions: { flexDirection: 'row', gap: 12 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   headerBtnText: { fontSize: 14, color: '#fff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },

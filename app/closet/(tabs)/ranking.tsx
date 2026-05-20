@@ -96,10 +96,13 @@ export default function RankingTab() {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>返回</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>返回</Text>
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle}>排行</Text>
+        <View style={styles.headerRight} />
       </View>
 
       {/* Metric selector */}
@@ -240,12 +243,14 @@ export default function RankingTab() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#faf9f7' },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  headerLeft: { flex: 1 },
+  headerRight: { flex: 1 },
+  backBtn: { paddingVertical: 2, alignSelf: 'flex-start' },
   backBtnText: { fontSize: 14, color: '#fff' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   voteBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4 },
   voteBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   metricRow: { flexShrink: 0, borderBottomWidth: 1, borderBottomColor: '#f0ede8' },

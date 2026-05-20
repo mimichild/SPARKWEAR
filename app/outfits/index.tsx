@@ -86,7 +86,7 @@ export default function OutfitsScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.back()} style={styles.headerBtn}>
-          <Text style={styles.headerBtnText}>← 返回</Text>
+          <Text style={styles.headerBtnText}>返回</Text>
         </Pressable>
         <Text style={styles.headerTitle}>穿搭紀錄</Text>
         <View style={styles.headerActions}>

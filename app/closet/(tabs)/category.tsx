@@ -106,13 +106,17 @@ export default function CategoryTab() {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>返回</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>返回</Text>
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle}>分類</Text>
-        <Pressable onPress={() => setEditVisible(true)} style={styles.editBtn}>
-          <Text style={styles.editBtnText}>編輯</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <Pressable onPress={() => setEditVisible(true)} style={styles.editBtn}>
+            <Text style={styles.editBtnText}>編輯</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* 分類清單 */}
@@ -217,9 +221,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  headerLeft: { flex: 1 },
+  headerRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
+  backBtn: { paddingVertical: 2, alignSelf: 'flex-start' },
   backBtnText: { fontSize: 14, color: '#fff' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   editBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   editBtnText: { fontSize: 14, color: '#fff' },
 

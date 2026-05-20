@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, FlatList, Image } from 'react-native
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
-import { getItemById, deleteItem } from '../../../src/services/itemService';
+import { getItemById, deleteItem, incrementUsageCount } from '../../../src/services/itemService';
 import { getCategories, getOrigins, getColors } from '../../../src/services/categoryService';
 import { getPhotoUri, deletePhotos } from '../../../src/services/photoService';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
@@ -90,13 +90,21 @@ export default function ItemDetailScreen() {
     { label: '體重',    value: item.weight ? `${item.weight} kg` : '',         visible: !!item.weight },
     { label: '身材',    value: item.bodyType,                                  visible: !!item.bodyType },
     { label: '建議體重', value: item.suggestedWeight,                           visible: !!item.suggestedWeight },
-    { label: '使用次數', value: `${item.usageCount} 次`,                        visible: true },
+    { label: '使用次數', value: `${item.usageCount} 次`, visible: true, isUsage: true },
     { label: '季節',    value: item.seasons.join('、'),                        visible: item.seasons.length > 0 },
     { label: '小紀錄',  value: item.miniNote,   visible: !!item.miniNote,  multiline: true },
     { label: '優點',    value: item.pros,       visible: !!item.pros,      multiline: true },
     { label: '缺點',    value: item.cons,       visible: !!item.cons,      multiline: true },
     { label: '備註',    value: item.remark,     visible: !!item.remark,    multiline: true },
-  ].filter(d => d.visible) as { label: string; value: string; multiline?: boolean }[];
+  ].filter(d => d.visible) as { label: string; value: string; multiline?: boolean; isUsage?: boolean }[];
+
+  const handleIncrementUsage = async () => {
+    if (!item) return;
+    await incrementUsageCount(db, item.id);
+    // 重新載入單品資料以反映最新次數
+    const updated = await getItemById(db, item.id);
+    if (updated) setItem(updated);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -128,12 +136,24 @@ export default function ItemDetailScreen() {
         renderItem={({ item: detail }) => (
           <View style={styles.row}>
             <Text style={styles.rowLabel}>{detail.label}</Text>
-            <Text
-              style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
-              numberOfLines={detail.multiline ? undefined : 1}
-            >
-              {detail.value}
-            </Text>
+            {detail.isUsage ? (
+              <View style={styles.usageRow}>
+                <Text style={styles.rowValue}>{detail.value}</Text>
+                <Pressable
+                  onPress={handleIncrementUsage}
+                  style={[styles.usageBtn, { backgroundColor: themeColor }]}
+                >
+                  <Text style={styles.usageBtnText}>+1</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Text
+                style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
+                numberOfLines={detail.multiline ? undefined : 1}
+              >
+                {detail.value}
+              </Text>
+            )}
           </View>
         )}
         ListFooterComponent={() => (
@@ -207,6 +227,12 @@ const styles = StyleSheet.create({
   rowLabel: { width: 90, fontSize: 13, color: '#888', fontWeight: '500' },
   rowValue: { flex: 1, fontSize: 14, color: '#333' },
   rowMultiline: { lineHeight: 20 },
+  usageRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  usageBtn: {
+    paddingHorizontal: 14, paddingVertical: 4,
+    borderRadius: 14, alignItems: 'center',
+  },
+  usageBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   actions: {
     flexDirection: 'row',

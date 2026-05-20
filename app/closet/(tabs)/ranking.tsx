@@ -100,9 +100,6 @@ export default function RankingTab() {
           <Text style={styles.backBtnText}>返回</Text>
         </Pressable>
         <Text style={styles.headerTitle}>排行</Text>
-        <Pressable onPress={openVote} style={styles.voteBtn}>
-          <Text style={styles.voteBtnText}>票選</Text>
-        </Pressable>
       </View>
 
       {/* Metric selector */}

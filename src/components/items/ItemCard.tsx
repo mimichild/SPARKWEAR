@@ -9,6 +9,9 @@ interface Props {
   selected?: boolean;
   selectionMode?: boolean;
   themeColor?: string;
+  categoryName?: string;
+  /** 'grid'（預設）= 大圖卡片；'list' = 小圖橫列 */
+  mode?: 'grid' | 'list';
 }
 
 const MISSING_URI =
@@ -17,11 +20,46 @@ const MISSING_URI =
     '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="213"><rect width="100%" height="100%" fill="#e5e0d8"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#7b7368" font-size="14">NO PHOTO</text></svg>'
   );
 
-export function ItemCard({ item, onPress, onLongPress, selected, selectionMode, themeColor }: Props) {
-  // item.photoIds[0] is now a full file path stored by the form
+export function ItemCard({
+  item, onPress, onLongPress,
+  selected, selectionMode, themeColor,
+  categoryName, mode = 'grid',
+}: Props) {
   const coverPath = item.photoIds[0];
   const imageUri = coverPath ? getPhotoUri(coverPath) : MISSING_URI;
 
+  if (mode === 'list') {
+    const metaParts: string[] = [];
+    if (categoryName) metaParts.push(categoryName);
+    if (item.usageCount > 0) metaParts.push(`使用次數：${item.usageCount}`);
+
+    return (
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={[styles.row, selected && { backgroundColor: `${themeColor ?? '#f1aba7'}18` }]}
+      >
+        {selectionMode && (
+          <View style={[styles.checkbox, selected && { backgroundColor: themeColor ?? '#f1aba7', borderColor: themeColor ?? '#f1aba7' }]}>
+            {selected && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+        )}
+        <Image source={{ uri: imageUri }} style={styles.rowThumb} resizeMode="cover" />
+        <View style={styles.rowInfo}>
+          <Text style={styles.rowName} numberOfLines={2}>
+            {item.brand
+              ? <><Text style={styles.rowBrand}>{item.brand} </Text>{item.name}</>
+              : item.name}
+          </Text>
+          {metaParts.length > 0 && (
+            <Text style={styles.rowMeta} numberOfLines={1}>{metaParts.join('・')}</Text>
+          )}
+        </View>
+      </Pressable>
+    );
+  }
+
+  // grid mode (預設)
   return (
     <Pressable
       onPress={onPress}
@@ -51,6 +89,7 @@ export function ItemCard({ item, onPress, onLongPress, selected, selectionMode, 
 }
 
 const styles = StyleSheet.create({
+  // ── grid ──────────────────────────────────────────────────────
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,
@@ -66,6 +105,25 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   date: { fontSize: 11, color: '#bbb' },
   usage: { fontSize: 11, color: '#aaa' },
+
+  // ── list ──────────────────────────────────────────────────────
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f0ede8',
+    gap: 12,
+  },
+  rowThumb: { width: 56, height: 75, borderRadius: 6, backgroundColor: '#e5e0d8' },
+  rowInfo: { flex: 1 },
+  rowBrand: { fontWeight: '700', color: '#222', fontSize: 14 },
+  rowName: { fontSize: 14, color: '#222', lineHeight: 20 },
+  rowMeta: { fontSize: 12, color: '#888', marginTop: 4 },
+
+  // ── shared ────────────────────────────────────────────────────
   checkbox: {
     position: 'absolute',
     top: 6,

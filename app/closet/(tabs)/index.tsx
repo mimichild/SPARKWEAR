@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, Pressable, StyleSheet,
 } from 'react-native';
@@ -6,14 +6,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useFocusEffect, Link } from 'expo-router';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
+import { useCategories } from '../../../src/hooks/useCategories';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { useUIStore } from '../../../src/stores/uiStore';
 import { ItemCard } from '../../../src/components/items/ItemCard';
 import { SearchBar } from '../../../src/components/shared/SearchBar';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
 import type { Item } from '../../../src/types';
-
-const NUM_COLUMNS = 2;
 
 export default function ItemsTab() {
   const router = useRouter();
@@ -26,10 +25,17 @@ export default function ItemsTab() {
   } = useUIStore();
 
   const { items, loading, removeItem, reload } = useItems(purchaseSort);
+  const { categories, reload: reloadCats } = useCategories();
   const filtered = useFilteredItems(items, query);
 
+  const catIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(c => { map[c.id] = c.name; });
+    return map;
+  }, [categories]);
+
   // Reload items when screen comes back into focus (e.g. after adding/editing)
-  useFocusEffect(useCallback(() => { reload(); }, [reload]));
+  useFocusEffect(useCallback(() => { reload(); reloadCats(); }, [reload, reloadCats]));
 
   const [showSearch, setShowSearch] = useState(false);
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
@@ -56,17 +62,17 @@ export default function ItemsTab() {
   }, [selectedItemIds, removeItem, clearSelection]);
 
   const renderItem = useCallback(({ item }: { item: Item }) => (
-    <View style={styles.cardWrapper}>
-      <ItemCard
-        item={item}
-        onPress={() => handlePress(item)}
-        onLongPress={() => handleLongPress(item.id)}
-        selected={selectedItemIds.has(item.id)}
-        selectionMode={isSelectionMode}
-        themeColor={themeColor}
-      />
-    </View>
-  ), [handlePress, handleLongPress, selectedItemIds, isSelectionMode, themeColor]);
+    <ItemCard
+      item={item}
+      onPress={() => handlePress(item)}
+      onLongPress={() => handleLongPress(item.id)}
+      selected={selectedItemIds.has(item.id)}
+      selectionMode={isSelectionMode}
+      themeColor={themeColor}
+      categoryName={item.categoryId ? catIdToName[item.categoryId] : undefined}
+      mode="list"
+    />
+  ), [handlePress, handleLongPress, selectedItemIds, isSelectionMode, themeColor, catIdToName]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -117,9 +123,7 @@ export default function ItemsTab() {
         <FlashList
           data={filtered}
           renderItem={renderItem}
-          numColumns={NUM_COLUMNS}
-keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
+          keyExtractor={item => item.id}
         />
       )}
 
@@ -155,8 +159,6 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', gap: 12 },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   headerBtnText: { fontSize: 14, color: '#fff' },
-  list: { padding: 10 },
-  cardWrapper: { flex: 1, margin: 5 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#bbb', fontSize: 14 },
   fab: {

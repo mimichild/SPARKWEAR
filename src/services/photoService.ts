@@ -55,8 +55,10 @@ export async function savePhoto(uri: string, profile: PhotoProfile): Promise<Pho
   const p = COMPRESSION_PROFILES[profile];
   const actions: ImageManipulator.Action[] = [];
 
-  if ('width' in p && p.width && 'height' in p && p.height) {
-    actions.push({ resize: { width: p.width, height: p.height } });
+  if ('width' in p && p.width) {
+    // width のみ指定（アスペクト比を維持）
+    // height も指定すると expo-image-manipulator が強制リサイズで引き伸ばすため
+    actions.push({ resize: { width: p.width } });
   } else if ('maxLongEdge' in p && p.maxLongEdge) {
     // Will resize proportionally in getResizeDimensions helper
     actions.push({ resize: { width: p.maxLongEdge } });

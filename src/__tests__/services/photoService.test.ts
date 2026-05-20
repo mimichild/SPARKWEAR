@@ -76,7 +76,7 @@ describe('photoService', () => {
       await savePhoto('/tmp/source.jpg', 'grid');
       expect(mockManipulator.manipulateAsync).toHaveBeenCalledWith(
         '/tmp/source.jpg',
-        expect.arrayContaining([{ resize: { width: 720, height: 960 } }]),
+        expect.arrayContaining([{ resize: { width: 720 } }]),
         expect.objectContaining({ compress: 0.76 })
       );
     });
@@ -85,7 +85,7 @@ describe('photoService', () => {
       await savePhoto('/tmp/source.jpg', 'thumb');
       expect(mockManipulator.manipulateAsync).toHaveBeenCalledWith(
         '/tmp/source.jpg',
-        expect.arrayContaining([{ resize: { width: 320, height: 427 } }]),
+        expect.arrayContaining([{ resize: { width: 320 } }]),
         expect.objectContaining({ compress: 0.66 })
       );
     });

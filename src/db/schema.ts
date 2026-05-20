@@ -72,8 +72,6 @@ CREATE TABLE IF NOT EXISTS items (
   deleted_at TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_items_deleted ON items(deleted_at);
-
 CREATE TABLE IF NOT EXISTS outfits (
   id TEXT PRIMARY KEY,
   date TEXT NOT NULL,

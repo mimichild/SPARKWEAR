@@ -20,6 +20,7 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
   if (current < 2) {
     // v1 → v2：items 加 deleted_at（暫存區功能）
     try { await db.runAsync('ALTER TABLE items ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
+    await db.runAsync('CREATE INDEX IF NOT EXISTS idx_items_deleted ON items(deleted_at)');
     await db.runAsync('PRAGMA user_version = 2');
   }
 }

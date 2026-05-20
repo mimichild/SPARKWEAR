@@ -2,9 +2,10 @@ import { useCallback, useMemo } from 'react';
 import { View, Image, Pressable, StyleSheet, Dimensions, Text } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useItems } from '../../../src/hooks/useItems';
 import { getPhotoUri } from '../../../src/services/photoService';
+import { useSettingsStore } from '../../../src/stores/settingsStore';
 import type { Item } from '../../../src/types';
 
 const COLUMNS = 3;
@@ -18,6 +19,8 @@ const MISSING_URI =
 
 export default function PhotosTab() {
   const router = useRouter();
+  const { themeColor } = useSettingsStore();
+  const insets = useSafeAreaInsets();
   const { items, loading, reload } = useItems();
 
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
@@ -41,9 +44,16 @@ export default function PhotosTab() {
     );
   }, [router]);
 
+  const header = (
+    <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
+      <Text style={styles.headerTitle}>照片</Text>
+    </View>
+  );
+
   if (!loading && photoItems.length === 0) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+        {header}
         <View style={styles.empty}>
           <Text style={styles.emptyText}>還沒有附照片的單品</Text>
         </View>
@@ -52,7 +62,8 @@ export default function PhotosTab() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+      {header}
       <FlashList
         data={photoItems}
         renderItem={renderItem}
@@ -66,6 +77,10 @@ export default function PhotosTab() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#faf9f7' },
+  header: {
+    paddingHorizontal: 16, paddingBottom: 12,
+  },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   cell: { width: CELL_SIZE, height: CELL_SIZE },
   photo: { width: '100%', height: '100%' },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },

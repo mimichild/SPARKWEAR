@@ -490,11 +490,11 @@ manifest.media.photos[].key    → "storage:photoId" 格式
 | **0** ✅ | 專案初始化、DB schema、常數、骨架路由、測試架構 | `src/db/`, `src/types/`, `src/constants/`, `scripts/` | `npm run regression` 全通過 |
 | **1** ✅ | 衣櫃核心：單品 CRUD + 照片系統 + 分類/來源/顏色管理 | `src/services/itemService.ts`, `src/services/photoService.ts`, `app/closet/item/` | 可新增含照片單品、重啟資料在 |
 | **2** ✅ | 穿搭紀錄：CRUD + 關聯單品 | `src/services/outfitService.ts`, `app/outfits/` | 可新增穿搭並關聯單品 |
-| **3** | 進階瀏覽：照片牆 + 分類詳情 + 排行(含C/P值) + 票選 | `app/closet/(tabs)/photos.tsx`, `ranking.tsx`, `src/hooks/useRanking.ts` | 照片牆效能達標，C/P值計算正確 |
-| **4** | 設定 & Pro：主題色/字體/Tab拖曳/VIP解鎖 | `app/settings/index.tsx`, `src/stores/settingsStore.ts` | 主題色重啟持續，Pro解鎖字體可選 |
-| **5** | 匯出/匯入：ZIP + 舊版相容 | `src/services/backupService.ts` | AC-04, AC-10 通過 |
-| **6** | iOS 驗證：跨平台測試 + 壓縮抽樣 | — | AC-03 通過 |
-| **7** | 打包發布：EAS Build + icon + splash | `app.json`, `eas.json` | APK/IPA 可安裝 |
+| **3** ✅ | 進階瀏覽：照片牆 + 分類詳情 + 排行(含C/P值) + 票選 | `app/closet/(tabs)/photos.tsx`, `ranking.tsx`, `src/hooks/useRanking.ts` | 照片牆效能達標，C/P值計算正確 |
+| **4** ✅ | 設定 & Pro：主題色/字體/Tab拖曳/VIP解鎖 | `app/settings/index.tsx`, `src/stores/settingsStore.ts` | 主題色重啟持續，Pro解鎖字體可選 |
+| **5** ✅ | 匯出/匯入：ZIP + 舊版相容 | `src/services/backupService.ts` | AC-04, AC-10 通過 |
+| **6** ✅ | iOS 驗證：跨平台測試 + 壓縮抽樣 | — | AC-03 通過 |
+| **7** ✅ | 打包發布：EAS Build + icon + splash | `app.json`, `eas.json` | APK/IPA 可安裝 |
 
 ---
 

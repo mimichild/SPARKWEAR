@@ -164,7 +164,7 @@ export default function OutfitsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000' },
+  safe: { flex: 1, backgroundColor: '#fff' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12,
@@ -185,9 +185,9 @@ const styles = StyleSheet.create({
     bottom: 1, left: 1, right: 1,
     paddingVertical: 4,
     paddingHorizontal: 4,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.75)',
   },
-  dateText: { fontSize: 10, color: '#fff', textAlign: 'center' },
+  dateText: { fontSize: 10, color: '#333', textAlign: 'center' },
   checkbox: {
     position: 'absolute', top: 7, right: 7, zIndex: 10,
     width: 22, height: 22, borderRadius: 11,

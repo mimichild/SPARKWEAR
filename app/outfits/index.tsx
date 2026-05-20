@@ -1,19 +1,25 @@
 import { useState, useCallback } from 'react';
-import {
-  View, Text, Pressable, StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, Image, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter, useFocusEffect, Link } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useOutfits, useFilteredOutfits } from '../../src/hooks/useOutfits';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import { useUIStore } from '../../src/stores/uiStore';
-import { OutfitCard } from '../../src/components/outfits/OutfitCard';
+import { getPhotoUri } from '../../src/services/photoService';
 import { SearchBar } from '../../src/components/shared/SearchBar';
 import { ConfirmDialog } from '../../src/components/ui/ConfirmDialog';
 import type { Outfit } from '../../src/types';
 
-const NUM_COLUMNS = 3;
+const COLUMNS   = 3;
+const CELL_W    = Math.floor(Dimensions.get('window').width / COLUMNS);
+const CELL_H    = Math.floor(CELL_W * 4 / 3);
+
+const MISSING_URI =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${CELL_W}" height="${CELL_H}"><rect width="100%" height="100%" fill="#e5e0d8"/></svg>`
+  );
 
 export default function OutfitsScreen() {
   const router = useRouter();
@@ -39,33 +45,41 @@ export default function OutfitsScreen() {
   }, [isSelectionMode, enterSelectionMode, toggleOutfitSelection]);
 
   const handlePress = useCallback((outfit: Outfit) => {
-    if (isSelectionMode) {
-      toggleOutfitSelection(outfit.id);
-    } else {
-      router.push(`/outfits/${outfit.id}`);
-    }
+    if (isSelectionMode) toggleOutfitSelection(outfit.id);
+    else router.push(`/outfits/${outfit.id}`);
   }, [isSelectionMode, toggleOutfitSelection, router]);
 
   const handleBulkDelete = useCallback(async () => {
-    for (const id of Array.from(selectedOutfitIds)) {
-      await removeOutfit(id);
-    }
+    for (const id of Array.from(selectedOutfitIds)) await removeOutfit(id);
     clearSelection();
     setBulkDeleteVisible(false);
   }, [selectedOutfitIds, removeOutfit, clearSelection]);
 
-  const renderItem = useCallback(({ item }: { item: Outfit }) => (
-    <View style={styles.cardWrapper}>
-      <OutfitCard
-        outfit={item}
+  const renderItem = useCallback(({ item }: { item: Outfit }) => {
+    const uri = item.photoIds.length > 0 ? getPhotoUri(item.photoIds[0]) : MISSING_URI;
+    const selected = selectedOutfitIds.has(item.id);
+    return (
+      <Pressable
+        style={styles.cell}
         onPress={() => handlePress(item)}
         onLongPress={() => handleLongPress(item.id)}
-        selected={selectedOutfitIds.has(item.id)}
-        selectionMode={isSelectionMode}
-        themeColor={themeColor}
-      />
-    </View>
-  ), [handlePress, handleLongPress, selectedOutfitIds, isSelectionMode, themeColor]);
+      >
+        <Image source={{ uri }} style={styles.photo} resizeMode="cover" />
+        {/* 日期遮罩 */}
+        <View style={styles.dateOverlay}>
+          <Text style={styles.dateText}>{item.date}</Text>
+        </View>
+        {/* 選取模式 checkbox */}
+        {isSelectionMode && (
+          <View style={[styles.checkbox, selected && { backgroundColor: themeColor, borderColor: themeColor }]}>
+            {selected && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+        )}
+        {/* 選取外框 */}
+        {selected && <View style={[styles.selectedBorder, { borderColor: themeColor }]} />}
+      </Pressable>
+    );
+  }, [handlePress, handleLongPress, selectedOutfitIds, isSelectionMode, themeColor]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -121,17 +135,19 @@ export default function OutfitsScreen() {
         <FlashList
           data={filtered}
           renderItem={renderItem}
-          numColumns={NUM_COLUMNS}
+          numColumns={COLUMNS}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* FAB */}
       {!isSelectionMode && (
-        <Link href="/outfits/form" style={[styles.fab, { backgroundColor: themeColor }]}>
+        <Pressable
+          onPress={() => router.push('/outfits/form')}
+          style={[styles.fab, { backgroundColor: themeColor }]}
+        >
           <Text style={styles.fabText}>+</Text>
-        </Link>
+        </Pressable>
       )}
 
       <ConfirmDialog
@@ -148,19 +164,43 @@ export default function OutfitsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#faf9f7' },
+  safe: { flex: 1, backgroundColor: '#000' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    paddingTop: 12,
+    paddingHorizontal: 16, paddingBottom: 12,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   headerActions: { flexDirection: 'row', gap: 12 },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   headerBtnText: { fontSize: 14, color: '#fff' },
-  list: { padding: 6 },
-  cardWrapper: { flex: 1, margin: 4 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  cell: {
+    width: CELL_W,
+    height: CELL_H,
+    padding: 1,
+  },
+  photo: { width: '100%', height: '100%' },
+  dateOverlay: {
+    position: 'absolute',
+    bottom: 1, left: 1, right: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  dateText: { fontSize: 10, color: '#fff', textAlign: 'center' },
+  checkbox: {
+    position: 'absolute', top: 7, right: 7, zIndex: 10,
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkmark: { fontSize: 12, color: '#fff', fontWeight: '700' },
+  selectedBorder: {
+    position: 'absolute', top: 1, left: 1, right: 1, bottom: 1,
+    borderWidth: 2,
+  },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#faf9f7' },
   emptyText: { color: '#bbb', fontSize: 14, textAlign: 'center', paddingHorizontal: 32 },
   fab: {
     position: 'absolute', right: 20, bottom: 24, width: 56, height: 56,
@@ -168,5 +208,8 @@ const styles = StyleSheet.create({
     elevation: 4, shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
   },
-  fabText: { fontSize: 28, color: '#fff', lineHeight: 32 },
+  fabText: {
+    fontSize: 36, color: '#fff', fontWeight: '100',
+    lineHeight: 36, includeFontPadding: false, textAlignVertical: 'center',
+  },
 });

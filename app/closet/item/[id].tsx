@@ -1,20 +1,15 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, FlatList, Image } from 'react-native';
+import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import { getItemById, deleteItem, incrementUsageCount } from '../../../src/services/itemService';
 import { getCategories, getOrigins, getColors } from '../../../src/services/categoryService';
-import { getPhotoUri, deletePhotos } from '../../../src/services/photoService';
+import { deletePhotos } from '../../../src/services/photoService';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
 import type { Item, Category, Origin, Color, Photo } from '../../../src/types';
-
-const MISSING_URI =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="100%" height="100%" fill="#e5e0d8"/></svg>'
-  );
 
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,7 +69,6 @@ export default function ItemDetailScreen() {
     .filter(Boolean)
     .join('、');
   const photos = item.photoIds;
-  const coverUri = photos.length > 0 ? getPhotoUri(photos[0]) : MISSING_URI;
 
   const detailsData = [
     { label: '品牌',    value: item.brand,                                    visible: !!item.brand },
@@ -131,18 +125,17 @@ export default function ItemDetailScreen() {
         data={detailsData}
         keyExtractor={(_item, index) => index.toString()}
         ListHeaderComponent={() => (
-          <View style={styles.itemCard}>
-            <View style={styles.itemInfo}>
+          <>
+            {/* 全寬 3:4 照片輪播 */}
+            <PhotoCarousel photoPaths={photos} accentColor={themeColor} />
+
+            {/* 單品標題卡 */}
+            <View style={styles.itemCard}>
               {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
-              <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.itemName}>{item.name}</Text>
               {catName && <Text style={styles.itemCategory}>{catName}</Text>}
             </View>
-            <Image
-              source={{ uri: coverUri }}
-              style={styles.itemPhoto}
-              resizeMode="cover"
-            />
-          </View>
+          </>
         )}
         renderItem={({ item: detail }) => (
           <View style={styles.row}>
@@ -221,11 +214,9 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'flex-start',
   },
-  itemInfo: { flex: 1, justifyContent: 'center' },
   itemBrand: { fontSize: 14, fontWeight: '700', color: '#222', marginBottom: 4 },
   itemName: { fontSize: 15, color: '#222', marginBottom: 6 },
   itemCategory: { fontSize: 12, color: '#aaa' },
-  itemPhoto: { width: 80, height: 100, borderRadius: 8, backgroundColor: '#e5e0d8' },
 
   row: {
     flexDirection: 'row',

@@ -184,6 +184,7 @@ const styles = StyleSheet.create({
   },
   fabText: {
     fontSize: 36, color: '#fff', fontWeight: '100',
+    fontFamily: 'sans-serif',
     lineHeight: 36, includeFontPadding: false, textAlignVertical: 'center',
   },
 });

@@ -4,7 +4,7 @@ import {
   Dimensions, FlatList,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { useLocalSearchParams, useRouter, useFocusEffect, Link } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
@@ -198,12 +198,6 @@ export default function CategoryDetailScreen() {
         />
       )}
 
-      {/* FAB 新增 */}
-      {!isSelectionMode && (
-        <Link href="/closet/item/form" style={[styles.fab, { backgroundColor: themeColor }]}>
-          <Text style={styles.fabText}>+</Text>
-        </Link>
-      )}
 
       {isSelectionMode && (
         <BatchActionBar
@@ -276,14 +270,4 @@ const styles = StyleSheet.create({
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#bbb', fontSize: 14 },
-
-  // FAB
-  fab: {
-    position: 'absolute', right: 20, bottom: 24,
-    width: 56, height: 56, borderRadius: 28,
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 4, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
-  },
-  fabText: { fontSize: 28, color: '#fff', lineHeight: 32 },
 });

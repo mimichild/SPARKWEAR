@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
-import JSZip from 'jszip';
-import { Unzip, UnzipInflate, strFromU8 } from 'fflate';
+import { Zip, ZipPassThrough, strToU8, Unzip, UnzipInflate, strFromU8 } from 'fflate';
+import { File as ExpoFile } from 'expo-file-system';
+import { saveFileToDownloads } from './downloadsService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
@@ -148,57 +149,82 @@ export async function exportBackup(
   db: SQLiteDatabase,
   saveToDevice: boolean,
   onProgress?: (stage: string, current: number, total: number) => void
-): Promise<boolean> {  // returns false if user cancelled (e.g. SAF picker dismissed)
+): Promise<boolean> {
   if (Platform.OS === 'web') throw new Error('Export is not supported on web');
 
   onProgress?.('reading', 0, 1);
-  const items        = await getItems(db);
-  const outfits      = await getOutfits(db);
-  const categories   = await getCategories(db);
-  const origins      = await getOrigins(db);
-  const colors       = await getColors(db);
+  const items         = await getItems(db);
+  const outfits       = await getOutfits(db);
+  const categories    = await getCategories(db);
+  const origins       = await getOrigins(db);
+  const colors        = await getColors(db);
   const voteCountsMap = await getAllVoteCounts(db);
 
-  const zip = new JSZip();
-  const photoFolder = zip.folder('photos')!;
-
-  // Collect unique photo paths from items + outfits
+  // Collect unique photo paths
   const allPaths = new Set<string>();
   items.forEach(i => i.photoIds.forEach(p => allPaths.add(p)));
   outfits.forEach(o => o.photoIds.forEach(p => allPaths.add(p)));
+  const pathsArr = Array.from(allPaths);
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const zipFilename = `sparkwear_${timestamp}.zip`;
+  const zipPath = `${FileSystem.cacheDirectory}${zipFilename}`;
+
+  // ── 串流建立 ZIP（fflate Zip + FileHandle）────────────────────
+  // 一次只處理一張照片，ZIP 資料邊產生邊寫入磁碟，不累積於記憶體
+  const zipFile = new ExpoFile(zipPath);
+  zipFile.write(new Uint8Array(0)); // 建立空檔案
+  const handle = zipFile.open();
+
+  let zipError: Error | null = null;
+  const fzip = new Zip((err, data, _final) => {
+    if (err) { zipError = err instanceof Error ? err : new Error(String(err)); return; }
+    if (data.length > 0) handle.writeBytes(data);
+  });
 
   const pathToRelative: Record<string, string> = {};
   const mediaPhotos: BackupPhotoEntry[] = [];
-  const pathsArr = Array.from(allPaths);
   let packed = 0;
 
   for (const path of pathsArr) {
-    const filename = photoFilenameFromPath(path);
-    const normalizedPath = path.startsWith('file://') ? path.slice(7) : path;
+    if (zipError) break;
+    const photoFilename = photoFilenameFromPath(path);
+    const fileUri = path.startsWith('file://') ? path : `file://${path}`;
     try {
-      const info = await FileSystem.getInfoAsync(normalizedPath);
+      const info = await FileSystem.getInfoAsync(fileUri);
       if (info.exists) {
-        const base64 = await FileSystem.readAsStringAsync(normalizedPath, {
+        const b64 = await FileSystem.readAsStringAsync(fileUri, {
           encoding: FileSystem.EncodingType.Base64,
         });
-        photoFolder.file(filename, base64, { base64: true });
-        const rel = `photos/${filename}`;
+        // base64 → Uint8Array（每次只佔一張照片的記憶體，處理完即釋放）
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        // 不壓縮（JPEG 已壓縮），直接存入 ZIP → 立即寫入磁碟
+        const entry = new ZipPassThrough(`photos/${photoFilename}`);
+        fzip.add(entry);
+        entry.push(bytes, true);
+
+        const rel = `photos/${photoFilename}`;
         pathToRelative[path] = rel;
         mediaPhotos.push({
-          id: filename.replace(/\.[^.]+$/, ''),
+          id: photoFilename.replace(/\.[^.]+$/, ''),
           profile: 'detail',
           mimeType: 'image/jpeg',
           file: rel,
         });
       }
     } catch {
-      // Skip unreadable files — note as missing
+      // skip unreadable files
     }
     packed++;
     onProgress?.('packing', packed, pathsArr.length);
   }
 
-  // Convert absolute paths → relative in exported records
+  if (zipError) { handle.close(); throw zipError; }
+
+  // Build manifest using the relative path map
   const exportItems: Item[] = items.map(item => ({
     ...item,
     photoIds: item.photoIds.map(p => pathToRelative[p] ?? p),
@@ -207,66 +233,47 @@ export async function exportBackup(
     ...outfit,
     photoIds: outfit.photoIds.map(p => pathToRelative[p] ?? p),
   }));
-
   const voteCounts: VoteCount[] = Object.entries(voteCountsMap).map(
     ([itemId, count]) => ({ itemId, count })
   );
-
   const manifest: BackupManifest = {
     app: 'SPARKWEAR',
     version: 5,
     exportedAt: new Date().toISOString(),
     data: {
-      items: exportItems,
-      outfits: exportOutfits,
-      categories,
-      origins,
-      colors,
-      voteCounts,
-      settings: {},
+      items: exportItems, outfits: exportOutfits,
+      categories, origins, colors, voteCounts, settings: {},
     },
     media: { photos: mediaPhotos },
   };
 
-  zip.file('manifest.json', JSON.stringify(manifest));
+  // Add manifest.json
+  const manifestEntry = new ZipPassThrough('manifest.json');
+  fzip.add(manifestEntry);
+  manifestEntry.push(strToU8(JSON.stringify(manifest)), true);
+
+  // Finalize ZIP (writes central directory to disk)
+  fzip.end();
+  handle.close();
+
+  if (zipError) throw zipError;
 
   onProgress?.('saving', 0, 1);
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `sparkwear_${timestamp}.zip`;
-  const zipPath = `${FileSystem.cacheDirectory}${filename}`;
-
-  // 壓縮 ZIP，使用 onUpdate 回報進度
-  const base64 = await zip.generateAsync(
-    { type: 'base64' },
-    (meta) => onProgress?.('compressing', meta.percent, 100)
-  );
-  await FileSystem.writeAsStringAsync(zipPath, base64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
 
   if (saveToDevice && Platform.OS === 'android') {
-    // Android：讓使用者選擇資料夾，直接寫入手機（不經分享選單）
-    const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (!perm.granted) return false; // 使用者取消資料夾選擇
-    onProgress?.('saving', 0, 1);
-    const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
-      perm.directoryUri,
-      filename,
-      'application/zip'
-    );
-    await FileSystem.writeAsStringAsync(destUri, base64, {
-      encoding: FileSystem.EncodingType.Base64,
+    // MediaStore.Downloads：直接存到手機下載資料夾，不需任何權限
+    await saveFileToDownloads(zipPath, zipFilename);
+    onProgress?.('done', 1, 1);
+    return true;
+  }
+
+  // iOS 或 Android 分享模式
+  const available = await Sharing.isAvailableAsync();
+  if (available) {
+    await Sharing.shareAsync(zipPath, {
+      mimeType: 'application/zip',
+      dialogTitle: 'SPARKWEAR 備份',
     });
-  } else {
-    // iOS 或選擇分享：開啟系統分享選單（iOS 可選「儲存至檔案」）
-    onProgress?.('saving', 0, 1);
-    const available = await Sharing.isAvailableAsync();
-    if (available) {
-      await Sharing.shareAsync(zipPath, {
-        mimeType: 'application/zip',
-        dialogTitle: 'SPARKWEAR 備份',
-      });
-    }
   }
 
   onProgress?.('done', 1, 1);

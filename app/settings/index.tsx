@@ -143,12 +143,9 @@ export default function SettingsScreen() {
           setExportMsg('讀取資料中…');
           setExportProgress(undefined);
         } else if (stage === 'packing') {
-          const pct = total > 0 ? (current / total) * 0.6 : 0;
+          const pct = total > 0 ? (current / total) * 0.9 : 0;
           setExportMsg(`打包照片 ${current} / ${total}`);
           setExportProgress(pct);
-        } else if (stage === 'compressing') {
-          setExportMsg('壓縮中…');
-          setExportProgress(0.6 + (current / 100) * 0.3);
         } else if (stage === 'saving') {
           setExportMsg('寫入檔案中…');
           setExportProgress(0.95);
@@ -167,8 +164,8 @@ export default function SettingsScreen() {
       setExporting(false);
     }
 
-    if (completed && saveToDevice) {
-      Alert.alert('匯出完成', '備份已儲存至手機');
+    if (completed && saveToDevice && Platform.OS === 'android') {
+      Alert.alert('匯出完成', '備份已儲存至手機「下載」資料夾。\n\n可在「下載管理員」或檔案管理 App 的下載項目中找到。');
     }
   }, [db]);
 
@@ -186,7 +183,7 @@ export default function SettingsScreen() {
     } else {
       Alert.alert(
         '匯出備份',
-        '將所有單品、穿搭與照片打包成 ZIP 檔案。\n\n完成後會開啟分享視窗，選擇「儲存至檔案」即可存至手機。',
+        '將所有單品、穿搭與照片打包成 ZIP 檔案。\n\n完成後開啟分享視窗，選擇「儲存至檔案」即可存至手機。',
         [
           { text: '取消', style: 'cancel' },
           { text: '確認匯出', onPress: () => doExport(false) },

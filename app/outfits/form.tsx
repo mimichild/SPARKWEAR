@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, Alert, FlatList,
+  StyleSheet, Alert, FlatList, Image, Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -9,14 +9,26 @@ import { useSQLiteContext } from '../../src/db/context';
 import { saveOutfit, updateOutfit, getOutfitById } from '../../src/services/outfitService';
 import { getItems, filterItems } from '../../src/services/itemService';
 import { getCategories } from '../../src/services/categoryService';
-import { pickImages, savePhotos, deletePhotos } from '../../src/services/photoService';
+import { pickImages, savePhotos, deletePhotos, getPhotoUri } from '../../src/services/photoService';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import { SearchBar } from '../../src/components/shared/SearchBar';
+import { PhotoEditorModal, type EditablePhoto } from '../../src/components/items/PhotoEditorModal';
 import type { Outfit, Item, Photo, Category } from '../../src/types';
 import { PHOTO_MAX_FREE, PHOTO_MAX_PRO } from '../../src/constants/defaults';
 
 const TODAY = new Date().toISOString().slice(0, 10);
+
+// 單品照片格：3 欄，扣掉 section 左右 padding(14*2) + margin(12*2) + 2 個 gap(6*2)
+const SCREEN_W = Dimensions.get('window').width;
+const ITEM_CELL_W = Math.floor((SCREEN_W - 28 - 24 - 12) / 3);
+const ITEM_CELL_H = Math.floor(ITEM_CELL_W * 4 / 3);
+
+const MISSING_URI =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="100%" height="100%" fill="#e5e0d8"/></svg>`
+  );
 
 export default function OutfitFormScreen() {
   const router = useRouter();
@@ -47,6 +59,11 @@ export default function OutfitFormScreen() {
 
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  // Photo editor
+  const [editorPhotos, setEditorPhotos] = useState<EditablePhoto[]>([]);
+  const [editorVisible, setEditorVisible] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
 
   useEffect(() => {
     Promise.all([getItems(db), getCategories(db)]).then(([items, cats]) => {
@@ -94,15 +111,16 @@ export default function OutfitFormScreen() {
     }
     const picked = await pickImages(remaining);
     if (!picked.length) return;
+    setEditorPhotos(picked.map(p => ({ uri: p.uri, width: p.width, height: p.height })));
+    setEditorVisible(true);
+  }, [photos, removedPhotoIds, photoLimit]);
 
+  const handleEditorComplete = useCallback(async (editedUris: string[]) => {
+    setEditorVisible(false);
     setSaving(true);
     setProgress(0);
     try {
-      const newPhotos = await savePhotos(
-        picked.map(p => p.uri),
-        'grid',
-        (done, total) => setProgress(done / total)
-      );
+      const newPhotos = await savePhotos(editedUris, 'grid', (done, total) => setProgress(done / total));
       setPhotos(prev => [...prev, ...newPhotos]);
     } catch (e) {
       Alert.alert('照片上傳失敗', e instanceof Error ? e.message : '請確認儲存空間是否足夠');
@@ -110,7 +128,11 @@ export default function OutfitFormScreen() {
       setSaving(false);
       setProgress(0);
     }
-  }, [photos, removedPhotoIds, photoLimit]);
+  }, []);
+
+  const handleRemovePhoto = useCallback((photoId: string) => {
+    setRemovedPhotoIds(prev => new Set([...prev, photoId]));
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!date) {
@@ -210,24 +232,68 @@ export default function OutfitFormScreen() {
 
         {/* 照片 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>穿搭照片（最多 {photoLimit} 張）</Text>
-          <View style={styles.photoRow}>
-            {visiblePhotos.map(p => (
-              <Pressable
-                key={p.id}
-                style={styles.photoThumb}
-                onLongPress={() => setRemovedPhotoIds(prev => new Set([...prev, p.id]))}
-              >
-                <Text style={styles.photoEmoji}>📷</Text>
+          <View style={styles.photoHeader}>
+            <Text style={styles.sectionTitle}>穿搭照片（第一張為首圖，最多 {photoLimit} 張）</Text>
+            {visiblePhotos.length > 1 && (
+              <Pressable onPress={() => setReorderMode(r => !r)}>
+                <Text style={[styles.reorderToggle, { color: themeColor }]}>
+                  {reorderMode ? '完成排序' : '調整順序'}
+                </Text>
               </Pressable>
+            )}
+          </View>
+
+          <View style={styles.photoRow}>
+            {visiblePhotos.map((p, idx) => (
+              <View key={p.id} style={styles.photoThumbWrap}>
+                <Pressable
+                  style={styles.photoThumb}
+                  onLongPress={() => !reorderMode && handleRemovePhoto(p.id)}
+                >
+                  <Image source={{ uri: getPhotoUri(p.path) }} style={styles.photoImg} resizeMode="cover" />
+                  {idx === 0 && (
+                    <View style={[styles.coverBadge, { backgroundColor: themeColor }]}>
+                      <Text style={styles.coverBadgeTxt}>首圖</Text>
+                    </View>
+                  )}
+                </Pressable>
+
+                {reorderMode && (
+                  <View style={styles.reorderBtns}>
+                    <Pressable
+                      disabled={idx === 0}
+                      onPress={() => {
+                        const all = [...photos];
+                        const ai = all.indexOf(p);
+                        if (ai > 0) { [all[ai - 1], all[ai]] = [all[ai], all[ai - 1]]; setPhotos(all); }
+                      }}
+                    >
+                      <Text style={[styles.reorderArrow, idx === 0 && { color: '#ccc' }]}>←</Text>
+                    </Pressable>
+                    <Pressable
+                      disabled={idx === visiblePhotos.length - 1}
+                      onPress={() => {
+                        const all = [...photos];
+                        const ai = all.indexOf(p);
+                        if (ai < all.length - 1) { [all[ai], all[ai + 1]] = [all[ai + 1], all[ai]]; setPhotos(all); }
+                      }}
+                    >
+                      <Text style={[styles.reorderArrow, idx === visiblePhotos.length - 1 && { color: '#ccc' }]}>→</Text>
+                    </Pressable>
+                    <Pressable onPress={() => handleRemovePhoto(p.id)}>
+                      <Text style={styles.reorderDel}>✕</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
             ))}
-            {visiblePhotos.length < photoLimit && (
+            {visiblePhotos.length < photoLimit && !reorderMode && (
               <Pressable style={[styles.addPhotoBtn, { borderColor: themeColor }]} onPress={handlePickPhotos}>
                 <Text style={[styles.addPhotoText, { color: themeColor }]}>+</Text>
               </Pressable>
             )}
           </View>
-          {visiblePhotos.length > 0 && (
+          {visiblePhotos.length > 0 && !reorderMode && (
             <Text style={styles.hint}>長按照片可刪除</Text>
           )}
         </View>
@@ -235,7 +301,7 @@ export default function OutfitFormScreen() {
         {/* 搭配單品選取 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            搭配單品（已選 {selectedItemIds.size} 件）
+            搭配單品{selectedItemIds.size > 0 ? `（已選 ${selectedItemIds.size} 件）` : ''}
           </Text>
 
           <SearchBar
@@ -265,34 +331,63 @@ export default function OutfitFormScreen() {
             ))}
           </ScrollView>
 
-          {/* 單品列表 */}
+          {/* 已選單品預覽列 */}
+          {selectedItemIds.size > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedRow}>
+              {allItems.filter(i => selectedItemIds.has(i.id)).map(item => {
+                const uri = item.photoIds[0] ? getPhotoUri(item.photoIds[0]) : MISSING_URI;
+                return (
+                  <Pressable key={item.id} onPress={() => toggleItem(item.id)} style={styles.selectedThumbWrap}>
+                    <Image source={{ uri }} style={styles.selectedThumb} resizeMode="cover" />
+                    <View style={[styles.selectedThumbBadge, { backgroundColor: themeColor }]}>
+                      <Text style={styles.selectedThumbX}>✕</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {/* 單品照片格 */}
           {filteredItems.length === 0 ? (
             <Text style={styles.emptyText}>找不到符合的單品</Text>
           ) : (
-            filteredItems.map(item => {
-              const checked = selectedItemIds.has(item.id);
-              return (
-                <Pressable
-                  key={item.id}
-                  style={[styles.itemRow, checked && { backgroundColor: `${themeColor}18` }]}
-                  onPress={() => toggleItem(item.id)}
-                >
-                  <View style={[styles.itemCheckbox, checked && { backgroundColor: themeColor, borderColor: themeColor }]}>
-                    {checked && <Text style={styles.itemCheck}>✓</Text>}
-                  </View>
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
-                    {item.categoryId && <Text style={styles.itemCat}>{catName(item.categoryId)}</Text>}
-                  </View>
-                </Pressable>
-              );
-            })
+            <View style={styles.itemGrid}>
+              {filteredItems.map(item => {
+                const checked = selectedItemIds.has(item.id);
+                const uri = item.photoIds[0] ? getPhotoUri(item.photoIds[0]) : MISSING_URI;
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.itemCell, checked && { borderColor: themeColor, borderWidth: 2 }]}
+                    onPress={() => toggleItem(item.id)}
+                  >
+                    <Image source={{ uri }} style={styles.itemCellPhoto} resizeMode="cover" />
+                    {checked && (
+                      <View style={[styles.itemCheckOverlay, { backgroundColor: themeColor }]}>
+                        <Text style={styles.itemCheckMark}>✓</Text>
+                      </View>
+                    )}
+                    <Text style={styles.itemCellName} numberOfLines={1}>
+                      {item.brand ? `${item.brand} ` : ''}{item.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           )}
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <PhotoEditorModal
+        photos={editorPhotos}
+        visible={editorVisible}
+        themeColor={themeColor}
+        onComplete={handleEditorComplete}
+        onCancel={() => setEditorVisible(false)}
+      />
 
       <ProgressOverlay
         visible={saving}
@@ -338,19 +433,27 @@ const styles = StyleSheet.create({
   textarea: { height: 72, paddingTop: 8, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 8 },
   flex1: { flex: 1 },
+  photoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reorderToggle: { fontSize: 13, fontWeight: '500' },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  photoThumb: {
-    width: 72, height: 96, borderRadius: 8, backgroundColor: '#eee',
-    alignItems: 'center', justifyContent: 'center',
+  photoThumbWrap: { alignItems: 'center' },
+  photoThumb: { width: 72, height: 96, borderRadius: 8, overflow: 'hidden', backgroundColor: '#eee' },
+  photoImg: { width: '100%', height: '100%' },
+  coverBadge: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    alignItems: 'center', paddingVertical: 2,
   },
-  photoEmoji: { fontSize: 24 },
+  coverBadgeTxt: { color: '#fff', fontSize: 10, fontWeight: '600' },
+  reorderBtns: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  reorderArrow: { fontSize: 16, color: '#555' },
+  reorderDel: { fontSize: 14, color: '#e57373' },
   addPhotoBtn: {
     width: 72, height: 96, borderRadius: 8,
     borderWidth: 2, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
   },
   addPhotoText: { fontSize: 32, fontWeight: '300' },
-  hint: { fontSize: 11, color: '#bbb' },
+  hint: { fontSize: 11, color: '#bbb', marginTop: 4 },
   catScroll: { marginBottom: 4 },
   catChip: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
@@ -359,19 +462,34 @@ const styles = StyleSheet.create({
   },
   catChipText: { fontSize: 12, color: '#555' },
   emptyText: { color: '#ccc', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
-  itemRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 8, paddingHorizontal: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0f0f0',
-  },
-  itemCheckbox: {
-    width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: '#ccc', backgroundColor: '#fff',
+
+  // 已選預覽列
+  selectedRow: { marginBottom: 4 },
+  selectedThumbWrap: { marginRight: 8, position: 'relative' },
+  selectedThumb: { width: 44, height: 58, borderRadius: 6, backgroundColor: '#e5e0d8' },
+  selectedThumbBadge: {
+    position: 'absolute', top: -4, right: -4,
+    width: 16, height: 16, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
   },
-  itemCheck: { fontSize: 12, color: '#fff', fontWeight: '700' },
-  itemInfo: { flex: 1 },
-  itemName: { fontSize: 14, color: '#333' },
-  itemBrand: { fontSize: 12, color: '#888', marginTop: 1 },
-  itemCat: { fontSize: 11, color: '#bbb', marginTop: 1 },
+  selectedThumbX: { color: '#fff', fontSize: 9, fontWeight: '700' },
+
+  // 照片格
+  itemGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  itemCell: {
+    width: ITEM_CELL_W, borderRadius: 8, overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1, borderColor: '#e8e4de',
+  },
+  itemCellPhoto: { width: ITEM_CELL_W, height: ITEM_CELL_H },
+  itemCheckOverlay: {
+    position: 'absolute', top: 5, right: 5,
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  itemCheckMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  itemCellName: {
+    fontSize: 10, color: '#444', paddingHorizontal: 4, paddingVertical: 3,
+    textAlign: 'center',
+  },
 });

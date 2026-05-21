@@ -27,6 +27,7 @@ export default function ItemDetailScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [origins, setOrigins] = useState<Origin[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
+  const [colorNames, setColorNames] = useState('');
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [itemOutfits, setItemOutfits] = useState<Outfit[]>([]);
   const [outfitPage, setOutfitPage] = useState(0);
@@ -39,14 +40,26 @@ export default function ItemDetailScreen() {
       getOrigins(db),
       getColors(db),
       getOutfitsByItemId(db, id),
-    ]).then(([item, cats, origs, cols, outfits]) => {
-      setItem(item);
+    ]).then(([loadedItem, cats, origs, cols, outfits]) => {
+      setItem(loadedItem);
       setCategories(cats);
       setOrigins(origs);
       setColors(cols);
       setItemOutfits(outfits);
     });
   }, [id, db]);
+
+  // 顏色名稱：直接用 item.colorIds 查 DB，不依賴 colors 狀態的時序
+  useEffect(() => {
+    if (!item || item.colorIds.length === 0) { setColorNames(''); return; }
+    const placeholders = item.colorIds.map(() => '?').join(',');
+    db.getAllAsync<{ name: string }>(
+      `SELECT name FROM colors WHERE id IN (${placeholders})`,
+      item.colorIds
+    ).then(rows => {
+      setColorNames(rows.map(r => r.name).join('、'));
+    }).catch(() => setColorNames(''));
+  }, [item, db]);
 
   const handleDelete = async () => {
     if (!item) return;
@@ -66,14 +79,10 @@ export default function ItemDetailScreen() {
 
   const catName = categories.find(c => c.id === item.categoryId)?.name ?? '';
   const originName = origins.find(o => o.id === item.originId)?.name ?? '';
-  const colorNames = item.colorIds
-    .map(cid => colors.find(c => c.id === cid)?.name)
-    .filter(Boolean)
-    .join('、');
   const photos = item.photoIds;
 
   const detailsData = [
-    { label: '品牌',    value: item.brand,                                    visible: !!item.brand },
+    { label: '品牌',    value: item.brand,                                    visible: false },
     { label: '購買日期', value: item.purchaseDate,                              visible: !!item.purchaseDate },
     { label: '分類',    value: catName,                                        visible: !!catName },
     { label: '來源',    value: originName,                                     visible: !!originName },
@@ -129,9 +138,9 @@ export default function ItemDetailScreen() {
 
         {/* 單品標題卡 */}
         <View style={styles.itemCard}>
-          {item.brand && <Text style={styles.itemBrand}>{item.brand}</Text>}
-          <Text style={styles.itemName}>{item.name}</Text>
-          {catName && <Text style={styles.itemCategory}>{catName}</Text>}
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {item.brand ? `${item.brand}　${item.name}` : item.name}
+          </Text>
         </View>
 
         {detailsData.map((detail, index) => (
@@ -266,17 +275,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
 
   itemCard: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
-    margin: 12,
-    padding: 12,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
-    gap: 12,
-    alignItems: 'flex-start',
   },
-  itemBrand: { fontSize: 14, fontWeight: '700', color: '#222', marginBottom: 4 },
-  itemName: { fontSize: 15, color: '#222', marginBottom: 6 },
-  itemCategory: { fontSize: 12, color: '#aaa' },
+  itemTitle: { fontSize: 15, fontWeight: '600', color: '#222' },
+  colorChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  colorChip: {
+    paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: 12, borderWidth: 1, borderColor: '#ddd',
+    backgroundColor: '#f5f3f0',
+  },
+  colorChipText: { fontSize: 12, color: '#555' },
 
   row: {
     flexDirection: 'row',

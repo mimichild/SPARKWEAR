@@ -293,7 +293,21 @@ export async function importBackupFromPicker(
   });
 
   if (picked.canceled || !picked.assets?.[0]) return null;
-  return importBackupFromUri(db, picked.assets[0].uri, mode, onProgress);
+
+  let uri = picked.assets[0].uri;
+
+  // streamExtractZip 的分塊讀取（position/length）只對 file:// 有效。
+  // 若 DocumentPicker 仍回傳 content:// URI（大檔案 copyToCacheDirectory 失敗時），
+  // 先手動 copy 到 cache 再讀取。
+  if (!uri.startsWith('file://') && !uri.startsWith('/')) {
+    // 顯示「複製中」讓使用者知道 30 秒等待是正常的
+    onProgress?.('copying', 0, 1);
+    const localPath = `${FileSystem.cacheDirectory}sparkwear_import_${Date.now()}.zip`;
+    await FileSystem.copyAsync({ from: uri, to: localPath });
+    uri = localPath;
+  }
+
+  return importBackupFromUri(db, uri, mode, onProgress);
 }
 
 export async function importBackupFromUri(
@@ -407,6 +421,7 @@ async function streamExtractZip(
   let manifestText: string | null = null;
   const relToAbs: Record<string, string> = {};
   let savedPhotoCount = 0;
+  let totalPhotosEncountered = 0; // 每發現一張照片就 +1，作為進度分母
   let missingPhotoCount = 0;
   let pendingWrites = 0;
   let streamDone = false;
@@ -452,6 +467,7 @@ async function streamExtractZip(
       const destPath = `${PHOTOS_DIR}${filename}`;
       const chunks: Uint8Array[] = [];
       pendingWrites++;
+      totalPhotosEncountered++; // 發現照片時立刻計入分母
 
       file.ondata = (err, dat, final) => {
         if (err) { missingPhotoCount++; pendingWrites--; tryResolve(); return; }
@@ -467,11 +483,18 @@ async function streamExtractZip(
             relToAbs[file.name] = destPath;
             savedPhotoCount++;
             pendingWrites--;
-            onProgress?.('importing', savedPhotoCount, savedPhotoCount + pendingWrites);
+            // ZIP 讀完後 totalPhotosEncountered 才穩定，才開始報告進度
+            // 讀取期間不呼叫，避免分母是中間值（如 765 而非最終 2455）
+            if (streamDone) {
+              onProgress?.('importing', savedPhotoCount, totalPhotosEncountered);
+            }
             tryResolve();
           }).catch(() => {
             missingPhotoCount++;
             pendingWrites--;
+            if (streamDone) {
+              onProgress?.('importing', savedPhotoCount, totalPhotosEncountered);
+            }
             tryResolve();
           });
         }
@@ -514,6 +537,10 @@ async function streamExtractZip(
   }
 
   streamDone = true;
+  // ZIP 讀完，totalPhotosEncountered 現在穩定，發出初始進度讓 UI 切換
+  if (totalPhotosEncountered > 0) {
+    onProgress?.('importing', savedPhotoCount, totalPhotosEncountered);
+  }
   tryResolve();
 
   return resultPromise;
@@ -689,7 +716,15 @@ async function insertItems(
     : new Set<string>();
   let count = 0;
   for (const item of items) {
-    if (mode === 'merge' && existing.has(item.id)) continue;
+    if (mode === 'merge' && existing.has(item.id)) {
+      // 合併模式：保留現有單品的其他資料，但以備份值還原 usage_count
+      // （修復之前 bug 造成的數值膨脹）
+      await db.runAsync(
+        'UPDATE items SET usage_count = ? WHERE id = ?',
+        [item.usageCount, item.id]
+      );
+      continue;
+    }
     await db.runAsync(
       `INSERT OR IGNORE INTO items (
         id, brand, name, purchase_date, purchase_time,
@@ -768,17 +803,12 @@ async function insertVoteCounts(
 
   for (const vc of voteCounts) {
     if (!validIds.has(vc.itemId)) continue;
-    if (mode === 'merge') {
-      await db.runAsync(
-        `INSERT INTO vote_counts (item_id, count) VALUES (?, ?)
-         ON CONFLICT(item_id) DO UPDATE SET count = count + excluded.count`,
-        [vc.itemId, vc.count]
-      );
-    } else {
-      await db.runAsync(
-        'INSERT OR REPLACE INTO vote_counts (item_id, count) VALUES (?, ?)',
-        [vc.itemId, vc.count]
-      );
-    }
+    // merge 與 overwrite 都用 INSERT OR REPLACE：
+    // 備份裡有的項目 → 以備份正確值覆蓋（修復舊版疊加造成的膨脹）
+    // 備份裡沒有的項目 → 不觸碰（DB 裡的值保留）
+    await db.runAsync(
+      'INSERT OR REPLACE INTO vote_counts (item_id, count) VALUES (?, ?)',
+      [vc.itemId, vc.count]
+    );
   }
 }

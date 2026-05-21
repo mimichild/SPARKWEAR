@@ -49,6 +49,7 @@ export default function SettingsScreen() {
     count: 0, totalBytes: 0,
   });
   const [cleaning, setCleaning] = useState(false);
+  const [resettingVotes, setResettingVotes] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
@@ -56,6 +57,10 @@ export default function SettingsScreen() {
   // 匯出進度 overlay
   const [exportOverlayVisible, setExportOverlayVisible] = useState(false);
   const [exportProgress, setExportProgress] = useState<number | undefined>(undefined);
+
+  // 匯入進度 overlay
+  const [importOverlayVisible, setImportOverlayVisible] = useState(false);
+  const [importOverlayProgress, setImportOverlayProgress] = useState<number | undefined>(undefined);
   const [exportMsg, setExportMsg] = useState('');
 
   const loadStorage = useCallback(async () => {
@@ -112,6 +117,31 @@ export default function SettingsScreen() {
     }
     await setEnabledTabs(toggleTab(sanitizedEnabledTabs, tab));
   }, [sanitizedEnabledTabs, setEnabledTabs]);
+
+  const handleResetVotes = useCallback(() => {
+    Alert.alert(
+      '重置排行票選數',
+      '將把所有單品的票選數清零，排行將只依據「使用次數」計算。\n\n此操作無法還原，確定嗎？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '確定重置',
+          style: 'destructive',
+          onPress: async () => {
+            setResettingVotes(true);
+            try {
+              await db.runAsync('DELETE FROM vote_counts');
+              Alert.alert('完成', '票選數已清零，排行次數已還原正常。');
+            } catch (e) {
+              Alert.alert('失敗', e instanceof Error ? e.message : '請稍後再試');
+            } finally {
+              setResettingVotes(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [db]);
 
   const handleCleanup = useCallback(async () => {
     setCleaning(true);
@@ -194,13 +224,29 @@ export default function SettingsScreen() {
 
   const handleImport = useCallback(async (mode: ImportMode) => {
     setImporting(true);
-    setImportProgress('選取檔案…');
+    setImportOverlayVisible(true);
+    setImportOverlayProgress(undefined);
+    setImportProgress('選取檔案中…');
     try {
       const result = await importBackupFromPicker(db, mode, (stage, current, total) => {
-        if (stage === 'reading') setImportProgress('讀取備份…');
-        else if (stage === 'parsing') setImportProgress('解析備份…');
-        else if (stage === 'importing') setImportProgress(`還原照片 ${current}/${total}…`);
-        else if (stage === 'done') setImportProgress('完成');
+        if (stage === 'copying') {
+          setImportProgress('正在複製備份檔案，請稍候…');
+          setImportOverlayProgress(undefined);
+        } else if (stage === 'reading') {
+          const pct = total > 0 ? (current / total) * 0.3 : undefined;
+          setImportProgress('讀取備份中…');
+          setImportOverlayProgress(pct);
+        } else if (stage === 'parsing') {
+          setImportProgress('解析資料中…');
+          setImportOverlayProgress(0.3);
+        } else if (stage === 'importing') {
+          const pct = total > 0 ? 0.3 + (current / total) * 0.7 : 0.3;
+          setImportProgress(`還原照片 ${current} / ${total}`);
+          setImportOverlayProgress(pct);
+        } else if (stage === 'done') {
+          setImportProgress('完成');
+          setImportOverlayProgress(1);
+        }
       });
       if (!result) return; // user cancelled
       await loadStorage();
@@ -212,6 +258,8 @@ export default function SettingsScreen() {
       console.warn('[import] failed', e);
       Alert.alert('匯入失敗', e instanceof Error ? e.message : '請稍後再試');
     } finally {
+      setImportOverlayVisible(false);
+      setImportOverlayProgress(undefined);
       setImporting(false);
       setImportProgress('');
     }
@@ -436,6 +484,19 @@ export default function SettingsScreen() {
           >
             <Text style={styles.fullBtnText}>{cleaning ? '清理中…' : '清理孤兒檔案'}</Text>
           </Pressable>
+          <Pressable
+            onPress={handleResetVotes}
+            disabled={resettingVotes}
+            style={[
+              styles.fullBtn, styles.fullBtnOutline,
+              { borderColor: '#e57373' },
+              resettingVotes && styles.fullBtnDisabled,
+            ]}
+          >
+            <Text style={[styles.fullBtnOutlineText, { color: '#e57373' }]}>
+              {resettingVotes ? '重置中…' : '重置排行票選數'}
+            </Text>
+          </Pressable>
         </View>
 
         {/* 備份與還原 */}
@@ -486,6 +547,13 @@ export default function SettingsScreen() {
         title="匯出備份中"
         progress={exportProgress}
         message={exportMsg}
+      />
+
+      <ProgressOverlay
+        visible={importOverlayVisible}
+        title="匯入備份中"
+        progress={importOverlayProgress}
+        message={importProgress}
       />
     </SafeAreaView>
   );

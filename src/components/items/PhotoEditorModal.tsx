@@ -58,7 +58,7 @@ function Slider({
   onChange: (v: number) => void;
   formatValue?: (v: number) => string;
 }) {
-  const TRACK_W = SCREEN_W - 100;
+  const TRACK_W = SCREEN_W - 140;
   const ratio = (value - min) / (max - min);
   const thumbX = ratio * TRACK_W;
 

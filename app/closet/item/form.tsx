@@ -55,7 +55,7 @@ export default function ItemFormScreen() {
   const [weight, setWeight] = useState('');
   const [bodyType, setBodyType] = useState('');
   const [suggestedWeight, setSuggestedWeight] = useState('');
-  const [usageCount, setUsageCount] = useState('0');
+  const [existingUsageCount, setExistingUsageCount] = useState(0);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [miniNote, setMiniNote] = useState('');
   const [pros, setPros] = useState('');
@@ -111,7 +111,7 @@ export default function ItemFormScreen() {
       setWeight(item.weight ?? '');
       setBodyType(item.bodyType ?? '');
       setSuggestedWeight(item.suggestedWeight ?? '');
-      setUsageCount(item.usageCount.toString());
+      setExistingUsageCount(item.usageCount);
       setSeasons(item.seasons);
       setMiniNote(item.miniNote ?? '');
       setPros(item.pros ?? '');
@@ -181,7 +181,7 @@ export default function ItemFormScreen() {
         discountPrice: discountPrice ? parseFloat(discountPrice) : undefined,
         size: size.trim() || undefined, weight: weight.trim() || undefined,
         bodyType: bodyType.trim() || undefined, suggestedWeight: suggestedWeight.trim() || undefined,
-        usageCount: parseInt(usageCount) || 0, seasons,
+        usageCount: isEdit ? existingUsageCount : 0, seasons,
         miniNote: miniNote.trim() || undefined, pros: pros.trim() || undefined,
         cons: cons.trim() || undefined, remark: remark.trim() || undefined,
         photoIds,
@@ -200,7 +200,7 @@ export default function ItemFormScreen() {
   }, [
     name, brand, purchaseDate, purchaseTime, categoryId, originId,
     selectedColorIds, grade, originalPrice, specialPrice, discountPrice,
-    size, weight, bodyType, suggestedWeight, usageCount, seasons,
+    size, weight, bodyType, suggestedWeight, existingUsageCount, seasons,
     miniNote, pros, cons, remark, existingPhotos, removedPhotoIds,
     isEdit, id, db, router,
   ]);
@@ -389,9 +389,6 @@ export default function ItemFormScreen() {
             <View style={styles.flex1}><Field label="身材"><TextInput style={styles.input} value={bodyType} onChangeText={setBodyType} placeholder="梨形" /></Field></View>
             <View style={styles.flex1}><Field label="建議體重範圍"><TextInput style={styles.input} value={suggestedWeight} onChangeText={setSuggestedWeight} placeholder="45-52" /></Field></View>
           </View>
-          <Field label="使用次數">
-            <TextInput style={styles.input} value={usageCount} onChangeText={setUsageCount} keyboardType="numeric" placeholder="0" />
-          </Field>
         </View>
 
         {/* 文字欄位 */}

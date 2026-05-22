@@ -8,7 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
-import { getItemById, moveToTrash, incrementUsageCount } from '../../../src/services/itemService';
+import { getItemById, moveToTrash } from '../../../src/services/itemService';
 import { getCategories, getOrigins, getColors } from '../../../src/services/categoryService';
 import { getPhotoUri } from '../../../src/services/photoService';
 import { getOutfitsByItemId } from '../../../src/services/outfitService';
@@ -96,7 +96,7 @@ export default function ItemDetailScreen() {
     { label: '身材',    value: item.bodyType,                                  visible: !!item.bodyType },
     { label: '建議體重', value: item.suggestedWeight,                           visible: !!item.suggestedWeight },
     { label: '季節',    value: item.seasons.join('、'),                        visible: item.seasons.length > 0 },
-    { label: '使用次數', value: `${item.usageCount} 次`, visible: true, isUsage: true },
+    { label: '使用次數', value: `${item.usageCount} 次`, visible: true },
     (() => {
       // 最低購買金額（discountPrice → specialPrice → originalPrice 依序取用）
       const prices = [item.discountPrice, item.specialPrice, item.originalPrice]
@@ -112,24 +112,19 @@ export default function ItemDetailScreen() {
     { label: '優點',    value: item.pros,       visible: !!item.pros,      multiline: true },
     { label: '缺點',    value: item.cons || '無',    visible: true, multiline: true },
     { label: '備註',    value: item.remark || '無',  visible: true, multiline: true },
-  ].filter(d => d != null && d.visible) as { label: string; value: string; multiline?: boolean; isUsage?: boolean }[];
-
-  const handleIncrementUsage = async () => {
-    if (!item) return;
-    await incrementUsageCount(db, item.id);
-    // 重新載入單品資料以反映最新次數
-    const updated = await getItemById(db, item.id);
-    if (updated) setItem(updated);
-  };
+  ].filter(d => d != null && d.visible) as { label: string; value: string; multiline?: boolean }[];
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backText}>返回</Text>
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle}>我的衣櫃</Text>
+        <View style={styles.headerLeft} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} directionalLockEnabled={true}>
@@ -146,24 +141,12 @@ export default function ItemDetailScreen() {
         {detailsData.map((detail, index) => (
           <View key={index} style={styles.row}>
             <Text style={styles.rowLabel}>{detail.label}</Text>
-            {detail.isUsage ? (
-              <View style={styles.usageRow}>
-                <Text style={styles.rowValue}>{detail.value}</Text>
-                <Pressable
-                  onPress={handleIncrementUsage}
-                  style={[styles.usageBtn, { backgroundColor: themeColor }]}
-                >
-                  <Text style={styles.usageBtnText}>+1</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Text
-                style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
-                numberOfLines={detail.multiline ? undefined : 1}
-              >
-                {detail.value}
-              </Text>
-            )}
+            <Text
+              style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
+              numberOfLines={detail.multiline ? undefined : 1}
+            >
+              {detail.value}
+            </Text>
           </View>
         ))}
 
@@ -268,10 +251,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    gap: 12,
   },
-  backBtn: { padding: 4 },
-  backText: { fontSize: 20, color: '#fff' },
+  headerLeft: { flex: 1 },
+  backBtn: { paddingVertical: 2, alignSelf: 'flex-start' },
+  backText: { fontSize: 14, color: '#fff' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
 
   itemCard: {

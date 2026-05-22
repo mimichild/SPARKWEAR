@@ -7,7 +7,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../src/db/context';
 import { saveOutfit, updateOutfit, getOutfitById } from '../../src/services/outfitService';
-import { getItems, filterItems } from '../../src/services/itemService';
+import { getItems, filterItems, incrementUsageCount } from '../../src/services/itemService';
+import { logItemUsages } from '../../src/services/usageLogService';
 import { getCategories } from '../../src/services/categoryService';
 import { pickImages, savePhotos, deletePhotos, getPhotoUri } from '../../src/services/photoService';
 import { useSettingsStore } from '../../src/stores/settingsStore';
@@ -160,6 +161,9 @@ export default function OutfitFormScreen() {
         if (removed.length) await deletePhotos(removed);
       } else {
         await saveOutfit(db, data);
+        const ids = Array.from(selectedItemIds);
+        for (const itemId of ids) await incrementUsageCount(db, itemId);
+        await logItemUsages(db, ids, date, 'outfit');
       }
       router.replace('/outfits');
     } catch (e) {

@@ -23,6 +23,35 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
     await db.runAsync('CREATE INDEX IF NOT EXISTS idx_items_deleted ON items(deleted_at)');
     await db.runAsync('PRAGMA user_version = 2');
   }
+  if (current < 3) {
+    // v2 → v3：新增 item_usage_logs，並從既有穿搭補種歷史紀錄
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS item_usage_logs (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL,
+        logged_at TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'outfit',
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_usage_logs_item ON item_usage_logs(item_id);
+      CREATE INDEX IF NOT EXISTS idx_usage_logs_date ON item_usage_logs(logged_at);
+    `);
+    // 從既有穿搭資料補種使用紀錄
+    const outfits = await db.getAllAsync<{ id: string; date: string; item_ids: string }>(
+      'SELECT id, date, item_ids FROM outfits'
+    );
+    const now = new Date().toISOString();
+    for (const outfit of outfits) {
+      const itemIds: string[] = JSON.parse(outfit.item_ids || '[]');
+      for (const itemId of itemIds) {
+        await db.runAsync(
+          'INSERT OR IGNORE INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
+          [`log-seed-${outfit.id}-${itemId}`, itemId, outfit.date, 'outfit', now]
+        );
+      }
+    }
+    await db.runAsync('PRAGMA user_version = 3');
+  }
 }
 
 async function seedDefaults(db: SQLiteDatabase): Promise<void> {

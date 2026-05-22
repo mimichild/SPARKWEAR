@@ -38,6 +38,7 @@ export default function OutfitsScreen() {
 
   const [showSearch, setShowSearch] = useState(false);
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   const handleLongPress = useCallback((outfitId: string) => {
     if (!isSelectionMode) enterSelectionMode();
@@ -141,13 +142,34 @@ export default function OutfitsScreen() {
         />
       )}
 
+      {fabOpen && (
+        <Pressable style={styles.fabBackdrop} onPress={() => setFabOpen(false)} />
+      )}
       {!isSelectionMode && (
-        <Pressable
-          onPress={() => router.push('/outfits/form')}
-          style={[styles.fab, { backgroundColor: themeColor }]}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </Pressable>
+        <View style={styles.fabContainer}>
+          {fabOpen && (
+            <>
+              <Pressable
+                style={[styles.fabOption, { backgroundColor: themeColor }]}
+                onPress={() => { setFabOpen(false); router.push('/outfits/manual-log'); }}
+              >
+                <Text style={styles.fabOptionText}>手動登錄穿搭次數</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.fabOption, { backgroundColor: themeColor }]}
+                onPress={() => { setFabOpen(false); router.push('/outfits/form'); }}
+              >
+                <Text style={styles.fabOptionText}>新增穿搭</Text>
+              </Pressable>
+            </>
+          )}
+          <Pressable
+            onPress={() => setFabOpen(o => !o)}
+            style={[styles.fab, { backgroundColor: themeColor }]}
+          >
+            <Text style={[styles.fabText, fabOpen && { transform: [{ rotate: '45deg' }] }]}>+</Text>
+          </Pressable>
+        </View>
       )}
 
       <ConfirmDialog
@@ -205,14 +227,27 @@ const styles = StyleSheet.create({
 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#faf9f7' },
   emptyText: { color: '#bbb', fontSize: 14, textAlign: 'center', paddingHorizontal: 32 },
+  fabContainer: {
+    position: 'absolute', right: 20, bottom: 24,
+    alignItems: 'flex-end', gap: 10, zIndex: 10,
+  },
   fab: {
-    position: 'absolute', right: 20, bottom: 24, width: 56, height: 56,
-    borderRadius: 28, alignItems: 'center', justifyContent: 'center',
+    width: 56, height: 56, borderRadius: 28,
+    alignItems: 'center', justifyContent: 'center',
     elevation: 4, shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,
   },
   fabText: {
     fontSize: 36, color: '#fff', fontWeight: '100',
     lineHeight: 36, includeFontPadding: false, textAlignVertical: 'center',
+  },
+  fabOption: {
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10,
+    elevation: 3, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.15, shadowRadius: 3,
+  },
+  fabOptionText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  fabBackdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
   },
 });

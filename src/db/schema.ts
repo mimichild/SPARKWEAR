@@ -97,7 +97,17 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS item_usage_logs (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL,
+  logged_at TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'outfit',
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category_id);
 CREATE INDEX IF NOT EXISTS idx_items_purchase_date ON items(purchase_date);
 CREATE INDEX IF NOT EXISTS idx_outfits_date ON outfits(date);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_item ON item_usage_logs(item_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_date ON item_usage_logs(logged_at);
 `;

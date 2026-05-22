@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSQLiteContext } from '../db/context';
 import { getItems, getAllVoteCounts } from '../services/itemService';
 import { getColors } from '../services/categoryService';
+import { getUsageCountsByPeriod } from '../services/usageLogService';
 import type { Item, RankEntry, RankingMetric, RankingPeriod, SortDir } from '../types';
 
 // ─── Pure computation helpers (exported for testing) ─────────────────────────
@@ -192,6 +193,35 @@ function itemToEntry(
   };
 }
 
+// ─── Period date range ────────────────────────────────────────────────────────
+
+function getPeriodDateRange(period: RankingPeriod, ref: Date): { start: string; end: string } | null {
+  if (period === 'all') return null;
+  const y = ref.getFullYear();
+  const m = ref.getMonth();
+  const q = Math.floor(m / 3);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  switch (period) {
+    case 'month': {
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      return { start: `${y}-${pad(m + 1)}-01`, end: `${y}-${pad(m + 1)}-${lastDay}` };
+    }
+    case 'quarter': {
+      const s = q * 3 + 1, e = s + 2;
+      const lastDay = new Date(y, e, 0).getDate();
+      return { start: `${y}-${pad(s)}-01`, end: `${y}-${pad(e)}-${lastDay}` };
+    }
+    case 'year':
+      return { start: `${y}-01-01`, end: `${y}-12-31` };
+    case 'rolling': {
+      const ago = new Date(ref);
+      ago.setFullYear(ago.getFullYear() - 1);
+      return { start: ago.toISOString().slice(0, 10), end: ref.toISOString().slice(0, 10) };
+    }
+    default: return null;
+  }
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: SortDir = 'desc') {
@@ -210,17 +240,42 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
       const colorMap: Record<string, string> = {};
       colors.forEach(c => { colorMap[c.id] = c.name; });
 
-      const filtered = filterByPeriod(items, period, new Date());
-
       let entries: RankEntry[];
-      if (metric === 'brand_count') {
-        entries = buildBrandRanking(filtered, voteCounts, dir);
-      } else if (metric === 'color_count') {
-        entries = buildColorRanking(filtered, voteCounts, colorMap, dir);
+
+      if (metric === 'usage' && period !== 'all') {
+        // 依 item_usage_logs 統計指定時段內的穿搭次數
+        const range = getPeriodDateRange(period, new Date())!;
+        const periodCounts = await getUsageCountsByPeriod(db, range.start, range.end);
+        const itemMap = new Map(items.map(i => [i.id, i]));
+        const mul = dir === 'desc' ? 1 : -1;
+        entries = Object.entries(periodCounts)
+          .map(([itemId, count]) => {
+            const item = itemMap.get(itemId);
+            if (!item) return null;
+            return { item, count };
+          })
+          .filter((x): x is { item: Item; count: number } => x !== null)
+          .sort((a, b) => mul * (b.count - a.count))
+          .map(({ item, count }) => ({
+            id: item.id,
+            title: item.name,
+            subtitle: item.brand,
+            scoreText: `${count} 次`,
+            photoPath: item.photoIds[0],
+            itemId: item.id,
+          }));
+      } else if (metric === 'brand_count' || metric === 'color_count') {
+        const filtered = filterByPeriod(items, period, new Date());
+        entries = metric === 'brand_count'
+          ? buildBrandRanking(filtered, voteCounts, dir)
+          : buildColorRanking(filtered, voteCounts, colorMap, dir);
       } else {
+        // usage all 或其他指標
+        const filtered = filterByPeriod(items, period, new Date());
         const sorted = sortByMetric(filtered, metric, voteCounts, dir);
         entries = sorted.map(item => itemToEntry(item, metric, voteCounts));
       }
+
       setRanked(entries);
     } finally {
       setLoading(false);

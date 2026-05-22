@@ -264,13 +264,40 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
             photoPath: item.photoIds[0],
             itemId: item.id,
           }));
+      } else if (metric === 'cp' && period !== 'all') {
+        // 依 item_usage_logs 統計時段使用次數，計算期間 C/P 值
+        const range = getPeriodDateRange(period, new Date())!;
+        const periodCounts = await getUsageCountsByPeriod(db, range.start, range.end);
+        // C/P 越低 = 越划算，'desc' 方向代表最划算排前 → 按 cp 升序
+        const mul = dir === 'desc' ? 1 : -1;
+        entries = items
+          .map(item => {
+            const price = item.discountPrice ?? item.specialPrice ?? item.originalPrice;
+            if (price == null) return null;
+            const uses = periodCounts[item.id] ?? 0;
+            const cp = uses > 0 ? price / uses : price;
+            const scoreText = uses > 0
+              ? `$${Math.round(cp)}/次`
+              : `$${price}（未使用）`;
+            return { item, cp, scoreText };
+          })
+          .filter((x): x is { item: Item; cp: number; scoreText: string } => x !== null)
+          .sort((a, b) => mul * (a.cp - b.cp))
+          .map(({ item, scoreText }) => ({
+            id: item.id,
+            title: item.name,
+            subtitle: item.brand,
+            scoreText,
+            photoPath: item.photoIds[0],
+            itemId: item.id,
+          }));
       } else if (metric === 'brand_count' || metric === 'color_count') {
         const filtered = filterByPeriod(items, period, new Date());
         entries = metric === 'brand_count'
           ? buildBrandRanking(filtered, voteCounts, dir)
           : buildColorRanking(filtered, voteCounts, colorMap, dir);
       } else {
-        // usage all 或其他指標
+        // usage all / cp all / 其他指標
         const filtered = filterByPeriod(items, period, new Date());
         const sorted = sortByMetric(filtered, metric, voteCounts, dir);
         entries = sorted.map(item => itemToEntry(item, metric, voteCounts));

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, Pressable, StyleSheet, ScrollView, Modal, FlatList, Image,
 } from 'react-native';
@@ -67,6 +67,25 @@ export default function RankingTab() {
   const [confirmVote, setConfirmVote] = useState(false);
 
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
+
+  const periodDescription = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const q = Math.floor((m - 1) / 3) + 1;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const today = now.toISOString().slice(0, 10);
+    const ago = new Date(now);
+    ago.setFullYear(ago.getFullYear() - 1);
+    const agoStr = ago.toISOString().slice(0, 10);
+    switch (period) {
+      case 'month':   return `${y}年${pad(m)}月`;
+      case 'quarter': return `${y}年 第${q}季（${pad((q - 1) * 3 + 1)}月～${pad(q * 3)}月）`;
+      case 'year':    return `${y}年（當年）`;
+      case 'rolling': return `${agoStr} ～ ${today}（往前推一年）`;
+      case 'all':     return '購買至今（累積總計）';
+    }
+  }, [period]);
 
   const openVote = useCallback(() => {
     setVoteEntries(ranked);
@@ -146,6 +165,13 @@ export default function RankingTab() {
           </Pressable>
         ))}
       </ScrollView>
+
+      {/* 時段說明 */}
+      {(metric === 'usage' || metric === 'cp') && (
+        <View style={styles.periodDesc}>
+          <Text style={styles.periodDescText}>{periodDescription}</Text>
+        </View>
+      )}
 
       {/* Ranked list */}
       {loading ? (
@@ -262,6 +288,12 @@ const styles = StyleSheet.create({
   pillActive: { color: '#fff' },
   periodChip: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff' },
   periodText: { fontSize: 13, color: '#888' },
+  periodDesc: {
+    paddingHorizontal: 16, paddingVertical: 6,
+    backgroundColor: '#f5f3f0',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e8e4de',
+  },
+  periodDescText: { fontSize: 12, color: '#999' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   hint: { color: '#bbb', fontSize: 14 },
   row: {

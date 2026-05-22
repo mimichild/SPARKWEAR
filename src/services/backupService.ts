@@ -96,7 +96,7 @@ export function mapV4ItemToV5(
     purchaseDate: legacy.purchaseDate,
     categoryId: legacy.category ? catsByName[legacy.category] : undefined,
     originId: legacy.origin ? originsByName[legacy.origin] : undefined,
-    colorIds: [],
+    colorIds: legacy.colorId ? [legacy.colorId] : [],
     grade: legacy.grade as Item['grade'],
     originalPrice: legacy.originalPrice,
     specialPrice: legacy.specialPrice,

@@ -143,28 +143,18 @@ export function buildColorRanking(
 
   const mul = dir === 'desc' ? 1 : -1;
 
-  const withScore = Array.from(groups.entries()).map(([cid, groupItems]) => {
-    const rep = topItem(groupItems, voteCounts); // 使用次數最多的單品作為代表照片
-    const totalUsage = groupItems.reduce(
-      (sum, it) => sum + Math.max(0, it.usageCount + (voteCounts[it.id] ?? 0)),
-      0
-    );
-    return {
-      entry: {
+  return Array.from(groups.entries())
+    .sort((a, b) => mul * (b[1].length - a[1].length))
+    .map(([cid, groupItems]) => {
+      const rep = topItem(groupItems, voteCounts);
+      return {
         id: `color-${cid}`,
         title: colorMap[cid] ?? cid,
-        subtitle: `共 ${groupItems.length} 件`,
-        scoreText: `${totalUsage} 次`,
+        scoreText: `${groupItems.length} 件`,
         photoPath: rep?.photoIds[0],
         itemId: rep?.id,
-      } as RankEntry,
-      totalUsage,
-    };
-  });
-
-  return withScore
-    .sort((a, b) => mul * (b.totalUsage - a.totalUsage))
-    .map(x => x.entry);
+      } as RankEntry;
+    });
 }
 
 function itemToEntry(

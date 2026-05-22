@@ -42,11 +42,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 36,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     fontSize: 14,
     color: '#333',
   },

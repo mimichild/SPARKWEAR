@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
-import { useCategories } from '../../../src/hooks/useCategories';
+import { useCategories, useOrigins, useColors } from '../../../src/hooks/useCategories';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { useUIStore } from '../../../src/stores/uiStore';
 import { ItemCard } from '../../../src/components/items/ItemCard';
@@ -26,7 +26,8 @@ export default function ItemsTab() {
 
   const { items, loading, trashItem, recategorizeItem, reload } = useItems(purchaseSort);
   const { categories, reload: reloadCats } = useCategories();
-  const filtered = useFilteredItems(items, query);
+  const { origins } = useOrigins();
+  const { colors } = useColors();
 
   const catIdToName = useMemo(() => {
     const map: Record<string, string> = {};
@@ -34,11 +35,34 @@ export default function ItemsTab() {
     return map;
   }, [categories]);
 
-  useFocusEffect(useCallback(() => { reload(); reloadCats(); }, [reload, reloadCats]));
+  const originIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    origins.forEach(o => { map[o.id] = o.name; });
+    return map;
+  }, [origins]);
+
+  const colorIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    colors.forEach(c => { map[c.id] = c.name; });
+    return map;
+  }, [colors]);
+
+  const filtered = useFilteredItems(items, query, {
+    catNames: catIdToName,
+    originNames: originIdToName,
+    colorNames: colorIdToName,
+  });
 
   const [showSearch, setShowSearch] = useState(false);
   const [trashConfirmVisible, setTrashConfirmVisible] = useState(false);
   const [catPickerVisible, setCatPickerVisible] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    reload();
+    reloadCats();
+    setClosetQuery('');
+    setShowSearch(false);
+  }, [reload, reloadCats, setClosetQuery]));
 
   const handleLongPress = useCallback((itemId: string) => {
     if (!isSelectionMode) enterSelectionMode();
@@ -106,7 +130,7 @@ export default function ItemsTab() {
       </View>
 
       {showSearch && !isSelectionMode && (
-        <SearchBar value={query} onChangeText={setClosetQuery} placeholder="搜尋品牌/名稱/備註..." />
+        <SearchBar value={query} onChangeText={setClosetQuery} placeholder="搜尋品牌/名稱/分類/來源/顏色/分級/季節..." />
       )}
 
       {loading ? (

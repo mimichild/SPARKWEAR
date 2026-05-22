@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useItems, useFilteredItems } from '../../../src/hooks/useItems';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
-import { useCategories } from '../../../src/hooks/useCategories';
+import { useCategories, useOrigins, useColors } from '../../../src/hooks/useCategories';
 import { useUIStore } from '../../../src/stores/uiStore';
 import { getPhotoUri } from '../../../src/services/photoService';
 import { SearchBar } from '../../../src/components/shared/SearchBar';
@@ -30,6 +30,8 @@ export default function CategoryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { items, reload, trashItem, recategorizeItem } = useItems(purchaseSort);
   const { categories, reload: reloadCats } = useCategories();
+  const { origins } = useOrigins();
+  const { colors } = useColors();
   const {
     closetQuery: query, setClosetQuery,
     selectedItemIds, toggleItemSelection, clearSelection,
@@ -44,8 +46,10 @@ export default function CategoryDetailScreen() {
   useFocusEffect(useCallback(() => {
     reload();
     reloadCats();
+    setClosetQuery('');
+    setShowSearch(false);
     return () => clearSelection();
-  }, [reload, reloadCats, clearSelection]));
+  }, [reload, reloadCats, setClosetQuery, clearSelection]));
 
   const handleLongPress = useCallback((itemId: string) => {
     if (!isSelectionMode) enterSelectionMode();
@@ -78,7 +82,29 @@ export default function CategoryDetailScreen() {
       : !item.categoryId || !categories.some(c => c.id === item.categoryId)
   ), [items, category, categories]);
 
-  const filtered = useFilteredItems(categoryItems, query);
+  const originIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    origins.forEach(o => { map[o.id] = o.name; });
+    return map;
+  }, [origins]);
+
+  const colorIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    colors.forEach(c => { map[c.id] = c.name; });
+    return map;
+  }, [colors]);
+
+  const catIdToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(c => { map[c.id] = c.name; });
+    return map;
+  }, [categories]);
+
+  const filtered = useFilteredItems(categoryItems, query, {
+    catNames: catIdToName,
+    originNames: originIdToName,
+    colorNames: colorIdToName,
+  });
   const withPhotos = useMemo(() => filtered.filter(i => i.photoIds.length > 0), [filtered]);
 
   // ── 單品列表 ──────────────────────────────────────────────────
@@ -153,7 +179,7 @@ export default function CategoryDetailScreen() {
         <SearchBar
           value={query}
           onChangeText={setClosetQuery}
-          placeholder="搜尋品牌 / 名稱..."
+          placeholder="搜尋品牌/名稱/分類/來源/顏色/分級/季節..."
           onClear={() => setClosetQuery('')}
         />
       )}

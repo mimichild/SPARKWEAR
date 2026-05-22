@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSQLiteContext } from '../db/context';
-import { getItems, saveItem, updateItem, deleteItem, moveToTrash, restoreFromTrash, updateItemCategory, filterItems } from '../services/itemService';
+import { getItems, saveItem, updateItem, deleteItem, moveToTrash, restoreFromTrash, updateItemCategory, filterItems, type ItemSearchMeta } from '../services/itemService';
 import type { Item, SortOrder } from '../types';
 import { deletePhotos } from '../services/photoService';
 
@@ -81,6 +81,6 @@ export function useItems(sort: SortOrder = 'desc') {
   return { items, loading, error, reload: load, addItem, editItem, removeItem, trashItem, recategorizeItem, restoreItem };
 }
 
-export function useFilteredItems(items: Item[], query: string) {
-  return filterItems(items, query);
+export function useFilteredItems(items: Item[], query: string, meta?: ItemSearchMeta) {
+  return filterItems(items, query, meta);
 }

@@ -226,17 +226,29 @@ export async function incrementUsageCount(db: SQLiteDatabase, id: string): Promi
 
 // ── Search ────────────────────────────────────────────────────
 
-export function filterItems(items: Item[], query: string): Item[] {
+export type ItemSearchMeta = {
+  catNames?: Record<string, string>;
+  originNames?: Record<string, string>;
+  colorNames?: Record<string, string>;
+};
+
+export function filterItems(items: Item[], query: string, meta?: ItemSearchMeta): Item[] {
   if (!query.trim()) return items;
   const q = query.toLowerCase().trim();
-  return items.filter(item =>
-    (item.name ?? '').toLowerCase().includes(q) ||
-    (item.brand ?? '').toLowerCase().includes(q) ||
-    (item.miniNote ?? '').toLowerCase().includes(q) ||
-    (item.pros ?? '').toLowerCase().includes(q) ||
-    (item.cons ?? '').toLowerCase().includes(q) ||
-    (item.remark ?? '').toLowerCase().includes(q)
-  );
+  return items.filter(item => {
+    if ((item.name ?? '').toLowerCase().includes(q)) return true;
+    if ((item.brand ?? '').toLowerCase().includes(q)) return true;
+    if ((item.grade ?? '').toLowerCase().includes(q)) return true;
+    if (item.seasons.some(s => s.toLowerCase().includes(q))) return true;
+    if ((item.miniNote ?? '').toLowerCase().includes(q)) return true;
+    if ((item.pros ?? '').toLowerCase().includes(q)) return true;
+    if ((item.cons ?? '').toLowerCase().includes(q)) return true;
+    if ((item.remark ?? '').toLowerCase().includes(q)) return true;
+    if (meta?.catNames && item.categoryId && (meta.catNames[item.categoryId] ?? '').toLowerCase().includes(q)) return true;
+    if (meta?.originNames && item.originId && (meta.originNames[item.originId] ?? '').toLowerCase().includes(q)) return true;
+    if (meta?.colorNames && item.colorIds.some(cid => (meta.colorNames![cid] ?? '').toLowerCase().includes(q))) return true;
+    return false;
+  });
 }
 
 // ── Vote counts ───────────────────────────────────────────────

@@ -239,6 +239,7 @@ export function filterItems(items: Item[], query: string, meta?: ItemSearchMeta)
     if ((item.name ?? '').toLowerCase().includes(q)) return true;
     if ((item.brand ?? '').toLowerCase().includes(q)) return true;
     if ((item.grade ?? '').toLowerCase().includes(q)) return true;
+    if (item.grade && `${item.grade}級`.toLowerCase().includes(q)) return true;
     if (item.seasons.some(s => s.toLowerCase().includes(q))) return true;
     if ((item.miniNote ?? '').toLowerCase().includes(q)) return true;
     if ((item.pros ?? '').toLowerCase().includes(q)) return true;

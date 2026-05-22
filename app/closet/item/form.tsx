@@ -367,7 +367,7 @@ export default function ItemFormScreen() {
                   style={[styles.chip, grade === g && { backgroundColor: themeColor, borderColor: themeColor }]}
                   onPress={() => setGrade(grade === g ? '' : g as Grade)}
                 >
-                  <Text style={[styles.chipText, grade === g && styles.chipTextActive]}>{g}</Text>
+                  <Text style={[styles.chipText, grade === g && styles.chipTextActive]}>{g}級</Text>
                 </Pressable>
               ))}
             </View>

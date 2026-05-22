@@ -149,9 +149,11 @@ export default function CategoryDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>返回</Text>
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>返回</Text>
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle}>{decodedName}</Text>
         <View style={styles.headerActions}>
           {isSelectionMode ? (
@@ -264,10 +266,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
   },
-  backBtn: { paddingRight: 8, paddingVertical: 2 },
+  headerLeft: { flex: 1 },
+  backBtn: { paddingVertical: 2, alignSelf: 'flex-start' },
   backBtnText: { fontSize: 14, color: '#fff' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', flex: 1 },
-  headerActions: { flexDirection: 'row', gap: 12 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  headerActions: { flex: 1, flexDirection: 'row', gap: 12, justifyContent: 'flex-end' },
   headerBtn: { paddingHorizontal: 4, paddingVertical: 2 },
   headerBtnText: { fontSize: 14, color: '#fff' },
 

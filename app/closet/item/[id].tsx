@@ -87,7 +87,7 @@ export default function ItemDetailScreen() {
     { label: '分類',    value: catName,                                        visible: !!catName },
     { label: '來源',    value: originName,                                     visible: !!originName },
     { label: '顏色',    value: colorNames,                                     visible: !!colorNames },
-    { label: '分級',    value: item.grade,                                     visible: !!item.grade },
+    { label: '分級',    value: item.grade ? `${item.grade}級` : '',              visible: !!item.grade },
     { label: '尺寸',    value: item.size,                                      visible: !!item.size },
     { label: '原價',    value: item.originalPrice  != null ? `$${item.originalPrice}`  : '', visible: item.originalPrice  != null },
     { label: '特價',    value: item.specialPrice   != null ? `$${item.specialPrice}`   : '', visible: item.specialPrice   != null },

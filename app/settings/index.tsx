@@ -375,20 +375,22 @@ export default function SettingsScreen() {
         {isProUnlocked ? (
           <View style={styles.card}>
             <ScrollView style={styles.fontList} nestedScrollEnabled>
-              {APP_FONT_OPTIONS.map(opt => {
+              {APP_FONT_OPTIONS.filter(opt =>
+                Platform.OS === 'android' ? opt.android !== null : opt.ios !== null
+              ).map(opt => {
                 const selected = fontKey === opt.key;
+                const nativeName = Platform.OS === 'android' ? opt.android : opt.ios;
+                const fontStyle = nativeName ? { fontFamily: nativeName as string } : undefined;
                 return (
                   <Pressable
                     key={opt.key}
                     onPress={() => setFontKey(opt.key)}
-                    style={[styles.fontRow, selected && styles.fontRowSelected]}
+                    style={[styles.fontRow, selected && { backgroundColor: `${themeColor || DEFAULT_THEME_COLOR}12` }]}
                   >
-                    <Text style={[
-                      styles.fontLabel,
-                      opt.native ? { fontFamily: opt.native } : undefined,
-                    ]}>
-                      {opt.label}
-                    </Text>
+                    <View style={styles.fontRowLeft}>
+                      <Text style={[styles.fontLabel, fontStyle]}>{opt.label}</Text>
+                      <Text style={[styles.fontSample, fontStyle]}>Aa 春夏秋冬 123</Text>
+                    </View>
                     {selected ? (
                       <Text style={[styles.fontCheck, { color: themeColor || DEFAULT_THEME_COLOR }]}>✓</Text>
                     ) : null}
@@ -607,15 +609,16 @@ const styles = StyleSheet.create({
   swatchSelected: { borderWidth: 2, borderColor: '#333' },
   swatchCheck: { color: '#fff', fontSize: 18, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 2 },
 
-  fontList: { maxHeight: 260 },
+  fontList: { maxHeight: 300 },
   fontRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 10, paddingHorizontal: 4,
+    paddingVertical: 10, paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0f0f0',
   },
-  fontRowSelected: { backgroundColor: '#fafafa' },
+  fontRowLeft: { flex: 1, gap: 2 },
   fontLabel: { fontSize: 14, color: '#333' },
-  fontCheck: { fontSize: 16, fontWeight: '700' },
+  fontSample: { fontSize: 12, color: '#999' },
+  fontCheck: { fontSize: 16, fontWeight: '700', marginLeft: 8 },
 
   lockedCard: { alignItems: 'center', paddingVertical: 18, backgroundColor: '#f1f1f1' },
   lockedText: { color: '#888', fontSize: 14 },

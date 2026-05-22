@@ -15,26 +15,30 @@ export const THEME_PRESETS = [
 
 export const DEFAULT_THEME_COLOR = '#f1aba7';
 
-// css 保留供相容性；native 是 React Native 在 iOS/Android 上可直接使用的字型名稱
+// ios / android: 字型名稱（undefined = 系統預設，null = 此平台不支援，不顯示）
 export const APP_FONT_OPTIONS = [
-  { key: 'default',           label: '系統預設',          css: 'system-ui, sans-serif',                                  native: undefined            },
-  { key: 'pingfang_tc',       label: 'PingFang TC',       css: '"PingFang TC", sans-serif',                              native: 'PingFang TC'        },
-  { key: 'helvetica',         label: 'Helvetica Neue',    css: '"Helvetica Neue", sans-serif',                           native: 'Helvetica Neue'     },
-  { key: 'arial',             label: 'Arial',             css: 'Arial, sans-serif',                                      native: 'Arial'              },
-  { key: 'georgia',           label: 'Georgia',           css: 'Georgia, serif',                                         native: 'Georgia'            },
-  { key: 'times_new_roman',   label: 'Times New Roman',   css: '"Times New Roman", serif',                               native: 'Times New Roman'    },
-  { key: 'trebuchet_ms',      label: 'Trebuchet MS',      css: '"Trebuchet MS", sans-serif',                             native: 'Trebuchet MS'       },
-  { key: 'verdana',           label: 'Verdana',           css: 'Verdana, sans-serif',                                    native: 'Verdana'            },
-  { key: 'baskerville',       label: 'Baskerville',       css: 'Baskerville, serif',                                     native: 'Baskerville'        },
-  { key: 'palatino',          label: 'Palatino',          css: '"Palatino Linotype", Palatino, serif',                   native: 'Palatino'           },
-  { key: 'futura',            label: 'Futura',            css: 'Futura, "Century Gothic", sans-serif',                   native: 'Futura'             },
-  { key: 'gill_sans',         label: 'Gill Sans',         css: '"Gill Sans", "Gill Sans MT", sans-serif',                native: 'Gill Sans'          },
-  { key: 'optima',            label: 'Optima',            css: 'Optima, "Segoe UI", sans-serif',                         native: 'Optima'             },
-  { key: 'courier_new',       label: 'Courier New',       css: '"Courier New", monospace',                               native: 'Courier New'        },
-  { key: 'monaco',            label: 'Monaco',            css: 'Monaco, monospace',                                      native: 'Monaco'             },
-  // 以下需手動安裝字型，未安裝時自動降級為系統字型
-  { key: 'noto_sans_tc',      label: 'Noto Sans TC',      css: '"Noto Sans TC", "PingFang TC", sans-serif',              native: 'NotoSansTC-Regular' },
-  { key: 'noto_serif_tc',     label: 'Noto Serif TC',     css: '"Noto Serif TC", serif',                                 native: 'NotoSerifTC-Regular'},
+  // ── 兩個平台都支援 ────────────────────────────────────────────
+  { key: 'default',     label: '系統預設',          css: 'system-ui',            ios: undefined,        android: undefined              },
+  { key: 'serif',       label: 'Serif 明體',         css: 'serif',                ios: 'Georgia',        android: 'serif'                },
+  { key: 'monospace',   label: 'Monospace 等寬',     css: 'monospace',            ios: 'Courier New',    android: 'monospace'            },
+  // ── iOS 限定 ─────────────────────────────────────────────────
+  { key: 'pingfang_tc', label: 'PingFang TC',       css: '"PingFang TC"',        ios: 'PingFang TC',    android: null                   },
+  { key: 'helvetica',   label: 'Helvetica Neue',    css: '"Helvetica Neue"',     ios: 'Helvetica Neue', android: null                   },
+  { key: 'arial',       label: 'Arial',             css: 'Arial',                ios: 'Arial',          android: null                   },
+  { key: 'times_new_roman', label: 'Times New Roman', css: '"Times New Roman"', ios: 'Times New Roman', android: null                   },
+  { key: 'trebuchet_ms', label: 'Trebuchet MS',     css: '"Trebuchet MS"',       ios: 'Trebuchet MS',   android: null                   },
+  { key: 'verdana',     label: 'Verdana',           css: 'Verdana',              ios: 'Verdana',        android: null                   },
+  { key: 'baskerville', label: 'Baskerville',       css: 'Baskerville',          ios: 'Baskerville',    android: null                   },
+  { key: 'palatino',    label: 'Palatino',          css: 'Palatino',             ios: 'Palatino',       android: null                   },
+  { key: 'futura',      label: 'Futura',            css: 'Futura',               ios: 'Futura',         android: null                   },
+  { key: 'gill_sans',   label: 'Gill Sans',         css: '"Gill Sans"',          ios: 'Gill Sans',      android: null                   },
+  { key: 'optima',      label: 'Optima',            css: 'Optima',               ios: 'Optima',         android: null                   },
+  { key: 'monaco',      label: 'Monaco',            css: 'Monaco',               ios: 'Monaco',         android: null                   },
+  // ── Android 限定 ─────────────────────────────────────────────
+  { key: 'light',       label: '細體 Light',         css: 'sans-serif-light',     ios: null,             android: 'sans-serif-light'     },
+  { key: 'thin',        label: '超細 Thin',           css: 'sans-serif-thin',      ios: null,             android: 'sans-serif-thin'      },
+  { key: 'medium',      label: '中粗 Medium',         css: 'sans-serif-medium',    ios: null,             android: 'sans-serif-medium'    },
+  { key: 'condensed',   label: '窄體 Condensed',      css: 'sans-serif-condensed', ios: null,             android: 'sans-serif-condensed' },
 ] as const;
 
 export const DEFAULT_FONT_KEY = 'default';

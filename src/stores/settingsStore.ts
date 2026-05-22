@@ -1,11 +1,14 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY, APP_FONT_OPTIONS } from '../constants/theme';
 
 /** fontKey → React Native fontFamily（undefined = 系統預設） */
 export function resolveFontFamily(fontKey: string): string | undefined {
   const opt = APP_FONT_OPTIONS.find(o => o.key === fontKey);
-  return opt?.native;
+  if (!opt) return undefined;
+  const name = Platform.OS === 'android' ? opt.android : opt.ios;
+  return name ?? undefined;
 }
 import { DEFAULT_TAB_ORDER, DEFAULT_ENABLED_TABS } from '../constants/defaults';
 import type { AppSettings, SortOrder, RankingPeriod } from '../types';

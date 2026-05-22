@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSQLiteContext } from '../db/context';
 import { getItems, getAllVoteCounts } from '../services/itemService';
 import { getColors } from '../services/categoryService';
-import { getUsageCountsByPeriod } from '../services/usageLogService';
+import { getUsageCountsByPeriod, getAllUsageCounts } from '../services/usageLogService';
 import type { Item, RankEntry, RankingMetric, RankingPeriod, SortDir } from '../types';
 
 // ─── Pure computation helpers (exported for testing) ─────────────────────────
@@ -291,13 +291,54 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
             photoPath: item.photoIds[0],
             itemId: item.id,
           }));
+      } else if (metric === 'usage' && period === 'all') {
+        // 累積：從 item_usage_logs 計算全部次數，與時段版本統一資料來源
+        const allCounts = await getAllUsageCounts(db);
+        const itemMap = new Map(items.map(i => [i.id, i]));
+        const mul = dir === 'desc' ? 1 : -1;
+        entries = items
+          .map(item => ({ item, count: allCounts[item.id] ?? 0 }))
+          .filter(x => x.count > 0)
+          .sort((a, b) => mul * (b.count - a.count))
+          .map(({ item, count }) => ({
+            id: item.id,
+            title: item.name,
+            subtitle: item.brand,
+            scoreText: `${count} 次`,
+            photoPath: item.photoIds[0],
+            itemId: item.id,
+          }));
+        void itemMap;
+      } else if (metric === 'cp' && period === 'all') {
+        // 累積 C/P：從 item_usage_logs 計算全部使用次數
+        const allCounts = await getAllUsageCounts(db);
+        const mul = dir === 'desc' ? 1 : -1;
+        entries = items
+          .map(item => {
+            const price = item.discountPrice ?? item.specialPrice ?? item.originalPrice;
+            if (price == null) return null;
+            const uses = allCounts[item.id] ?? 0;
+            const cp = uses > 0 ? price / uses : Infinity;
+            if (!isFinite(cp)) return null;
+            return { item, cp, scoreText: `$${Math.round(cp)}/次` };
+          })
+          .filter((x): x is { item: Item; cp: number; scoreText: string } => x !== null)
+          .sort((a, b) => mul * (a.cp - b.cp))
+          .map(({ item, scoreText }) => ({
+            id: item.id,
+            title: item.name,
+            subtitle: item.brand,
+            scoreText,
+            photoPath: item.photoIds[0],
+            itemId: item.id,
+          }));
       } else if (metric === 'brand_count' || metric === 'color_count') {
         const filtered = filterByPeriod(items, period, new Date());
         entries = metric === 'brand_count'
           ? buildBrandRanking(filtered, voteCounts, dir)
           : buildColorRanking(filtered, voteCounts, colorMap, dir);
       } else {
-        // usage all / cp all / 其他指標
+        // 金額或其他指標
         const filtered = filterByPeriod(items, period, new Date());
         const sorted = sortByMetric(filtered, metric, voteCounts, dir);
         entries = sorted.map(item => itemToEntry(item, metric, voteCounts));

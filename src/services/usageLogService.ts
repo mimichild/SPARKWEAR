@@ -16,6 +16,17 @@ export async function logItemUsages(
   }
 }
 
+export async function getAllUsageCounts(
+  db: SQLiteDatabase
+): Promise<Record<string, number>> {
+  const rows = await db.getAllAsync<{ item_id: string; count: number }>(
+    `SELECT item_id, COUNT(*) as count FROM item_usage_logs GROUP BY item_id`
+  );
+  const result: Record<string, number> = {};
+  rows.forEach(r => { result[r.item_id] = r.count; });
+  return result;
+}
+
 export async function getUsageCountsByPeriod(
   db: SQLiteDatabase,
   startDate: string,

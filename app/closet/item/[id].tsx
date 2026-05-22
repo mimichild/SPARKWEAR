@@ -31,6 +31,7 @@ export default function ItemDetailScreen() {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [itemOutfits, setItemOutfits] = useState<Outfit[]>([]);
   const [outfitPage, setOutfitPage] = useState(0);
+  const [logUsageCount, setLogUsageCount] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -40,12 +41,16 @@ export default function ItemDetailScreen() {
       getOrigins(db),
       getColors(db),
       getOutfitsByItemId(db, id),
-    ]).then(([loadedItem, cats, origs, cols, outfits]) => {
+      db.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM item_usage_logs WHERE item_id = ?', [id]
+      ),
+    ]).then(([loadedItem, cats, origs, cols, outfits, logRow]) => {
       setItem(loadedItem);
       setCategories(cats);
       setOrigins(origs);
       setColors(cols);
       setItemOutfits(outfits);
+      setLogUsageCount(logRow?.count ?? 0);
     });
   }, [id, db]);
 
@@ -96,15 +101,14 @@ export default function ItemDetailScreen() {
     { label: '身材',    value: item.bodyType,                                  visible: !!item.bodyType },
     { label: '建議體重', value: item.suggestedWeight,                           visible: !!item.suggestedWeight },
     { label: '季節',    value: item.seasons.join('、'),                        visible: item.seasons.length > 0 },
-    { label: '使用次數', value: `${item.usageCount} 次`, visible: true },
+    { label: '使用次數', value: `${logUsageCount} 次`, visible: true },
     (() => {
-      // 最低購買金額（discountPrice → specialPrice → originalPrice 依序取用）
       const prices = [item.discountPrice, item.specialPrice, item.originalPrice]
         .filter((p): p is number => p != null);
       if (prices.length === 0) return null;
       const minPrice = Math.min(...prices);
-      const avgValue = item.usageCount > 0
-        ? `$${(minPrice / item.usageCount).toFixed(0)}/次`
+      const avgValue = logUsageCount > 0
+        ? `$${(minPrice / logUsageCount).toFixed(0)}/次`
         : `$${minPrice}（未使用）`;
       return { label: '平均使用價格', value: avgValue, visible: true };
     })(),

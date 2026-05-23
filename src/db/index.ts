@@ -52,6 +52,34 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
     }
     await db.runAsync('PRAGMA user_version = 3');
   }
+  if (current < 4) {
+    // v3 → v4：補填 item_usage_logs 歷史缺口
+    // items.usage_count 可能因早期手動登錄而高於 item_usage_logs 的筆數
+    const gapRows = await db.getAllAsync<{
+      id: string; usage_count: number; log_count: number;
+      purchase_date: string | null; created_at: string;
+    }>(
+      `SELECT i.id, i.usage_count, COUNT(l.id) as log_count,
+              i.purchase_date, i.created_at
+       FROM items i
+       LEFT JOIN item_usage_logs l ON l.item_id = i.id
+       WHERE i.deleted_at IS NULL
+       GROUP BY i.id
+       HAVING i.usage_count > COUNT(l.id)`
+    );
+    const now = new Date().toISOString();
+    for (const row of gapRows) {
+      const gap = row.usage_count - row.log_count;
+      const date = row.purchase_date ?? row.created_at.slice(0, 10);
+      for (let i = 0; i < gap; i++) {
+        await db.runAsync(
+          'INSERT OR IGNORE INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
+          [`log-migration4-${row.id}-${i}`, row.id, date, 'migration', now]
+        );
+      }
+    }
+    await db.runAsync('PRAGMA user_version = 4');
+  }
 }
 
 async function seedDefaults(db: SQLiteDatabase): Promise<void> {

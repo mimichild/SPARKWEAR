@@ -248,13 +248,8 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
         const periodCounts = await getUsageCountsByPeriod(db, range.start, range.end);
         const itemMap = new Map(items.map(i => [i.id, i]));
         const mul = dir === 'desc' ? 1 : -1;
-        entries = Object.entries(periodCounts)
-          .map(([itemId, count]) => {
-            const item = itemMap.get(itemId);
-            if (!item) return null;
-            return { item, count };
-          })
-          .filter((x): x is { item: Item; count: number } => x !== null)
+        entries = items
+          .map(item => ({ item, count: periodCounts[item.id] ?? 0 }))
           .sort((a, b) => mul * (b.count - a.count))
           .map(({ item, count }) => ({
             id: item.id,
@@ -298,7 +293,6 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
         const mul = dir === 'desc' ? 1 : -1;
         entries = items
           .map(item => ({ item, count: allCounts[item.id] ?? 0 }))
-          .filter(x => x.count > 0)
           .sort((a, b) => mul * (b.count - a.count))
           .map(({ item, count }) => ({
             id: item.id,
@@ -318,9 +312,11 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
             const price = item.discountPrice ?? item.specialPrice ?? item.originalPrice;
             if (price == null) return null;
             const uses = allCounts[item.id] ?? 0;
-            const cp = uses > 0 ? price / uses : Infinity;
-            if (!isFinite(cp)) return null;
-            return { item, cp, scoreText: `$${Math.round(cp)}/次` };
+            const cp = uses > 0 ? price / uses : price;
+            const scoreText = uses > 0
+              ? `$${Math.round(cp)}/次`
+              : `$${price}（未使用）`;
+            return { item, cp, scoreText };
           })
           .filter((x): x is { item: Item; cp: number; scoreText: string } => x !== null)
           .sort((a, b) => mul * (a.cp - b.cp))

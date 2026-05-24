@@ -31,7 +31,7 @@ export function ItemCard({
   if (mode === 'list') {
     const metaParts: string[] = [];
     if (categoryName) metaParts.push(categoryName);
-    if (item.usageCount > 0) metaParts.push(`使用次數：${item.usageCount}`);
+    metaParts.push(`使用次數：${item.usageCount}`);
 
     return (
       <Pressable
@@ -79,9 +79,7 @@ export function ItemCard({
           {item.purchaseDate ? (
             <Text style={styles.date}>{item.purchaseDate}</Text>
           ) : null}
-          {item.usageCount > 0 && (
-            <Text style={styles.usage}>{item.usageCount}次</Text>
-          )}
+          <Text style={styles.usage}>{item.usageCount}次</Text>
         </View>
       </View>
     </Pressable>

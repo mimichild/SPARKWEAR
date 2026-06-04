@@ -273,11 +273,11 @@ export default function ItemFormScreen() {
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* 基本資訊 */}
         <View style={styles.section}>
-          <Field label="商品名稱 *">
-            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="必填" />
-          </Field>
           <Field label="品牌名稱">
             <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="選填" />
+          </Field>
+          <Field label="商品名稱 *">
+            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="必填" />
           </Field>
           <View style={styles.row}>
             <View style={styles.flex1}>

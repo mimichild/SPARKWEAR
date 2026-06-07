@@ -10,7 +10,7 @@ import { saveOutfit, updateOutfit, getOutfitById } from '../../src/services/outf
 import { getItems, filterItems, incrementUsageCount } from '../../src/services/itemService';
 import { logItemUsages } from '../../src/services/usageLogService';
 import { getCategories } from '../../src/services/categoryService';
-import { pickImages, savePhotos, deletePhotos, getPhotoUri } from '../../src/services/photoService';
+import { pickImages, savePhotos, deletePhotos, getPhotoUri, photoIdFromPath } from '../../src/services/photoService';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import { SearchBar } from '../../src/components/shared/SearchBar';
@@ -85,6 +85,11 @@ export default function OutfitFormScreen() {
       setPlace(outfit.place ?? '');
       setNote(outfit.note ?? '');
       setSelectedItemIds(new Set(outfit.itemIds));
+      setPhotos(outfit.photoIds.map(path => ({
+        id: photoIdFromPath(path),
+        path,
+        mimeType: 'image/jpeg',
+      })));
     });
   }, [id, db]);
 

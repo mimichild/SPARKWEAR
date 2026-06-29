@@ -201,34 +201,34 @@ export default function OutfitFormScreen() {
         {/* 基本資訊 */}
         <View style={styles.section}>
           <Field label="日期 *">
-            <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
+            <TextInput style={styles.input} placeholderTextColor="#bbb" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
           </Field>
           <View style={styles.row}>
             <View style={styles.flex1}>
               <Field label="時間">
-                <TextInput style={styles.input} value={time} onChangeText={setTime} placeholder="HH:mm" />
+                <TextInput style={styles.input} placeholderTextColor="#bbb" value={time} onChangeText={setTime} placeholder="HH:mm" />
               </Field>
             </View>
             <View style={styles.flex1}>
               <Field label="天氣">
-                <TextInput style={styles.input} value={weather} onChangeText={setWeather} placeholder="晴天 24°C" />
+                <TextInput style={styles.input} placeholderTextColor="#bbb" value={weather} onChangeText={setWeather} placeholder="晴天" />
               </Field>
             </View>
           </View>
           <View style={styles.row}>
             <View style={styles.flex1}>
               <Field label="氣溫">
-                <TextInput style={styles.input} value={temperature} onChangeText={setTemperature} placeholder="24°C" />
+                <TextInput style={styles.input} placeholderTextColor="#bbb" value={temperature} onChangeText={setTemperature} placeholder="24°C" />
               </Field>
             </View>
             <View style={styles.flex1}>
               <Field label="縣市">
-                <TextInput style={styles.input} value={county} onChangeText={setCounty} placeholder="台北市" />
+                <TextInput style={styles.input} placeholderTextColor="#bbb" value={county} onChangeText={setCounty} placeholder="台北市" />
               </Field>
             </View>
           </View>
           <Field label="地點">
-            <TextInput style={styles.input} value={place} onChangeText={setPlace} placeholder="信義區" />
+            <TextInput style={styles.input} placeholderTextColor="#bbb" value={place} onChangeText={setPlace} placeholder="信義區" />
           </Field>
           <Field label="穿搭想法">
             <TextInput
@@ -237,6 +237,7 @@ export default function OutfitFormScreen() {
               onChangeText={setNote}
               multiline
               placeholder="今天的穿搭感想..."
+              placeholderTextColor="#bbb"
             />
           </Field>
         </View>

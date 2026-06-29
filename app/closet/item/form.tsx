@@ -291,20 +291,20 @@ export default function ItemFormScreen() {
         {/* 基本資訊 */}
         <View style={styles.section}>
           <Field label="品牌名稱">
-            <TextInput style={styles.input} value={brand} onChangeText={setBrand} placeholder="選填" />
+            <TextInput style={styles.input} placeholderTextColor="#bbb" value={brand} onChangeText={setBrand} placeholder="選填" />
           </Field>
           <Field label="商品名稱 *">
-            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="必填" />
+            <TextInput style={styles.input} placeholderTextColor="#bbb" value={name} onChangeText={setName} placeholder="必填" />
           </Field>
           <View style={styles.row}>
             <View style={styles.flex1}>
               <Field label="購買日期">
-                <TextInput style={styles.input} value={purchaseDate} onChangeText={setPurchaseDate} placeholder="YYYY-MM-DD" />
+                <TextInput style={styles.input} placeholderTextColor="#bbb" value={purchaseDate} onChangeText={setPurchaseDate} placeholder="YYYY-MM-DD" />
               </Field>
             </View>
             <View style={styles.flex1}>
               <Field label="購買時間">
-                <TextInput style={styles.input} value={purchaseTime} onChangeText={setPurchaseTime} placeholder="HH:mm" />
+                <TextInput style={styles.input} placeholderTextColor="#bbb" value={purchaseTime} onChangeText={setPurchaseTime} placeholder="HH:mm" />
               </Field>
             </View>
           </View>
@@ -394,29 +394,29 @@ export default function ItemFormScreen() {
         {/* 價格 / 尺寸 */}
         <View style={styles.section}>
           <View style={styles.row}>
-            <View style={styles.flex1}><Field label="原價"><TextInput style={styles.input} value={originalPrice} onChangeText={setOriginalPrice} keyboardType="numeric" placeholder="0" /></Field></View>
-            <View style={styles.flex1}><Field label="特價"><TextInput style={styles.input} value={specialPrice} onChangeText={setSpecialPrice} keyboardType="numeric" placeholder="0" /></Field></View>
-            <View style={styles.flex1}><Field label="優惠價"><TextInput style={styles.input} value={discountPrice} onChangeText={setDiscountPrice} keyboardType="numeric" placeholder="0" /></Field></View>
+            <View style={styles.flex1}><Field label="原價"><TextInput style={styles.input} placeholderTextColor="#bbb" value={originalPrice} onChangeText={setOriginalPrice} keyboardType="numeric" placeholder="0" /></Field></View>
+            <View style={styles.flex1}><Field label="特價"><TextInput style={styles.input} placeholderTextColor="#bbb" value={specialPrice} onChangeText={setSpecialPrice} keyboardType="numeric" placeholder="0" /></Field></View>
+            <View style={styles.flex1}><Field label="優惠價"><TextInput style={styles.input} placeholderTextColor="#bbb" value={discountPrice} onChangeText={setDiscountPrice} keyboardType="numeric" placeholder="0" /></Field></View>
           </View>
           <View style={styles.row}>
-            <View style={styles.flex1}><Field label="尺寸"><TextInput style={styles.input} value={size} onChangeText={setSize} placeholder="S/M/23cm" /></Field></View>
-            <View style={styles.flex1}><Field label="體重(kg)"><TextInput style={styles.input} value={weight} onChangeText={setWeight} keyboardType="numeric" placeholder="48" /></Field></View>
+            <View style={styles.flex1}><Field label="尺寸"><TextInput style={styles.input} placeholderTextColor="#bbb" value={size} onChangeText={setSize} placeholder="S/M/23cm" /></Field></View>
+            <View style={styles.flex1}><Field label="體重(kg)"><TextInput style={styles.input} placeholderTextColor="#bbb" value={weight} onChangeText={setWeight} keyboardType="numeric" placeholder="48" /></Field></View>
           </View>
           <View style={styles.row}>
-            <View style={styles.flex1}><Field label="身材"><TextInput style={styles.input} value={bodyType} onChangeText={setBodyType} placeholder="梨形" /></Field></View>
-            <View style={styles.flex1}><Field label="建議體重範圍"><TextInput style={styles.input} value={suggestedWeight} onChangeText={setSuggestedWeight} placeholder="45-52" /></Field></View>
+            <View style={styles.flex1}><Field label="身材"><TextInput style={styles.input} placeholderTextColor="#bbb" value={bodyType} onChangeText={setBodyType} placeholder="梨形" /></Field></View>
+            <View style={styles.flex1}><Field label="建議體重範圍"><TextInput style={styles.input} placeholderTextColor="#bbb" value={suggestedWeight} onChangeText={setSuggestedWeight} placeholder="45-52" /></Field></View>
           </View>
         </View>
 
         {/* 文字欄位 */}
         <View style={styles.section} onLayout={(e) => { textSectionY.current = e.nativeEvent.layout.y; }}>
-          <Field label="小紀錄"><TextInput style={[styles.input, styles.textarea]} value={miniNote} onChangeText={setMiniNote} multiline placeholder="任何想法..." /></Field>
-          <Field label="優點"><TextInput style={[styles.input, styles.textarea]} value={pros} onChangeText={setPros} multiline /></Field>
+          <Field label="小紀錄"><TextInput style={[styles.input, styles.textarea]} placeholderTextColor="#bbb" value={miniNote} onChangeText={setMiniNote} multiline placeholder="任何想法..." /></Field>
+          <Field label="優點"><TextInput style={[styles.input, styles.textarea]} placeholderTextColor="#bbb" value={pros} onChangeText={setPros} multiline /></Field>
           <View onLayout={(e) => { consYInSection.current = e.nativeEvent.layout.y; }}>
-            <Field label="缺點"><TextInput style={[styles.input, styles.textarea]} value={cons} onChangeText={setCons} multiline onFocus={() => scrollToAbsoluteY(consYInSection)} /></Field>
+            <Field label="缺點"><TextInput style={[styles.input, styles.textarea]} placeholderTextColor="#bbb" value={cons} onChangeText={setCons} multiline onFocus={() => scrollToAbsoluteY(consYInSection)} /></Field>
           </View>
           <View onLayout={(e) => { remarkYInSection.current = e.nativeEvent.layout.y; }}>
-            <Field label="備註"><TextInput style={[styles.input, styles.textarea]} value={remark} onChangeText={setRemark} multiline onFocus={() => scrollToAbsoluteY(remarkYInSection)} /></Field>
+            <Field label="備註"><TextInput style={[styles.input, styles.textarea]} placeholderTextColor="#bbb" value={remark} onChangeText={setRemark} multiline onFocus={() => scrollToAbsoluteY(remarkYInSection)} /></Field>
           </View>
         </View>
 

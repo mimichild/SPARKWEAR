@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   StyleSheet, Alert, Modal, FlatList, Image,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,6 +39,18 @@ export default function ItemFormScreen() {
   const insets = useSafeAreaInsets();
   const isEdit = !!id;
   const photoLimit = isProUnlocked ? PHOTO_MAX_PRO : PHOTO_MAX_FREE;
+
+  const scrollRef = useRef<ScrollView>(null);
+  const textSectionY = useRef(0);
+  const consYInSection = useRef(0);
+  const remarkYInSection = useRef(0);
+
+  const scrollToAbsoluteY = useCallback((fieldYInSection: React.MutableRefObject<number>) => {
+    setTimeout(() => {
+      const y = textSectionY.current + fieldYInSection.current;
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 120), animated: true });
+    }, 400);
+  }, []);
 
   // Form state
   const [name, setName] = useState('');
@@ -270,7 +283,11 @@ export default function ItemFormScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+      <ScrollView ref={scrollRef} style={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* 基本資訊 */}
         <View style={styles.section}>
           <Field label="品牌名稱">
@@ -392,11 +409,15 @@ export default function ItemFormScreen() {
         </View>
 
         {/* 文字欄位 */}
-        <View style={styles.section}>
+        <View style={styles.section} onLayout={(e) => { textSectionY.current = e.nativeEvent.layout.y; }}>
           <Field label="小紀錄"><TextInput style={[styles.input, styles.textarea]} value={miniNote} onChangeText={setMiniNote} multiline placeholder="任何想法..." /></Field>
           <Field label="優點"><TextInput style={[styles.input, styles.textarea]} value={pros} onChangeText={setPros} multiline /></Field>
-          <Field label="缺點"><TextInput style={[styles.input, styles.textarea]} value={cons} onChangeText={setCons} multiline /></Field>
-          <Field label="備註"><TextInput style={[styles.input, styles.textarea]} value={remark} onChangeText={setRemark} multiline /></Field>
+          <View onLayout={(e) => { consYInSection.current = e.nativeEvent.layout.y; }}>
+            <Field label="缺點"><TextInput style={[styles.input, styles.textarea]} value={cons} onChangeText={setCons} multiline onFocus={() => scrollToAbsoluteY(consYInSection)} /></Field>
+          </View>
+          <View onLayout={(e) => { remarkYInSection.current = e.nativeEvent.layout.y; }}>
+            <Field label="備註"><TextInput style={[styles.input, styles.textarea]} value={remark} onChangeText={setRemark} multiline onFocus={() => scrollToAbsoluteY(remarkYInSection)} /></Field>
+          </View>
         </View>
 
         {/* 照片 */}
@@ -466,8 +487,9 @@ export default function ItemFormScreen() {
           {visiblePhotos.length > 0 && !reorderMode && <Text style={styles.photoHint}>長按照片可刪除</Text>}
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── 選擇 Modal ── */}
       <Modal visible={pickerType !== null} animationType="slide" presentationStyle="pageSheet">

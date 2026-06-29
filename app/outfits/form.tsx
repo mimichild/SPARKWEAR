@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   StyleSheet, Alert, FlatList, Image, Dimensions,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -194,6 +195,7 @@ export default function OutfitFormScreen() {
         </Pressable>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
 
         {/* 基本資訊 */}
@@ -389,6 +391,7 @@ export default function OutfitFormScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <PhotoEditorModal
         photos={editorPhotos}

@@ -9,6 +9,8 @@ export default function ClosetTabsLayout() {
 
   return (
     <Tabs
+      // 讓分頁返回鍵一律冒泡給外層 Stack 回主頁，而非先跳到第一個分頁
+      backBehavior="none"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: themeColor,

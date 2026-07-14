@@ -52,3 +52,6 @@ yarn-error.*
 # logs
 *.log
 /tmp/expo-*.log
+
+# Claude Code local settings
+.claude/settings.local.json

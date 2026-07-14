@@ -13,7 +13,6 @@ import {
   APP_VERSION, DEFAULT_TAB_ORDER, DEFAULT_ENABLED_TABS, CLOSET_TAB_LABELS,
 } from '../../src/constants/defaults';
 import { getStorageStats } from '../../src/services/photoService';
-import { cleanupOrphanPhotos } from '../../src/services/orphanService';
 import { exportBackup, importBackupFromPicker } from '../../src/services/backupService';
 import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import {
@@ -48,8 +47,6 @@ export default function SettingsScreen() {
   const [storage, setStorage] = useState<{ count: number; totalBytes: number }>({
     count: 0, totalBytes: 0,
   });
-  const [cleaning, setCleaning] = useState(false);
-  const [resettingVotes, setResettingVotes] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
@@ -117,48 +114,6 @@ export default function SettingsScreen() {
     }
     await setEnabledTabs(toggleTab(sanitizedEnabledTabs, tab));
   }, [sanitizedEnabledTabs, setEnabledTabs]);
-
-  const handleResetVotes = useCallback(() => {
-    Alert.alert(
-      '重置排行票選數',
-      '將把所有單品的票選數清零，排行將只依據「使用次數」計算。\n\n此操作無法還原，確定嗎？',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '確定重置',
-          style: 'destructive',
-          onPress: async () => {
-            setResettingVotes(true);
-            try {
-              await db.runAsync('DELETE FROM vote_counts');
-              Alert.alert('完成', '票選數已清零，排行次數已還原正常。');
-            } catch (e) {
-              Alert.alert('失敗', e instanceof Error ? e.message : '請稍後再試');
-            } finally {
-              setResettingVotes(false);
-            }
-          },
-        },
-      ]
-    );
-  }, [db]);
-
-  const handleCleanup = useCallback(async () => {
-    setCleaning(true);
-    try {
-      const result = await cleanupOrphanPhotos(db);
-      await loadStorage();
-      Alert.alert(
-        '清理完成',
-        `掃描 ${result.scanned} 個檔案\n刪除 ${result.deleted} 個孤兒檔案\n釋放 ${formatBytes(result.freedBytes)}`
-      );
-    } catch (e) {
-      console.warn('[orphan-cleanup] failed', e);
-      Alert.alert('清理失敗', '請稍後再試');
-    } finally {
-      setCleaning(false);
-    }
-  }, [db, loadStorage]);
 
   const doExport = useCallback(async (saveToDevice: boolean) => {
     setExporting(true);
@@ -475,30 +430,6 @@ export default function SettingsScreen() {
             <Text style={styles.storageLabel}>總大小</Text>
             <Text style={styles.storageValue}>{formatBytes(storage.totalBytes)}</Text>
           </View>
-          <Pressable
-            onPress={handleCleanup}
-            disabled={cleaning}
-            style={[
-              styles.fullBtn,
-              { backgroundColor: themeColor || DEFAULT_THEME_COLOR },
-              cleaning && styles.fullBtnDisabled,
-            ]}
-          >
-            <Text style={styles.fullBtnText}>{cleaning ? '清理中…' : '清理孤兒檔案'}</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleResetVotes}
-            disabled={resettingVotes}
-            style={[
-              styles.fullBtn, styles.fullBtnOutline,
-              { borderColor: '#e57373' },
-              resettingVotes && styles.fullBtnDisabled,
-            ]}
-          >
-            <Text style={[styles.fullBtnOutlineText, { color: '#e57373' }]}>
-              {resettingVotes ? '重置中…' : '重置排行票選數'}
-            </Text>
-          </Pressable>
         </View>
 
         {/* 備份與還原 */}

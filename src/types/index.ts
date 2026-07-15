@@ -245,3 +245,8 @@ export interface ImportResult {
   missingPhotoCount: number;
   error?: string;
 }
+
+/** 匯出結果：使用者取消資料夾選擇時為 cancelled，否則為 done（savedTo 為可讀存放位置，僅限儲存至手機時提供） */
+export type ExportResult =
+  | { status: 'done'; savedTo?: string }
+  | { status: 'cancelled' };

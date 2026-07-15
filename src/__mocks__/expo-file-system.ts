@@ -12,3 +12,7 @@ export const moveAsync = jest.fn().mockResolvedValue(undefined);
 
 export const EncodingType = { Base64: 'base64', UTF8: 'utf8' };
 export const FileSystemUploadType = { BINARY_CONTENT: 0, MULTIPART: 1 };
+
+export const StorageAccessFramework = {
+  requestDirectoryPermissionsAsync: jest.fn().mockResolvedValue({ granted: false }),
+};

@@ -1,7 +1,10 @@
 import { Platform } from 'react-native';
 import { Zip, ZipPassThrough, strToU8, Unzip, UnzipInflate, strFromU8 } from 'fflate';
 import { File as ExpoFile } from 'expo-file-system';
-import { saveFileToDownloads } from './downloadsService';
+import {
+  pickBackupFolder, saveFileToTreeUri,
+  getLastBackupDirectoryUri, setLastBackupDirectoryUri,
+} from './downloadsService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
@@ -15,7 +18,7 @@ import type {
   Item, Outfit, Category, Origin, Color, VoteCount,
   BackupManifest, BackupPhotoEntry,
   LegacyManifest, LegacyItem, LegacyOutfit,
-  ImportMode, ImportResult,
+  ImportMode, ImportResult, ExportResult,
 } from '../types';
 
 const PHOTOS_DIR = `${FileSystem.documentDirectory}photos/`;
@@ -149,7 +152,7 @@ export async function exportBackup(
   db: SQLiteDatabase,
   saveToDevice: boolean,
   onProgress?: (stage: string, current: number, total: number) => void
-): Promise<boolean> {
+): Promise<ExportResult> {
   if (Platform.OS === 'web') throw new Error('Export is not supported on web');
 
   onProgress?.('reading', 0, 1);
@@ -261,10 +264,18 @@ export async function exportBackup(
   onProgress?.('saving', 0, 1);
 
   if (saveToDevice && Platform.OS === 'android') {
-    // MediaStore.Downloads：直接存到手機下載資料夾，不需任何權限
-    await saveFileToDownloads(zipPath, zipFilename);
+    // 每次都詢問使用者要存到哪個資料夾（帶入上次選擇的位置作為初始值）
+    const lastDir = await getLastBackupDirectoryUri();
+    const picked = await pickBackupFolder(lastDir);
+    if (!picked) {
+      await FileSystem.deleteAsync(zipPath, { idempotent: true });
+      return { status: 'cancelled' };
+    }
+
+    await saveFileToTreeUri(zipPath, picked.directoryUri, zipFilename);
+    await setLastBackupDirectoryUri(picked.directoryUri);
     onProgress?.('done', 1, 1);
-    return true;
+    return { status: 'done', savedTo: picked.label };
   }
 
   // iOS 或 Android 分享模式
@@ -277,7 +288,7 @@ export async function exportBackup(
   }
 
   onProgress?.('done', 1, 1);
-  return true;
+  return { status: 'done' };
 }
 
 // ── Import ────────────────────────────────────────────────────

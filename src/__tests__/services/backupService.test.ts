@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import {
   photoFilenameFromPath,
   photoRelativePath,
@@ -5,8 +6,27 @@ import {
   mapV4ItemToV5,
   mapV4OutfitToV5,
   buildIdRemap,
+  exportBackup,
 } from '../../services/backupService';
+import * as downloadsService from '../../services/downloadsService';
+import { __mockDb } from '../../__mocks__/expo-sqlite';
 import type { LegacyItem, LegacyOutfit } from '../../types';
+
+jest.mock('../../services/downloadsService');
+
+// expo-file-system（不帶 /legacy）在 jest-expo 底下無法透過 moduleNameMapper 正確攔截
+// （會解析回真正的原生模組殼，且會連帶影響 /legacy 子路徑的解析），故在此單獨 mock，
+// 並沿用共用 mock 的內容以保持 /legacy 那份 import 的行為一致。
+jest.mock('expo-file-system', () => ({
+  ...jest.requireActual('../../__mocks__/expo-file-system'),
+  File: class MockExpoFile {
+    constructor(_path: string) {}
+    write(_data: Uint8Array) {}
+    open() {
+      return { writeBytes: (_bytes: Uint8Array) => {}, close: () => {} };
+    }
+  },
+}));
 
 describe('backupService — pure helpers', () => {
   // ── photoFilenameFromPath ──────────────────────────────────────
@@ -271,5 +291,63 @@ describe('backupService — pure helpers', () => {
       const result = mapV4OutfitToV5(outfit, keyToRelativePath);
       expect(result.date).toBe('2025-05-10');
     });
+  });
+});
+
+describe('exportBackup — 儲存至手機時每次詢問資料夾', () => {
+  const originalOS = Platform.OS;
+
+  beforeEach(() => {
+    (Platform as { OS: string }).OS = 'android';
+    jest.mocked(downloadsService.getLastBackupDirectoryUri).mockResolvedValue(null);
+    jest.mocked(downloadsService.setLastBackupDirectoryUri).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    (Platform as { OS: string }).OS = originalOS;
+    jest.clearAllMocks();
+  });
+
+  it('使用者取消資料夾選擇時回傳 cancelled，且不呼叫寫入', async () => {
+    jest.mocked(downloadsService.pickBackupFolder).mockResolvedValue(null);
+
+    const result = await exportBackup(__mockDb, true);
+
+    expect(result).toEqual({ status: 'cancelled' });
+    expect(downloadsService.saveFileToTreeUri).not.toHaveBeenCalled();
+    expect(downloadsService.setLastBackupDirectoryUri).not.toHaveBeenCalled();
+  });
+
+  it('使用者選好資料夾後寫入該位置，並回傳可讀的儲存位置', async () => {
+    jest.mocked(downloadsService.pickBackupFolder).mockResolvedValue({
+      directoryUri: 'content://com.android.externalstorage.documents/tree/primary%3ADownload',
+      label: '內部儲存空間/Download',
+    });
+    jest.mocked(downloadsService.saveFileToTreeUri).mockResolvedValue('content://saved-file-uri');
+
+    const result = await exportBackup(__mockDb, true);
+
+    expect(result).toEqual({ status: 'done', savedTo: '內部儲存空間/Download' });
+    expect(downloadsService.saveFileToTreeUri).toHaveBeenCalledWith(
+      expect.any(String),
+      'content://com.android.externalstorage.documents/tree/primary%3ADownload',
+      expect.any(String)
+    );
+    expect(downloadsService.setLastBackupDirectoryUri).toHaveBeenCalledWith(
+      'content://com.android.externalstorage.documents/tree/primary%3ADownload'
+    );
+  });
+
+  it('每次都會呼叫資料夾選擇（帶入上次選擇的位置作為初始值），不會略過詢問', async () => {
+    jest.mocked(downloadsService.getLastBackupDirectoryUri).mockResolvedValue('content://last-dir');
+    jest.mocked(downloadsService.pickBackupFolder).mockResolvedValue({
+      directoryUri: 'content://last-dir',
+      label: '內部儲存空間/Backup',
+    });
+    jest.mocked(downloadsService.saveFileToTreeUri).mockResolvedValue('content://saved-file-uri');
+
+    await exportBackup(__mockDb, true);
+
+    expect(downloadsService.pickBackupFolder).toHaveBeenCalledWith('content://last-dir');
   });
 });

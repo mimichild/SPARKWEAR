@@ -18,7 +18,7 @@ import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import {
   moveTabUp, moveTabDown, toggleTab, isValidVipCode, formatBytes,
 } from '../../src/utils/settingsUtils';
-import type { ImportMode } from '../../src/types';
+import type { ImportMode, ExportResult } from '../../src/types';
 
 const HEX_REGEX = /^#([0-9a-fA-F]{6})$/;
 
@@ -121,9 +121,9 @@ export default function SettingsScreen() {
     setExportProgress(undefined);
     setExportMsg('讀取資料中…');
 
-    let completed = false;
+    let result: ExportResult | null = null;
     try {
-      completed = await exportBackup(db, saveToDevice, (stage, current, total) => {
+      result = await exportBackup(db, saveToDevice, (stage, current, total) => {
         if (stage === 'reading') {
           setExportMsg('讀取資料中…');
           setExportProgress(undefined);
@@ -149,8 +149,8 @@ export default function SettingsScreen() {
       setExporting(false);
     }
 
-    if (completed && saveToDevice && Platform.OS === 'android') {
-      Alert.alert('匯出完成', '備份已儲存至手機「下載」資料夾。\n\n可在「下載管理員」或檔案管理 App 的下載項目中找到。');
+    if (result?.status === 'done' && saveToDevice && Platform.OS === 'android') {
+      Alert.alert('匯出完成', `備份已儲存至：\n${result.savedTo ?? '你選擇的資料夾'}`);
     }
   }, [db]);
 

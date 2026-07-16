@@ -21,9 +21,21 @@ DRIVE_ROOT=~/Library/CloudStorage/GoogleDrive-mimichild@gmail.com/我的雲端�
 
 **Important:** `我的雲端硬碟` is the Traditional-Chinese-localized folder name Google Drive for Desktop uses on this Mac (it is NOT literally "My Drive" in English) — always use the exact Chinese folder name above, or `find` it fresh with `find ~/Library/CloudStorage -maxdepth 1` if this account's localization ever changes.
 
+## ⚠️ Mandatory: force-refresh the JS bundle before every release build
+
+Since migrating to pnpm, plain `./gradlew assembleRelease` silently mis-detects `:app:createBundleReleaseJsAndAssets` as up-to-date even when `src/` has changed — Metro never runs, and you get a real "BUILD SUCCESSFUL" with an APK containing **stale JS** (verified by decoding the Hermes bundle and confirming old strings/missing new code). No error, no warning — it just ships old behavior. Root cause not fully diagnosed; presumed related to how pnpm's hoisted linker changed `node_modules` layout/mtimes.
+
+**Do NOT "fix" this with `./gradlew clean`** — on these projects that breaks the C++/CMake autolinking build entirely (`clean` wipes `.cxx` intermediates, then CMake's `Android-autolinking.cmake` fails with `add_subdirectory given source ... which is not an existing directory` because the codegen output under `node_modules/<pkg>/android/build/generated/source/codegen/jni/` hasn't been regenerated yet — tested and confirmed this hard-fails the build).
+
+**Correct fix — always run this first, from `android/`:**
+```bash
+export JAVA_HOME="/opt/homebrew/Cellar/openjdk@21/21.0.10/libexec/openjdk.jdk/Contents/Home" && export PATH="$JAVA_HOME/bin:$PATH:/Users/mimi/Library/Android/sdk/platform-tools" && cd android && ./gradlew :app:createBundleReleaseJsAndAssets --rerun-tasks 2>&1
+```
+This forces Metro to actually re-bundle (you'll see "Bundler cache is empty, rebuilding" and a fresh module count) and updates the bundle file's mtime, so the normal build below correctly detects the change and repackages everything downstream.
+
 ## Steps
 
-1. Run the build in the background:
+1. Run the bundle force-refresh command above, then run the build in the background:
    - **Device connected** (ADB install is the goal): `npx expo run:android --variant release` builds AND installs in one step.
    - **No device connected / Drive upload only**: `npx expo run:android` fails immediately with `CommandError: No Android connected device found` — it never even compiles. Build directly with Gradle instead, which only needs the SDK, not a device:
 ```bash
@@ -31,7 +43,7 @@ export JAVA_HOME="/opt/homebrew/Cellar/openjdk@21/21.0.10/libexec/openjdk.jdk/Co
 ```
    Output lands at the same `APK` path either way. First-time build can take several minutes — run in background.
 
-2. Wait for build to complete.
+2. Wait for build to complete. Sanity-check that it actually rebuilt: `:app:packageRelease` and `:app:assembleRelease` in the log should NOT both say `UP-TO-DATE` right after a source change — if they do, the bundle refresh step was skipped or didn't take effect.
 
 3a. Install to connected device (if requested / device available):
 ```bash

@@ -30,13 +30,20 @@ describe('theme — 主題設定', () => {
       expect(APP_FONT_OPTIONS.length).toBeGreaterThanOrEqual(10);
     });
 
-    it('每種字體都有 key、label、css', () => {
+    it('每種字體都有 key、label、css 與 ios/android 平台欄位', () => {
       APP_FONT_OPTIONS.forEach(font => {
         expect(font.key).toBeTruthy();
         expect(font.label).toBeTruthy();
         expect(font.css).toBeTruthy();
-        // native 可以是 undefined（系統預設）或字串
-        expect('native' in font).toBe(true);
+        // ios/android: undefined = 系統預設，null = 此平台不支援，字串 = 字型名稱
+        expect('ios' in font).toBe(true);
+        expect('android' in font).toBe(true);
+      });
+    });
+
+    it('每種字體至少支援一個平台', () => {
+      APP_FONT_OPTIONS.forEach(font => {
+        expect(font.ios !== null || font.android !== null).toBe(true);
       });
     });
 

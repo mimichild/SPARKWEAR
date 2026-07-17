@@ -1,0 +1,101 @@
+{
+  "project": "SPARKWEAR",
+  "last_updated": "2026-07-17",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true,
+    "evidence_format": "YYYY-MM-DD | 實際執行的指令 | 關鍵輸出摘要",
+    "details": "狀態機、證據判準與範例見 docs/harness/PLAYBOOK.md"
+  },
+  "status_legend": {
+    "not_started": "尚未開始。",
+    "in_progress": "目前唯一正在進行的功能。",
+    "blocked": "因已記錄的問題無法繼續；notes 必須寫明現象、已嘗試方法、建議解法。",
+    "passing": "verification 全部實際執行過，且 evidence 已依格式記錄。"
+  },
+  "features": [
+    {
+      "id": "ios-001",
+      "priority": 1,
+      "area": "ios",
+      "title": "本機 Xcode 環境打通並在 iOS 模擬器啟動 App",
+      "user_visible_behavior": "在 iOS 模擬器上可以看到 SPARKWEAR 啟動並顯示衣櫃首頁。",
+      "status": "not_started",
+      "verification": [
+        "依 docs/ios-testing/README.md 完成環境檢查（完整版 Xcode、CocoaPods、模擬器）。",
+        "執行 npx expo run:ios（或 pnpm ios）。",
+        "確認建置成功且模擬器自動開啟 App。",
+        "確認首頁（衣櫃 tab）正常渲染，無紅屏錯誤。",
+        "擷取模擬器截圖存入 docs/ios-testing/ 作為證據。"
+      ],
+      "evidence": [],
+      "notes": "對應 docs/IOS_READINESS_ROADMAP.md Phase A/B。這台 iMac 從未裝過完整版 Xcode，第一次建置時間會很長。"
+    },
+    {
+      "id": "ios-002",
+      "priority": 2,
+      "area": "ios",
+      "title": "模擬器驗證核心流程：資料庫讀寫與相機/相簿權限",
+      "user_visible_behavior": "使用者在 iOS 模擬器上能新增單品（含從相簿選照片）、看到權限彈窗、重啟 App 後資料仍在。",
+      "status": "not_started",
+      "verification": [
+        "在模擬器新增一件單品並從相簿選一張照片。",
+        "確認相簿權限彈窗出現且允許後能選圖。",
+        "確認單品出現在衣櫃列表且照片正常顯示。",
+        "完全關閉 App 再重開，確認該單品仍存在（expo-sqlite 持久化）。",
+        "新增一筆穿搭紀錄並關聯該單品，確認顯示正常。"
+      ],
+      "evidence": [],
+      "notes": "模擬器沒有實體相機，拍照流程只能驗證權限彈窗與不閃退；完整拍照驗證留到實機（ios-005）。"
+    },
+    {
+      "id": "ios-003",
+      "priority": 3,
+      "area": "ios",
+      "title": "模擬器驗證 ZIP 匯出/匯入",
+      "user_visible_behavior": "使用者在 iOS 上能從設定頁匯出 ZIP 備份，並成功匯入還原資料。",
+      "status": "not_started",
+      "verification": [
+        "在模擬器建立至少 2 件單品與 1 筆穿搭。",
+        "設定頁執行匯出，確認產生 ZIP 且分享面板正常出現。",
+        "清空資料（或重裝 App）後執行匯入（覆蓋模式），確認單品與穿搭完整還原、照片正常顯示。",
+        "再測一次合併模式匯入，確認不會重複或遺失。"
+      ],
+      "evidence": [],
+      "notes": "backupService manifest v5；iOS 的檔案分享行為與 Android 不同，特別注意 expo-sharing / expo-document-picker 的路徑處理。"
+    },
+    {
+      "id": "ios-004",
+      "priority": 4,
+      "area": "ios",
+      "title": "EAS iOS 雲端建置成功",
+      "user_visible_behavior": "EAS Build 產出可安裝的 iOS build（顯示於 expo.dev 建置頁）。",
+      "status": "not_started",
+      "verification": [
+        "確認已有 Apple Developer 帳號（kyoangel.tw@gmail.com）且 eas.json 的 iOS profile 正確。",
+        "執行 eas build --platform ios。",
+        "確認 expo.dev 上建置狀態為 finished，無簽章錯誤。",
+        "記錄 build URL 作為證據。"
+      ],
+      "evidence": [],
+      "notes": "前置條件：Apple Developer Program（$99/年，審核需時，見路線圖 Phase C）。帳號未辦好前此項標 blocked，不要空等。icon alpha 通道已於 commit ab85c56 移除。"
+    },
+    {
+      "id": "ios-005",
+      "priority": 5,
+      "area": "ios",
+      "title": "TestFlight 內部測試",
+      "user_visible_behavior": "使用者的 iPhone 能從 TestFlight 安裝 SPARKWEAR 並正常使用核心功能。",
+      "status": "not_started",
+      "verification": [
+        "執行 eas submit --platform ios（或於 App Store Connect 上傳 build）。",
+        "在 App Store Connect 將 build 加入內部測試群組。",
+        "實機從 TestFlight 安裝並啟動。",
+        "實機重跑 ios-002 的核心流程驗證（含真實相機拍照）。"
+      ],
+      "evidence": [],
+      "notes": "依賴 ios-004。實機拍照流程在此項補驗。"
+    }
+  ]
+}

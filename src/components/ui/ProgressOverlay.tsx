@@ -1,4 +1,4 @@
-import { View, Text, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 
 interface Props {
@@ -8,39 +8,45 @@ interface Props {
   message?: string;
 }
 
+// 這裡刻意不用 <Modal>：this screen 常常在關閉另一個 <Modal>（例如照片編輯器）
+// 之後緊接著顯示進度條，兩個原生 Modal 幾乎同時 present/dismiss 在 iOS 上
+// 會讓畫面卡死不回應。改成一般的絕對定位 View 疊在畫面最上層就不會有這個問題。
 export function ProgressOverlay({ visible, title = '處理中...', progress, message }: Props) {
   const { themeColor } = useTheme();
   const pct = progress != null ? Math.round(progress * 100) : null;
 
+  if (!visible) return null;
+
   return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
-          {pct != null ? (
-            <>
-              <View style={styles.track}>
-                <View style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: themeColor }]} />
-              </View>
-              <Text style={styles.pct}>{pct}%</Text>
-            </>
-          ) : (
-            <ActivityIndicator color={themeColor} style={{ marginVertical: 12 }} />
-          )}
-          {message ? <Text style={styles.message}>{message}</Text> : null}
-        </View>
+    <View style={styles.overlay} pointerEvents="auto">
+      <View style={styles.card}>
+        <Text style={styles.title}>{title}</Text>
+        {pct != null ? (
+          <>
+            <View style={styles.track}>
+              <View style={[styles.fill, { width: `${pct}%` as `${number}%`, backgroundColor: themeColor }]} />
+            </View>
+            <Text style={styles.pct}>{pct}%</Text>
+          </>
+        ) : (
+          <ActivityIndicator color={themeColor} style={{ marginVertical: 12 }} />
+        )}
+        {message ? <Text style={styles.message}>{message}</Text> : null}
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    zIndex: 999,
+    elevation: 999,
   },
   card: {
     width: '100%',

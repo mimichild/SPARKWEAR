@@ -11,7 +11,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, Modal, Pressable, StyleSheet,
-  Dimensions, PanResponder, Image,
+  Dimensions, PanResponder, Image, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -185,14 +185,23 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
     const tx = savedOffsetX.value;
     const ty = savedOffsetY.value;
     const sf = Math.max(FRAME_W / imgW, FRAME_H / imgH);
-    const cropW = FRAME_W / (sf * s);
-    const cropH = FRAME_H / (sf * s);
-    const originX = Math.max(0, Math.min(imgW - cropW, imgW / 2 - cropW / 2 - tx / (sf * s)));
-    const originY = Math.max(0, Math.min(imgH - cropH, imgH / 2 - cropH / 2 - ty / (sf * s)));
+    // 先算出理論上的裁切框，再用 imgW/imgH 夾住，避免浮點數誤差或
+    // 圖片方向資訊落差讓裁切框跑出原圖邊界（native crop 對此會直接丟錯，
+    // 且這個錯誤先前沒有被妥善處理，導致 UI 卡死不回應）。
+    const rawCropW = FRAME_W / (sf * s);
+    const rawCropH = FRAME_H / (sf * s);
+    const cropW = Math.min(imgW, Math.max(1, rawCropW));
+    const cropH = Math.min(imgH, Math.max(1, rawCropH));
+    const rawOriginX = imgW / 2 - cropW / 2 - tx / (sf * s);
+    const rawOriginY = imgH / 2 - cropH / 2 - ty / (sf * s);
+    const originX = Math.floor(Math.max(0, Math.min(imgW - cropW, rawOriginX)));
+    const originY = Math.floor(Math.max(0, Math.min(imgH - cropH, rawOriginY)));
+    const width = Math.max(1, Math.floor(Math.min(cropW, imgW - originX)));
+    const height = Math.max(1, Math.floor(Math.min(cropH, imgH - originY)));
 
     const result = await ImageManipulator.manipulateAsync(
       sourceUri,
-      [{ crop: { originX, originY, width: Math.max(1, cropW), height: Math.max(1, cropH) } }],
+      [{ crop: { originX, originY, width, height } }],
       { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG }
     );
     return result.uri;
@@ -213,6 +222,8 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
       setEditedUris(next);
       if (index < photos.length - 1) { setIndex(index + 1); resetAll(); }
       else { onComplete(next); }
+    } catch (e) {
+      Alert.alert('照片處理失敗', e instanceof Error ? e.message : '請重新選擇照片');
     } finally { setApplying(false); }
   }, [index, photos, editedUris, applyCrop, onComplete, resetAll]);
 
@@ -229,6 +240,8 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
       setEditedUris(next);
       if (index < photos.length - 1) { setIndex(index + 1); resetAll(); }
       else { onComplete(next); }
+    } catch (e) {
+      Alert.alert('照片處理失敗', e instanceof Error ? e.message : '請重新選擇照片');
     } finally { setApplying(false); }
   }, [index, photos, editedUris, onComplete, resetAll]);
 
@@ -248,6 +261,8 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
         })
       );
       onComplete(stableUris);
+    } catch (e) {
+      Alert.alert('照片處理失敗', e instanceof Error ? e.message : '請重新選擇照片');
     } finally { setApplying(false); }
   }, [editedUris, index, onComplete]);
 

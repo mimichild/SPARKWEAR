@@ -91,7 +91,7 @@ export default function PhotosTab() {
     <View style={[styles.headerWrap, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Pressable onPress={() => { clearSelection(); router.back(); }} style={styles.backBtn}>
+          <Pressable onPress={() => { clearSelection(); router.replace('/'); }} style={styles.backBtn}>
             <Text style={styles.backBtnText}>返回</Text>
           </Pressable>
         </View>

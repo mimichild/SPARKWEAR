@@ -116,7 +116,7 @@ export default function RankingTab() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={() => router.replace('/')} style={styles.backBtn}>
             <Text style={styles.backBtnText}>返回</Text>
           </Pressable>
         </View>

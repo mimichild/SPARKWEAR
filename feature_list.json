@@ -65,14 +65,20 @@
       "area": "ios",
       "title": "模擬器驗證 ZIP 匯出/匯入",
       "user_visible_behavior": "使用者在 iOS 上能從設定頁匯出 ZIP 備份，並成功匯入還原資料。",
-      "status": "not_started",
+      "status": "passing",
       "verification": [
         "在模擬器建立至少 2 件單品與 1 筆穿搭。",
         "設定頁執行匯出，確認產生 ZIP 且分享面板正常出現。",
         "清空資料（或重裝 App）後執行匯入（覆蓋模式），確認單品與穿搭完整還原、照片正常顯示。",
         "再測一次合併模式匯入，確認不會重複或遺失。"
       ],
-      "evidence": [],
+      "evidence": [
+        "2026-07-20 | 使用者手動操作：設定 → 匯出備份 | 分享面板正常出現，ZIP 產生於 cacheDirectory",
+        "2026-07-20 | 使用者手動操作：匯入（覆蓋模式）→ 選剛匯出的 ZIP | 單品與穿搭完整還原，畫面正常",
+        "2026-07-20 | 使用者手動操作：再匯入一次（合併模式）| 資料無重複無遺失",
+        "2026-07-20 | sqlite3 直接查容器內 sparkwear.db（含 -wal/-shm）| items 表 4 筆、outfits 表 3 筆，跟匯入前完全一致，id 不變；截圖 docs/ios-testing/ios-003-import-result.png",
+        "2026-07-20 | 檢查 Metro log 全程（647 行）| 無 ERROR / Uncaught / readonly / closed resource"
+      ],
       "notes": "backupService manifest v5；iOS 的檔案分享行為與 Android 不同，特別注意 expo-sharing / expo-document-picker 的路徑處理。"
     },
     {
@@ -81,7 +87,7 @@
       "area": "ios",
       "title": "EAS iOS 雲端建置成功",
       "user_visible_behavior": "EAS Build 產出可安裝的 iOS build（顯示於 expo.dev 建置頁）。",
-      "status": "not_started",
+      "status": "blocked",
       "verification": [
         "確認已有 Apple Developer 帳號（kyoangel.tw@gmail.com）且 eas.json 的 iOS profile 正確。",
         "執行 eas build --platform ios。",
@@ -89,7 +95,7 @@
         "記錄 build URL 作為證據。"
       ],
       "evidence": [],
-      "notes": "前置條件：Apple Developer Program（$99/年，審核需時，見路線圖 Phase C）。帳號未辦好前此項標 blocked，不要空等。icon alpha 通道已於 commit ab85c56 移除。"
+      "notes": "2026-07-20 blocked：前置條件 Apple Developer Program（$99/年）尚未申請，需使用者決定是否付費申請、審核也需時間。已嘗試：無需嘗試，純屬外部帳號申請前置，不是技術問題。建議解法：使用者申請 Apple Developer Program 後再回來繼續；帳號未辦好前不要空等此項，先做其他不依賴它的工作。icon alpha 通道已於 commit ab85c56 移除。"
     },
     {
       "id": "ios-005",

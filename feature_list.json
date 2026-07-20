@@ -21,7 +21,7 @@
       "area": "ios",
       "title": "本機 Xcode 環境打通並在 iOS 模擬器啟動 App",
       "user_visible_behavior": "在 iOS 模擬器上可以看到 SPARKWEAR 啟動並顯示衣櫃首頁。",
-      "status": "not_started",
+      "status": "passing",
       "verification": [
         "依 docs/ios-testing/README.md 完成環境檢查（完整版 Xcode、CocoaPods、模擬器）。",
         "執行 npx expo run:ios（或 pnpm ios）。",
@@ -29,8 +29,12 @@
         "確認首頁（衣櫃 tab）正常渲染，無紅屏錯誤。",
         "擷取模擬器截圖存入 docs/ios-testing/ 作為證據。"
       ],
-      "evidence": [],
-      "notes": "對應 docs/IOS_READINESS_ROADMAP.md Phase A/B。這台 iMac 從未裝過完整版 Xcode，第一次建置時間會很長。"
+      "evidence": [
+        "2026-07-20 | xcodebuild -version && pod --version && xcrun simctl list devices available | Xcode 26.6、CocoaPods 1.17.0、11 台可用模擬器，環境檢查通過",
+        "2026-07-20 | npx expo run:ios | Build Succeeded，0 error(s)，安裝並開啟於 iPhone 17 Pro 模擬器",
+        "2026-07-20 | xcrun simctl io booted screenshot docs/ios-testing/ios-001-simulator-home.png | 首頁正常顯示「SPARK WEAR」標題、我的衣櫃/穿搭紀錄/設定按鈕，無紅屏錯誤"
+      ],
+      "notes": "對應 docs/IOS_READINESS_ROADMAP.md Phase A/B。這台 iMac 已裝好完整版 Xcode 26.6（早於本輪就緒，非本次安裝）。畫面下方有一則非致命的 Metro debugger 警告橫幅，不影響首頁渲染。"
     },
     {
       "id": "ios-002",

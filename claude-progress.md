@@ -9,11 +9,22 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-17 為 303 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-001 本機 Xcode 環境打通並在 iOS 模擬器啟動 App
+- 目前最高優先級未完成功能：ios-002 模擬器驗證核心流程（資料庫讀寫、相機/相簿權限）
 - 目前 blocker：無
-- 背景：Android/APK 功能已完成 Phase 0-5（詳見 docs/REQUIREMENTS.md 與其注意事項）；iOS 從未 build 過，行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 背景：Android/APK 功能已完成 Phase 0-5；iOS 本機環境已打通（Xcode 26.6、CocoaPods 1.17.0），模擬器可正常啟動 App（ios-001 passing）；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 002
+
+- 日期：2026-07-20
+- 本輪目標：接續 ios-001（本機 Xcode 環境打通並在 iOS 模擬器啟動 App）
+- 已完成：發現這台 iMac 已裝好完整版 Xcode 26.6 + CocoaPods 1.17.0（早於本輪，環境檢查一次通過）；執行 `npx expo run:ios` 首次 prebuild + 原生建置成功；App 在 iPhone 17 Pro 模擬器正常開啟並顯示首頁，無紅屏
+- 執行過的驗證：`xcodebuild -version` / `pod --version` / `xcrun simctl list devices available`；`npx expo run:ios`；`xcrun simctl io booted screenshot`
+- 已擷取證據：見 feature_list.json ios-001 evidence；截圖存於 docs/ios-testing/ios-001-simulator-home.png
+- 提交記錄：（見本輪 commit）
+- 已知風險或未解決問題：畫面下方有非致命的 Metro debugger 警告橫幅；尚未驗證衣櫃/穿搭 tab 內部功能
+- 下一步最佳動作：開始 ios-002（模擬器驗證核心流程：資料庫讀寫與相機/相簿權限）
 
 ### 工作階段 001
 

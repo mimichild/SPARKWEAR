@@ -9,11 +9,22 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-17 為 303 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-002 模擬器驗證核心流程（資料庫讀寫、相機/相簿權限）
+- 目前最高優先級未完成功能：ios-003 模擬器驗證 ZIP 匯出/匯入
 - 目前 blocker：無
-- 背景：Android/APK 功能已完成 Phase 0-5；iOS 本機環境已打通（Xcode 26.6、CocoaPods 1.17.0），模擬器可正常啟動 App（ios-001 passing）；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 背景：Android/APK 功能已完成 Phase 0-5；iOS 本機環境已打通（Xcode 26.6、CocoaPods 1.17.0），模擬器可正常啟動 App 且核心流程（新增單品、相簿選圖、穿搭紀錄、重啟持久化）皆驗證通過（ios-001、ios-002 passing）；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 003
+
+- 日期：2026-07-20
+- 本輪目標：完成 ios-002（模擬器驗證核心流程：資料庫讀寫與相機/相簿權限）
+- 已完成：使用者在模擬器手動新增一件單品（含相簿選照片）、新增 2 筆穿搭紀錄，並完全關閉 App 重開確認資料仍在；用 sqlite3 直接讀取容器內的 sparkwear.db（此專案用 WAL 模式，需連同 -wal/-shm 一起複製才能讀到最新資料，跟 SPARKPLATE 的 rollback journal 模式不同）確認寫入真的成功，不只是看畫面
+- 執行過的驗證：模擬器手動操作＋sqlite3 直接查詢資料庫內容＋simctl terminate/launch 持久化測試
+- 已擷取證據：見 feature_list.json ios-002 evidence；截圖 docs/ios-testing/ios-002-closet-item.png
+- 提交記錄：（見本輪 commit）
+- 已知風險或未解決問題：無
+- 下一步最佳動作：開始 ios-003（模擬器驗證 ZIP 匯出/匯入）——注意此專案是 WAL 模式，跟 SPARKPLATE 修好的匯入唯讀 bug 是否適用/是否有類似風險，值得優先檢查 DBProvider 的匯入重連邏輯是否存在或需要補上
 
 ### 工作階段 002
 

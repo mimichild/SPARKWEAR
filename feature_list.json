@@ -42,7 +42,7 @@
       "area": "ios",
       "title": "模擬器驗證核心流程：資料庫讀寫與相機/相簿權限",
       "user_visible_behavior": "使用者在 iOS 模擬器上能新增單品（含從相簿選照片）、看到權限彈窗、重啟 App 後資料仍在。",
-      "status": "not_started",
+      "status": "passing",
       "verification": [
         "在模擬器新增一件單品並從相簿選一張照片。",
         "確認相簿權限彈窗出現且允許後能選圖。",
@@ -50,7 +50,13 @@
         "完全關閉 App 再重開，確認該單品仍存在（expo-sqlite 持久化）。",
         "新增一筆穿搭紀錄並關聯該單品，確認顯示正常。"
       ],
-      "evidence": [],
+      "evidence": [
+        "2026-07-20 | 使用者手動操作：我的衣櫃 → 新增單品 → 從相簿選照片 → 存檔 | 成功，畫面顯示正常（使用者確認「沒問題」）",
+        "2026-07-20 | sqlite3 直接讀取容器內 sparkwear.db（含 -wal/-shm，因為此專案用 WAL 模式）| 確認新單品 item-1784525040600-esvi6ma（name=33）於 2026-07-20T05:24:00.600Z 寫入，photo_ids 指向當下容器內實際存在的照片檔案",
+        "2026-07-20 | sqlite3 查詢 outfits 表 | 確認 2 筆新穿搭紀錄於 2026-07-20T05:24 前後寫入",
+        "2026-07-20 | xcrun simctl terminate + launch 後再次 sqlite3 查詢 | 新單品與穿搭紀錄皆仍存在，資料持久化正常",
+        "2026-07-20 | xcrun simctl io booted screenshot docs/ios-testing/ios-002-closet-item.png | 畫面截圖存證"
+      ],
       "notes": "模擬器沒有實體相機，拍照流程只能驗證權限彈窗與不閃退；完整拍照驗證留到實機（ios-005）。"
     },
     {

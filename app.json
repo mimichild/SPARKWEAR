@@ -19,7 +19,8 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "SPARKWEAR 需要存取您的照片庫，以便新增服裝照片。",
-        "NSCameraUsageDescription": "SPARKWEAR 需要使用相機拍攝服裝照片。"
+        "NSCameraUsageDescription": "SPARKWEAR 需要使用相機拍攝服裝照片。",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -30,7 +31,10 @@
         "backgroundColor": "#f1aba7"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -60,6 +64,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "97b73299-0361-4f6d-819f-3a7747b54802"
+      }
+    },
+    "owner": "mimichild"
   }
 }

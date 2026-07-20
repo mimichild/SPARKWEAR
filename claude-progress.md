@@ -9,11 +9,28 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-17 為 303 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-004 EAS iOS 雲端建置成功（blocked：需先申請 Apple Developer Program 帳號）
-- 目前 blocker：ios-004/ios-005 需要 Apple Developer Program（$99/年），尚未申請
-- 背景：ios-001～ios-003 全部 passing（模擬器啟動、核心流程讀寫、ZIP 匯出/匯入皆驗證通過）；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 目前最高優先級未完成功能：ios-005 TestFlight 內部測試
+- 目前 blocker：無
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-004 皆已 passing，EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 005
+
+- 日期：2026-07-20
+- 本輪目標：完成 ios-004（EAS iOS 雲端建置成功）
+- 已完成：
+  - `eas-cli login`（使用者本人透過瀏覽器完成，帳號 mimichild）
+  - `eas init` 建立 EAS 專案並連結 app.json
+  - 第一次 `eas build --platform ios --profile production`（互動模式，使用者本人登入 Apple ID）成功建立 Distribution Certificate + Provisioning Profile，但建置本身在 INSTALL_DEPENDENCIES 階段失敗
+  - 下載並解壓建置 log（brotli 壓縮格式）分析，找到根因：EAS 雲端建置機器預設 Node.js 20.19.4，但 `package.json` 的 `packageManager: pnpm@11.13.0` 需要 Node.js ≥ 22.13，跟程式碼或資料庫無關
+  - 修復：`eas.json` 三個 build profile 都加上 `"node": "22.13.0"`，不動本機開發環境的 pnpm 版本
+  - 修復後非互動模式重新建置成功，產出 .ipa
+- 執行過的驗證：實際跑 EAS 雲端建置（失敗一次、修復後成功一次）
+- 已擷取證據：見 feature_list.json ios-004 evidence，含 build URL 與 .ipa 下載連結
+- 提交記錄：（見本輪 commit）
+- 已知風險或未解決問題：無新增；這個 Node 版本問題預期會在其他四個 SPARK App 重現（都用同一套 pnpm 11.13.0），已預先在它們的 eas.json 套用同樣修法
+- 下一步最佳動作：開始 ios-005（TestFlight 內部測試，需要實體 iPhone）
 
 ### 工作階段 004
 

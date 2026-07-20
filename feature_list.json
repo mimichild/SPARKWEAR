@@ -87,14 +87,20 @@
       "area": "ios",
       "title": "EAS iOS 雲端建置成功",
       "user_visible_behavior": "EAS Build 產出可安裝的 iOS build（顯示於 expo.dev 建置頁）。",
-      "status": "blocked",
+      "status": "passing",
       "verification": [
         "確認已有 Apple Developer 帳號（kyoangel.tw@gmail.com）且 eas.json 的 iOS profile 正確。",
         "執行 eas build --platform ios。",
         "確認 expo.dev 上建置狀態為 finished，無簽章錯誤。",
         "記錄 build URL 作為證據。"
       ],
-      "evidence": [],
+      "evidence": [
+        "2026-07-20 | npx eas-cli init --non-interactive --force | 建立 EAS 專案 @mimichild/sparkwear，projectId 97b73299-0361-4f6d-819f-3a7747b54802，寫入 app.json",
+        "2026-07-20 | npx eas-cli build --platform ios --profile production（互動模式，使用者本人登入 Apple ID 建立憑證）| Distribution Certificate + Provisioning Profile 建立成功，但第一次建置在 INSTALL_DEPENDENCIES 階段失敗",
+        "2026-07-20 | 下載並解壓建置 log（brotli 壓縮）分析 | 根因：雲端建置機器預設 Node.js 20.19.4，但 package.json 的 packageManager: pnpm@11.13.0 需要 Node.js ≥ 22.13（pnpm 11 內部用到 node:sqlite 這個 Node 22.5+ 才有的內建模組），跟程式碼或 SQLite 資料庫本身無關",
+        "2026-07-20 | 修改 eas.json | 三個 build profile（development/preview/production）都加上 \"node\": \"22.13.0\"，不動本機的 pnpm 版本",
+        "2026-07-20 | npx eas-cli build --platform ios --profile production --non-interactive（修復後，憑證已建好可直接非互動執行）| Build finished，產出 .ipa：https://expo.dev/artifacts/eas/x8wXEdi6BX510O-E4B0ufyrOFu5K_GMjtBMfdzhPTU4.ipa；建置頁：https://expo.dev/accounts/mimichild/projects/sparkwear/builds/b5bff906-b472-41ab-9806-84770afcb1e1"
+      ],
       "notes": "2026-07-20 blocked：前置條件 Apple Developer Program（$99/年）尚未申請，需使用者決定是否付費申請、審核也需時間。已嘗試：無需嘗試，純屬外部帳號申請前置，不是技術問題。建議解法：使用者申請 Apple Developer Program 後再回來繼續；帳號未辦好前不要空等此項，先做其他不依賴它的工作。icon alpha 通道已於 commit ab85c56 移除。"
     },
     {

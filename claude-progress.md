@@ -9,11 +9,22 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-17 為 303 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-005 TestFlight 內部測試
-- 目前 blocker：無
+- 目前最高優先級未完成功能：ios-005 TestFlight 內部測試（in_progress，已完成 eas submit，剩下加入測試群組＋實機驗證）
+- 目前 blocker：實機驗證步驟需要使用者的實體 iPhone 才能繼續
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-004 皆已 passing，EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 006
+
+- 日期：2026-07-21
+- 本輪目標：ios-005 中不需要實機的部分先做完（eas submit）
+- 已完成：使用者於 Terminal.app 互動執行 `eas submit --platform ios --profile production --latest`，Build b5bff906-b472-41ab-9806-84770afcb1e1 上傳成功，Apple 端已開始處理
+- 執行過的驗證：實際跑 eas submit，看到「Submitted your app to Apple App Store Connect!」完成訊息
+- 已擷取證據：見 feature_list.json ios-005 evidence
+- 提交記錄：767b613
+- 已知風險或未解決問題：ios-005 剩餘兩步（App Store Connect 加入內部測試群組、實機安裝與核心流程驗證）需要使用者的實體 iPhone
+- 下一步最佳動作：等使用者有 iPhone 可測時，完成 ios-005 剩餘步驟
 
 ### 工作階段 005
 

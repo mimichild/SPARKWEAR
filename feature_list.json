@@ -109,15 +109,17 @@
       "area": "ios",
       "title": "TestFlight 內部測試",
       "user_visible_behavior": "使用者的 iPhone 能從 TestFlight 安裝 SPARKWEAR 並正常使用核心功能。",
-      "status": "not_started",
+      "status": "in_progress",
       "verification": [
         "執行 eas submit --platform ios（或於 App Store Connect 上傳 build）。",
         "在 App Store Connect 將 build 加入內部測試群組。",
         "實機從 TestFlight 安裝並啟動。",
         "實機重跑 ios-002 的核心流程驗證（含真實相機拍照）。"
       ],
-      "evidence": [],
-      "notes": "依賴 ios-004。實機拍照流程在此項補驗。"
+      "evidence": [
+        "2026-07-21 | eas submit --platform ios --profile production --latest（使用者本人於 Terminal.app 互動執行，因需要 Apple ID 密碼與 2FA）| Submission 成功，Build ID b5bff906-b472-41ab-9806-84770afcb1e1（App Version 2.0.0, Build 4）已上傳並開始 Apple 端處理，https://appstoreconnect.apple.com/apps/6793039787/testflight/ios"
+      ],
+      "notes": "依賴 ios-004。實機拍照流程在此項補驗。2026-07-21：已完成 eas submit（第 1 步），剩下「加入內部測試群組」「實機安裝與核心流程驗證」需等使用者有 iPhone 可測時才能做。"
     }
   ]
 }

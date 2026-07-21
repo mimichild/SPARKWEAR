@@ -9,11 +9,26 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-17 為 303 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-005 TestFlight 內部測試（in_progress，已完成 eas submit，剩下加入測試群組＋實機驗證）
-- 目前 blocker：實機驗證步驟需要使用者的實體 iPhone 才能繼續
-- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-004 皆已 passing，EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 目前最高優先級未完成功能：ios-006 新增單品支援相機拍照（not_started；ios-005 已 passing）
+- 目前 blocker：無
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005 皆已 passing（含 TestFlight 實機驗證），EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；實機測試時發現 3 個既有缺口，已建 ios-006/007/008 追蹤（相機拍照未實作、橫向照片裁切內容、穿搭未自動累計使用次數）；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 007
+
+- 日期：2026-07-21
+- 本輪目標：完成 ios-005（TestFlight 內部測試）剩餘步驟——加入測試群組＋實機驗證
+- 已完成：
+  - 使用者於 App Store Connect 把 Build 4 加入內部測試群組，iPhone 用 TestFlight 成功安裝並開啟 SPARKWEAR
+  - 實機重跑核心流程：新增單品（相簿選圖）、完全關閉重開確認持久化、新增穿搭紀錄關聯單品，皆正常
+  - 過程中發現 App 其實沒有相機拍照功能（原驗證步驟「含真實相機拍照」是規劃時的錯誤假設），與使用者確認後修改該條驗證步驟為「相簿選圖」，並記錄原因於 notes
+  - 額外發現兩個既有缺口：橫向照片裁切會裁掉內容、新增穿搭未自動累計單品使用次數；皆與使用者確認後開新 feature（ios-006 相機拍照、ios-007 裁切 UX、ios-008 使用次數）追蹤，不影響 ios-005 通過
+- 執行過的驗證：見上述，皆為使用者實機手動操作
+- 已擷取證據：見 feature_list.json ios-005 evidence
+- 提交記錄：（本輪 commit）
+- 已知風險或未解決問題：ios-006/007/008 尚未規劃，僅記錄現象
+- 下一步最佳動作：ios-006（優先級最高的未完成項目）；或視使用者意願先處理其他 App 的 ios-005
 
 ### 工作階段 006
 

@@ -109,17 +109,60 @@
       "area": "ios",
       "title": "TestFlight 內部測試",
       "user_visible_behavior": "使用者的 iPhone 能從 TestFlight 安裝 SPARKWEAR 並正常使用核心功能。",
-      "status": "in_progress",
+      "status": "passing",
       "verification": [
         "執行 eas submit --platform ios（或於 App Store Connect 上傳 build）。",
         "在 App Store Connect 將 build 加入內部測試群組。",
         "實機從 TestFlight 安裝並啟動。",
-        "實機重跑 ios-002 的核心流程驗證（含真實相機拍照）。"
+        "實機重跑 ios-002 的核心流程驗證（相簿選圖）。"
       ],
       "evidence": [
-        "2026-07-21 | eas submit --platform ios --profile production --latest（使用者本人於 Terminal.app 互動執行，因需要 Apple ID 密碼與 2FA）| Submission 成功，Build ID b5bff906-b472-41ab-9806-84770afcb1e1（App Version 2.0.0, Build 4）已上傳並開始 Apple 端處理，https://appstoreconnect.apple.com/apps/6793039787/testflight/ios"
+        "2026-07-21 | eas submit --platform ios --profile production --latest（使用者本人於 Terminal.app 互動執行，因需要 Apple ID 密碼與 2FA）| Submission 成功，Build ID b5bff906-b472-41ab-9806-84770afcb1e1（App Version 2.0.0, Build 4）已上傳並開始 Apple 端處理，https://appstoreconnect.apple.com/apps/6793039787/testflight/ios",
+        "2026-07-21 | 使用者本人於 App Store Connect 將 Build 4 加入內部測試群組，iPhone 上安裝 TestFlight 並成功安裝、開啟 SPARKWEAR | 啟動正常無閃退",
+        "2026-07-21 | 使用者手動操作：新增單品 → 從相簿選一張照片 → 存檔 | 成功，照片正常顯示",
+        "2026-07-21 | 使用者操作：完全關閉 App 再重開 | 剛才新增的單品仍存在，資料持久化正常",
+        "2026-07-21 | 使用者操作：新增一筆穿搭紀錄並關聯該單品 | 顯示正常"
       ],
-      "notes": "依賴 ios-004。實機拍照流程在此項補驗。2026-07-21：已完成 eas submit（第 1 步），剩下「加入內部測試群組」「實機安裝與核心流程驗證」需等使用者有 iPhone 可測時才能做。"
+      "notes": "依賴 ios-004。原驗證步驟寫「含真實相機拍照」，但實機測試時發現 SPARKWEAR 根本沒有相機拍照功能（src/services/photoService.ts 只有 pickImages() 呼叫 launchImageLibraryAsync，沒有 launchCameraAsync），是原始規劃時的錯誤假設，不是漏測。使用者確認後改成只驗證相簿選圖流程；相機拍照功能另開 feature 追蹤（見 ios-006）。實機測試過程中另外發現兩個既有 bug（橫向照片裁切內容 ios-007、穿搭未自動累計使用次數 ios-008），使用者決定不影響本項通過、之後再處理。"
+    },
+    {
+      "id": "ios-006",
+      "priority": 6,
+      "area": "photo",
+      "title": "新增單品支援相機拍照",
+      "user_visible_behavior": "使用者在新增單品時可以選擇「拍照」，直接用相機拍一張照片存進衣櫃，不必先存到相簿再選圖。",
+      "status": "not_started",
+      "verification": [
+        "TBD：規劃時再補齊具體驗證步驟。"
+      ],
+      "evidence": [],
+      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/photoService.ts 目前只有 pickImages()（launchImageLibraryAsync，從相簿選圖），沒有呼叫 launchCameraAsync 的相機拍照路徑。使用者確認之後再處理，先記錄避免遺忘。"
+    },
+    {
+      "id": "ios-007",
+      "priority": 7,
+      "area": "photo",
+      "title": "橫向照片裁切成 3:4 時內容被裁掉",
+      "user_visible_behavior": "使用者從相簿選一張橫向照片時，PhotoEditorModal 的 3:4 裁切框預設會裁掉照片的主要內容，需要使用者自己手動縮放/拖曳才能避開，體感像是被截斷。",
+      "status": "not_started",
+      "verification": [
+        "TBD：規劃時再補齊具體驗證步驟。"
+      ],
+      "evidence": [],
+      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/components/items/PhotoEditorModal.tsx 本身有 3:4 裁切框＋雙指縮放/拖曳功能（不是完全沒有調整能力），但橫向來源照片套用預設框時容易裁掉重要內容，屬於預設行為/UX 問題而非完全沒有編輯功能。使用者確認之後再處理，先記錄避免遺忘。"
+    },
+    {
+      "id": "ios-008",
+      "priority": 8,
+      "area": "outfit",
+      "title": "新增穿搭紀錄未自動累計單品使用次數",
+      "user_visible_behavior": "使用者新增一筆穿搭紀錄並關聯某件單品後，該單品的使用次數（usageCount）沒有跟著加 1，必須手動另外去幫該單品加使用次數才會計入。",
+      "status": "not_started",
+      "verification": [
+        "TBD：規劃時再補齊具體驗證步驟。"
+      ],
+      "evidence": [],
+      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/outfitService.ts 的建立穿搭紀錄流程沒有碰 usage_count 欄位，使用者實測確認新增穿搭並關聯單品後，該單品使用次數不會自動增加。使用者確認之後再處理，先記錄避免遺忘。"
     }
   ]
 }

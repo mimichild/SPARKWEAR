@@ -9,11 +9,26 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-22 為 306 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（除了 ios-006 blocked 等 iPhone 外，其餘全部 passing）
-- 目前 blocker：ios-006 最後一步（實機拍照存檔）需要使用者的實體 iPhone，先擱置不影響其他功能推進
-- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005、ios-007、ios-008 皆已 passing；EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 目前最高優先級未完成功能：無（feature_list.json 目前全部 passing）
+- 目前 blocker：無
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 011
+
+- 日期：2026-07-22
+- 本輪目標：設定 EAS Update（OTA）支援，並收尾 ios-006（相機拍照）的實機驗證
+- 已完成：
+  - `eas update:configure` 設定 OTA 更新（安裝 expo-updates、app.json 加 updates.url/runtimeVersion、eas.json 加 channel）；順手修掉指令產生的重複 permissions 陣列
+  - eas.json 加上 `ascAppId`，發現這樣設定後 `eas submit` 可以完全非互動執行（不用再請使用者開 Terminal 手動跑）
+  - 重新 `eas build`（Build 6，含 ios-006/007/008 修復＋OTA 設定）→ `eas submit` → 使用者在 App Store Connect 加入測試群組 → iPhone TestFlight 安裝
+  - 使用者實機測試相機拍照，確認「相機沒問題」，ios-006 完整驗證通過
+- 執行過的驗證：`./init.sh`（306 tests passed）、實機相機拍照測試
+- 已擷取證據：見 feature_list.json ios-006 evidence
+- 提交記錄：（本輪 commit）
+- 已知風險或未解決問題：無
+- 下一步最佳動作：feature_list.json 全部 passing，無待辦項目；之後純 JS/TS 修改可優先考慮 `eas update` 而非整套重 build
 
 ### 工作階段 010
 

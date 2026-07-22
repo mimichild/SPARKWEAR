@@ -131,7 +131,7 @@
       "area": "photo",
       "title": "新增單品支援相機拍照",
       "user_visible_behavior": "使用者在新增單品時可以選擇「拍照」，直接用相機拍一張照片存進衣櫃，不必先存到相簿再選圖。",
-      "status": "blocked",
+      "status": "passing",
       "verification": [
         "pnpm test 全部通過（含 pickFromCamera 的新單元測試）。",
         "模擬器：新增單品時點「+」，確認跳出「拍照／從相簿選擇／取消」選單。",
@@ -143,9 +143,10 @@
         "2026-07-22 | pnpm test | 306 tests passed（含新增 pickFromCamera 的 3 個測試案例）",
         "2026-07-22 | 模擬器操作：單品編輯畫面點「+」| 使用者確認跳出「拍照／從相簿選擇／取消」選單",
         "2026-07-22 | 模擬器操作：點「拍照」| 第一次踩到未處理例外（expo-image-picker 在無相機硬體時 launchCameraAsync 直接 throw，handlePickFromCamera 沒有 try/catch，跳出紅色 LogBox 錯誤「Camera not available on simulator」）；修好後（app/closet/item/form.tsx 的 handlePickFromCamera 加 try/catch，錯誤時 Alert 提示「無法開啟相機」）使用者重新測試，確認變成正常的提示對話框，不再是紅色錯誤畫面",
-        "2026-07-22 | 模擬器操作：點「從相簿選擇」| 使用者確認跟改動前行為一致，正常選圖無異常（回歸測試通過）"
+        "2026-07-22 | 模擬器操作：點「從相簿選擇」| 使用者確認跟改動前行為一致，正常選圖無異常（回歸測試通過）",
+        "2026-07-22 | eas build + eas submit（Build 6，含 EAS Update/OTA 設定）→ App Store Connect 加入內部測試群組 → iPhone TestFlight 安裝 | 使用者實機測試相機拍照，確認「相機沒問題」"
       ],
-      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/photoService.ts 目前只有 pickImages()（launchImageLibraryAsync，從相簿選圖），沒有呼叫 launchCameraAsync 的相機拍照路徑。2026-07-22 已實作：photoService.ts 新增 pickFromCamera()，form.tsx 的「+」按鈕改成 Alert 選單（拍照／從相簿選擇），並修好過程中發現的未處理例外（相機硬體不存在時要友善提示，不能讓例外裸奔變成紅屏）。blocked 現象：模擬器沒有相機硬體，無法驗證「真的拍到一張照片並存檔成功」這個核心路徑。已嘗試方法：模擬器上已驗證選單、回歸、錯誤處理三項，唯獨無法驗證真實拍照存檔。建議解法：等使用者下次有 iPhone 可測時，一次驗證這項＋其他待測項目，不需要現在空等，先去做 ios-007/ios-008。"
+      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/photoService.ts 目前只有 pickImages()（launchImageLibraryAsync，從相簿選圖），沒有呼叫 launchCameraAsync 的相機拍照路徑。2026-07-22 已實作：photoService.ts 新增 pickFromCamera()，form.tsx 的「+」按鈕改成 Alert 選單（拍照／從相簿選擇），並修好過程中發現的未處理例外（相機硬體不存在時要友善提示，不能讓例外裸奔變成紅屏）。實機（Build 6）驗證真的拍照存檔成功，功能完整驗證通過。"
     },
     {
       "id": "ios-007",

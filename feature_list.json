@@ -173,12 +173,17 @@
       "area": "outfit",
       "title": "新增穿搭紀錄未自動累計單品使用次數",
       "user_visible_behavior": "使用者新增一筆穿搭紀錄並關聯某件單品後，該單品的使用次數（usageCount）沒有跟著加 1，必須手動另外去幫該單品加使用次數才會計入。",
-      "status": "not_started",
+      "status": "passing",
       "verification": [
-        "TBD：規劃時再補齊具體驗證步驟。"
+        "pnpm test 全部通過。",
+        "模擬器：打開單品詳情頁記下目前使用次數，新增一筆穿搭紀錄關聯該單品並儲存。",
+        "模擬器：正常返回（不整個重開 App）到同一件單品的詳情頁，確認使用次數即時更新（+1）。"
       ],
-      "evidence": [],
-      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/outfitService.ts 的建立穿搭紀錄流程沒有碰 usage_count 欄位，使用者實測確認新增穿搭並關聯單品後，該單品使用次數不會自動增加。使用者確認之後再處理，先記錄避免遺忘。"
+      "evidence": [
+        "2026-07-22 | pnpm test | 306 tests passed",
+        "2026-07-22 | 模擬器操作：記錄單品使用次數 → 新增穿搭關聯該單品 → 返回單品詳情頁 | 使用者確認「有 +1 了」"
+      ],
+      "notes": "2026-07-21 於 ios-005 實機測試時發現使用次數沒有累計，一開始誤判成 outfitService.ts 沒有寫入邏輯。2026-07-22 重新查證發現：app/outfits/form.tsx:171 與 app/outfits/manual-log.tsx:67 其實都有正確呼叫 itemService.ts 既有的 incrementUsageCount()，寫入邏輯本身完全正常，DB 裡的 usage_count 有正確 +1。真正根因是 app/closet/item/[id].tsx（單品詳情頁）用的是普通 useEffect([id, db])，只在第一次掛載或 id 改變時抓資料，從別的畫面（例如新增穿搭）返回同一個單品詳情頁時不會重新查詢，畫面停留在舊快取，讓人誤以為沒寫入——是顯示端沒重新整理，不是資料沒更新。同專案的衣櫃列表（closet/(tabs)/index.tsx）、分類列表（closet/category/[name].tsx）、排行榜（closet/(tabs)/ranking.tsx）都已經正確用 useFocusEffect，只有這個單品詳情頁沒有，屬於單一畫面的遺漏。修法：把該畫面的資料載入 useEffect 改成 useFocusEffect（跟其他畫面用同一套慣例），回到畫面時就會重新查詢。"
     }
   ]
 }

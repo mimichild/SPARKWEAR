@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Image, Dimensions } from 'react-native';
 
 const THUMB_W = Math.floor(Dimensions.get('window').width / 5);
@@ -6,7 +6,7 @@ const THUMB_H = Math.round(THUMB_W * 4 / 3);
 const OUTFITS_PER_PAGE = 10;
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoCarousel } from '../../../src/components/shared/PhotoCarousel';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import { getItemById, moveToTrash } from '../../../src/services/itemService';
 import { getCategories, getOrigins, getColors } from '../../../src/services/categoryService';
@@ -33,7 +33,9 @@ export default function ItemDetailScreen() {
   const [outfitPage, setOutfitPage] = useState(0);
   const [logUsageCount, setLogUsageCount] = useState(0);
 
-  useEffect(() => {
+  // 用 useFocusEffect（不是 useEffect）重新載入，這樣從新增穿搭紀錄等
+  // 其他畫面返回時，使用次數／穿搭紀錄等資料才會更新，不會停留在舊的快取畫面。
+  useFocusEffect(useCallback(() => {
     if (!id) return;
     Promise.all([
       getItemById(db, id),
@@ -52,7 +54,7 @@ export default function ItemDetailScreen() {
       setItemOutfits(outfits);
       setLogUsageCount(logRow?.count ?? 0);
     });
-  }, [id, db]);
+  }, [id, db]));
 
   // 顏色名稱：直接用 item.colorIds 查 DB，不依賴 colors 狀態的時序
   useEffect(() => {

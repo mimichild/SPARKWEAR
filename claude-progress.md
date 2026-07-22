@@ -9,11 +9,26 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-22 為 306 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-008 穿搭未自動累計單品使用次數（not_started；ios-006 blocked 等 iPhone，ios-007 已 passing）
+- 目前最高優先級未完成功能：無（除了 ios-006 blocked 等 iPhone 外，其餘全部 passing）
 - 目前 blocker：ios-006 最後一步（實機拍照存檔）需要使用者的實體 iPhone，先擱置不影響其他功能推進
-- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005、ios-007 皆已 passing；EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005、ios-007、ios-008 皆已 passing；EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 010
+
+- 日期：2026-07-22
+- 本輪目標：處理 ios-008（穿搭未自動累計單品使用次數）
+- 已完成：
+  - 重新查證發現 2026-07-21 的初步判斷是錯的：`app/outfits/form.tsx`、`app/outfits/manual-log.tsx` 其實都有正確呼叫既有的 `incrementUsageCount()`，DB 寫入完全正常
+  - 真正根因：`app/closet/item/[id].tsx`（單品詳情頁）用普通 `useEffect([id, db])` 載入資料，只在第一次掛載時抓，從新增穿搭等畫面返回同一個單品時不會重新查詢，畫面停留在舊快取——是顯示端沒重新整理，不是資料沒寫入。同專案其他列表畫面（衣櫃列表、分類列表、排行榜）都已經正確用 `useFocusEffect`，只有這個詳情頁漏掉
+  - 修法：把該畫面的資料載入改成 `useFocusEffect`，跟其他畫面用同一套慣例
+  - 模擬器實測：新增穿搭關聯單品後返回詳情頁，使用次數正確 +1
+- 執行過的驗證：`pnpm test`（306 tests passed）、模擬器手動操作（使用者確認「有 +1 了」）
+- 已擷取證據：見 feature_list.json ios-008 evidence
+- 提交記錄：（本輪 commit）
+- 已知風險或未解決問題：ios-006 仍 blocked 等 iPhone
+- 下一步最佳動作：等使用者有 iPhone 時收尾 ios-006；或處理其他 App 的待修清單（SPARKPLATE/SPARKSHAPE/SPARKFIT 各自的 ios-006）
 
 ### 工作階段 009
 

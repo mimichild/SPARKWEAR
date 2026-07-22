@@ -32,6 +32,24 @@ export interface EditablePhoto {
   height?: number;
 }
 
+// 「包住整張照片再讓使用者自己選裁切範圍」用的比例計算。
+// containFactor：整張照片完整放進裁切框的縮放倍率（不會裁掉任何內容，可能留白）。
+// coverFactor：照片填滿整個裁切框的縮放倍率（跟原本行為一致，橫向照片會裁掉左右兩側）。
+// initialScale：預設一開始顯示的縮放（等於 coverFactor/containFactor），維持跟改動前相同的預設畫面；
+// 使用者可以再往外縮到 1（＝containFactor，也就是完整照片、含留白）親自選要保留哪些內容。
+function getFitFactors(photo?: EditablePhoto) {
+  const imgW = photo?.width ?? 1080;
+  const imgH = photo?.height ?? 1440;
+  const containFactor = Math.min(FRAME_W / imgW, FRAME_H / imgH);
+  const coverFactor = Math.max(FRAME_W / imgW, FRAME_H / imgH);
+  return {
+    imgW, imgH, containFactor, coverFactor,
+    initialScale: coverFactor / containFactor,
+    boxW: imgW * containFactor,
+    boxH: imgH * containFactor,
+  };
+}
+
 interface Props {
   photos: EditablePhoto[];
   visible: boolean;
@@ -111,9 +129,9 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
   const savedOffsetY = useSharedValue(0);
   const rotSV       = useSharedValue(0); // 旋轉角度（deg），用於 animStyle
 
-  const resetAll = useCallback(() => {
-    scale.value = withSpring(1);
-    savedScale.value = 1;
+  const resetAll = useCallback((initialScale: number) => {
+    scale.value = withSpring(initialScale);
+    savedScale.value = initialScale;
     offsetX.value = withSpring(0);
     offsetY.value = withSpring(0);
     savedOffsetX.value = 0;
@@ -131,7 +149,7 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
       setEditedUris(photos.map(p => p.uri));
       setIndex(0);
       setApplying(false);
-      resetAll();
+      resetAll(getFitFactors(photos[0]).initialScale);
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -176,24 +194,31 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
     const sourceUri = uri ?? photos[index]?.uri;
     if (!sourceUri) throw new Error('照片 URI 不存在');
 
+    const { containFactor, coverFactor } = getFitFactors({ uri: sourceUri, width: imgW, height: imgH });
+    const s = savedScale.value;
+    const effectiveScale = containFactor * s;
+
     const hasAdjustment = brightness !== 0 || shadow !== 0 || contrast !== 0 || rotation !== 0;
-    if (hasAdjustment && frameRef.current) {
+    // 使用者往外縮到還沒填滿整個裁切框時（例如橫向照片預設會看到上下留白，
+    // 讓使用者可以自己選要保留的內容），裁切框裡有原圖以外的留白區域，
+    // 不能只靠單純的像素裁切（會裁出超出原圖邊界的區域），改用畫面截圖烘焙，
+    // 才能正確保留留白／未覆蓋的部分。已完全覆蓋裁切框時維持原本的像素級裁切（畫質較好）。
+    const isLetterboxed = effectiveScale < coverFactor - 0.001;
+    if ((hasAdjustment || isLetterboxed) && frameRef.current) {
       return await captureRef(frameRef, { format: 'jpg', quality: 0.85, result: 'tmpfile' });
     }
 
-    const s = savedScale.value;
     const tx = savedOffsetX.value;
     const ty = savedOffsetY.value;
-    const sf = Math.max(FRAME_W / imgW, FRAME_H / imgH);
     // 先算出理論上的裁切框，再用 imgW/imgH 夾住，避免浮點數誤差或
     // 圖片方向資訊落差讓裁切框跑出原圖邊界（native crop 對此會直接丟錯，
     // 且這個錯誤先前沒有被妥善處理，導致 UI 卡死不回應）。
-    const rawCropW = FRAME_W / (sf * s);
-    const rawCropH = FRAME_H / (sf * s);
+    const rawCropW = FRAME_W / effectiveScale;
+    const rawCropH = FRAME_H / effectiveScale;
     const cropW = Math.min(imgW, Math.max(1, rawCropW));
     const cropH = Math.min(imgH, Math.max(1, rawCropH));
-    const rawOriginX = imgW / 2 - cropW / 2 - tx / (sf * s);
-    const rawOriginY = imgH / 2 - cropH / 2 - ty / (sf * s);
+    const rawOriginX = imgW / 2 - cropW / 2 - tx / effectiveScale;
+    const rawOriginY = imgH / 2 - cropH / 2 - ty / effectiveScale;
     const originX = Math.floor(Math.max(0, Math.min(imgW - cropW, rawOriginX)));
     const originY = Math.floor(Math.max(0, Math.min(imgH - cropH, rawOriginY)));
     const width = Math.max(1, Math.floor(Math.min(cropW, imgW - originX)));
@@ -220,8 +245,10 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
       const next = [...editedUris];
       next[index] = cropped;
       setEditedUris(next);
-      if (index < photos.length - 1) { setIndex(index + 1); resetAll(); }
-      else { onComplete(next); }
+      if (index < photos.length - 1) {
+        setIndex(index + 1);
+        resetAll(getFitFactors(photos[index + 1]).initialScale);
+      } else { onComplete(next); }
     } catch (e) {
       Alert.alert('照片處理失敗', e instanceof Error ? e.message : '請重新選擇照片');
     } finally { setApplying(false); }
@@ -238,16 +265,21 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
       const next = [...editedUris];
       next[index] = stable;
       setEditedUris(next);
-      if (index < photos.length - 1) { setIndex(index + 1); resetAll(); }
-      else { onComplete(next); }
+      if (index < photos.length - 1) {
+        setIndex(index + 1);
+        resetAll(getFitFactors(photos[index + 1]).initialScale);
+      } else { onComplete(next); }
     } catch (e) {
       Alert.alert('照片處理失敗', e instanceof Error ? e.message : '請重新選擇照片');
     } finally { setApplying(false); }
   }, [index, photos, editedUris, onComplete, resetAll]);
 
   const handlePrev = useCallback(() => {
-    if (index > 0) { setIndex(index - 1); resetAll(); }
-  }, [index, resetAll]);
+    if (index > 0) {
+      setIndex(index - 1);
+      resetAll(getFitFactors(photos[index - 1]).initialScale);
+    }
+  }, [index, photos, resetAll]);
 
   const handleDone = useCallback(async () => {
     setApplying(true);
@@ -270,6 +302,7 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
 
   const current = editedUris[index] ?? photos[index]?.uri;
   const isLast = index === photos.length - 1;
+  const { boxW, boxH } = getFitFactors(photos[index]);
 
   // 視覺疊加層計算
   const brightColor   = brightness > 0 ? '#fff' : '#000';
@@ -297,19 +330,20 @@ export function PhotoEditorModal({ photos, visible, themeColor, onComplete, onCa
             </Pressable>
           </View>
 
-          {/* 3:4 裁切框 */}
+          {/* 3:4 裁切框：一開始顯示跟改動前一樣的填滿畫面，使用者可以往外縮
+              到看到完整照片（含留白），自己選要保留哪些內容 */}
           <View ref={frameRef} style={ss.frameWrap} collapsable={false}>
             <GestureDetector gesture={composed}>
-              <Animated.View style={[ss.imageWrap, animStyle]}>
-                <Image source={{ uri: current }} style={ss.photo} resizeMode="cover" />
+              <Animated.View style={[{ width: boxW, height: boxH }, animStyle]}>
+                <Image source={{ uri: current }} style={{ width: boxW, height: boxH }} resizeMode="cover" />
                 {brightness !== 0 && (
-                  <View style={[ss.overlay, { backgroundColor: brightColor, opacity: brightOpacity }]} />
+                  <View style={[ss.overlay, { width: boxW, height: boxH, backgroundColor: brightColor, opacity: brightOpacity }]} />
                 )}
                 {shadow !== 0 && (
-                  <View style={[ss.overlay, { backgroundColor: shadowColor, opacity: shadowOpacity }]} />
+                  <View style={[ss.overlay, { width: boxW, height: boxH, backgroundColor: shadowColor, opacity: shadowOpacity }]} />
                 )}
                 {contrast !== 0 && (
-                  <View style={[ss.overlay, { backgroundColor: contrastOverlayColor, opacity: contrastOverlayOpacity }]} />
+                  <View style={[ss.overlay, { width: boxW, height: boxH, backgroundColor: contrastOverlayColor, opacity: contrastOverlayOpacity }]} />
                 )}
               </Animated.View>
             </GestureDetector>
@@ -397,12 +431,10 @@ const ss = StyleSheet.create({
   frameWrap: {
     width: FRAME_W, height: FRAME_H,
     overflow: 'hidden', backgroundColor: '#000',
+    justifyContent: 'center', alignItems: 'center',
   },
-  imageWrap: { width: FRAME_W, height: FRAME_H },
-  photo: { width: FRAME_W, height: FRAME_H },
   overlay: {
     position: 'absolute', top: 0, left: 0,
-    width: FRAME_W, height: FRAME_H,
   },
 
   // 工具區

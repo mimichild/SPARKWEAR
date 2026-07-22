@@ -131,7 +131,7 @@
       "area": "photo",
       "title": "新增單品支援相機拍照",
       "user_visible_behavior": "使用者在新增單品時可以選擇「拍照」，直接用相機拍一張照片存進衣櫃，不必先存到相簿再選圖。",
-      "status": "in_progress",
+      "status": "blocked",
       "verification": [
         "pnpm test 全部通過（含 pickFromCamera 的新單元測試）。",
         "模擬器：新增單品時點「+」，確認跳出「拍照／從相簿選擇／取消」選單。",
@@ -145,7 +145,7 @@
         "2026-07-22 | 模擬器操作：點「拍照」| 第一次踩到未處理例外（expo-image-picker 在無相機硬體時 launchCameraAsync 直接 throw，handlePickFromCamera 沒有 try/catch，跳出紅色 LogBox 錯誤「Camera not available on simulator」）；修好後（app/closet/item/form.tsx 的 handlePickFromCamera 加 try/catch，錯誤時 Alert 提示「無法開啟相機」）使用者重新測試，確認變成正常的提示對話框，不再是紅色錯誤畫面",
         "2026-07-22 | 模擬器操作：點「從相簿選擇」| 使用者確認跟改動前行為一致，正常選圖無異常（回歸測試通過）"
       ],
-      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/photoService.ts 目前只有 pickImages()（launchImageLibraryAsync，從相簿選圖），沒有呼叫 launchCameraAsync 的相機拍照路徑。2026-07-22 已實作：photoService.ts 新增 pickFromCamera()，form.tsx 的「+」按鈕改成 Alert 選單（拍照／從相簿選擇），並修好過程中發現的未處理例外（相機硬體不存在時要友善提示，不能讓例外裸奔變成紅屏）。模擬器沒有相機硬體，無法驗證「真的拍到一張照片並存檔成功」這個核心路徑，最後一步驗證需要實體 iPhone，先留 in_progress。"
+      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/services/photoService.ts 目前只有 pickImages()（launchImageLibraryAsync，從相簿選圖），沒有呼叫 launchCameraAsync 的相機拍照路徑。2026-07-22 已實作：photoService.ts 新增 pickFromCamera()，form.tsx 的「+」按鈕改成 Alert 選單（拍照／從相簿選擇），並修好過程中發現的未處理例外（相機硬體不存在時要友善提示，不能讓例外裸奔變成紅屏）。blocked 現象：模擬器沒有相機硬體，無法驗證「真的拍到一張照片並存檔成功」這個核心路徑。已嘗試方法：模擬器上已驗證選單、回歸、錯誤處理三項，唯獨無法驗證真實拍照存檔。建議解法：等使用者下次有 iPhone 可測時，一次驗證這項＋其他待測項目，不需要現在空等，先去做 ios-007/ios-008。"
     },
     {
       "id": "ios-007",
@@ -153,12 +153,19 @@
       "area": "photo",
       "title": "橫向照片裁切成 3:4 時內容被裁掉",
       "user_visible_behavior": "使用者從相簿選一張橫向照片時，PhotoEditorModal 的 3:4 裁切框預設會裁掉照片的主要內容，需要使用者自己手動縮放/拖曳才能避開，體感像是被截斷。",
-      "status": "not_started",
+      "status": "passing",
       "verification": [
-        "TBD：規劃時再補齊具體驗證步驟。"
+        "pnpm test 全部通過。",
+        "模擬器：新增單品時從相簿選一張橫向照片，確認裁切畫面預設能看到完整照片內容（可能上下留白），而不是像改動前一樣直接被裁成只剩中間一小條。",
+        "模擬器：確認仍然可以雙指縮放/拖曳調整裁切範圍。",
+        "模擬器：確認裁切完成、儲存後照片正常顯示，沒有變形或黑邊殘留進最終檔案。"
       ],
-      "evidence": [],
-      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/components/items/PhotoEditorModal.tsx 本身有 3:4 裁切框＋雙指縮放/拖曳功能（不是完全沒有調整能力），但橫向來源照片套用預設框時容易裁掉重要內容，屬於預設行為/UX 問題而非完全沒有編輯功能。使用者確認之後再處理，先記錄避免遺忘。"
+      "evidence": [
+        "2026-07-22 | pnpm test | 306 tests passed",
+        "2026-07-22 | 模擬器操作：新增單品，從相簿選橫向照片 | 使用者確認「有的，可以滑動自己選要的位置」，裁切畫面預設顯示完整照片而非直接裁成一小條",
+        "2026-07-22 | 模擬器操作：完成裁切、儲存 | 使用者截圖確認「沒有變形或黑邊」，衣櫃列表與單品詳情頁的照片輪播顯示正常"
+      ],
+      "notes": "2026-07-21 於 ios-005 實機測試時發現：src/components/items/PhotoEditorModal.tsx 本身有 3:4 裁切框＋雙指縮放/拖曳功能（不是完全沒有調整能力），但橫向來源照片套用預設框時容易裁掉重要內容，屬於預設行為/UX 問題而非完全沒有編輯功能。2026-07-22 根因：原本裁切框內的 <Image resizeMode=\"cover\"> 本身固定為 FRAME_W x FRAME_H，會在原生渲染階段就把超出畫面的部分直接丟棄，之後的 pinch/pan 手勢只能在「已經被丟棄過一次」的畫面裡再放大/平移，永遠拿不回被丟棄的內容，所以使用者根本沒辦法選到完整橫向照片。修法：改成一開始就以「完整顯示整張照片」（containFactor）為縮放基準，預設縮放沿用舊行為的填滿效果（coverFactor/containFactor），讓使用者可以往外縮到完整看見整張照片（含留白）自己選裁切範圍；裁切輸出邏輯依「是否還留白」分流，未填滿裁切框時改用畫面截圖烘焙（沿用既有的 captureRef 機制，跟濾鏡調整共用同一套烘焙路徑），完全填滿時維持原本的像素級裁切以保持畫質。"
     },
     {
       "id": "ios-008",

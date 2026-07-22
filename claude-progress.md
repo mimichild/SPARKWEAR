@@ -9,11 +9,26 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-22 為 306 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-006 新增單品支援相機拍照（in_progress，模擬器已驗證選單/回歸/錯誤處理，剩下實機真正拍照存檔待驗證）
-- 目前 blocker：最後一步（實機拍照存檔）需要使用者的實體 iPhone
-- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005 皆已 passing（含 TestFlight 實機驗證），EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；ios-007（裁切）、ios-008（使用次數）仍 not_started；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 目前最高優先級未完成功能：ios-008 穿搭未自動累計單品使用次數（not_started；ios-006 blocked 等 iPhone，ios-007 已 passing）
+- 目前 blocker：ios-006 最後一步（實機拍照存檔）需要使用者的實體 iPhone，先擱置不影響其他功能推進
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005、ios-007 皆已 passing；EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 009
+
+- 日期：2026-07-22
+- 本輪目標：ios-006 先標 blocked（等 iPhone），接著處理 ios-007（橫向照片裁切內容）
+- 已完成：
+  - ios-006 改為 blocked，notes 補上現象／已嘗試／建議解法
+  - 找到 ios-007 真正根因：`PhotoEditorModal.tsx` 裡 `<Image resizeMode="cover">` 本身固定為 FRAME_W x FRAME_H，原生渲染階段就已經把超出畫面的部分丟棄，之後的 pinch/pan 手勢只能在「已經被丟棄過一次」的畫面裡再操作，永遠拿不回被丟棄的內容——不是使用者不會用縮放，是架構上本來就不可能透過縮放/拖曳復原
+  - 修法：改成一開始以「完整顯示整張照片」（containFactor）為縮放基準，預設縮放沿用舊行為效果（coverFactor/containFactor，維持原本大多數照片的預設體驗不變），使用者可以往外縮到 1（＝完整照片含留白）自己選要保留的內容；裁切輸出依「是否還留白」分流：未填滿裁切框時改用畫面截圖烘焙（沿用既有濾鏡調整用的 captureRef 機制），完全填滿時維持原本像素級裁切保持畫質
+  - 模擬器實測：選橫向照片，確認能看到完整內容、可以縮放拖曳選位置，裁切完成後照片正常無變形無黑邊
+- 執行過的驗證：`pnpm test`（306 tests passed）、模擬器手動操作（使用者確認畫面與最終結果）
+- 已擷取證據：見 feature_list.json ios-007 evidence
+- 提交記錄：（本輪 commit）
+- 已知風險或未解決問題：ios-006 仍 blocked 等 iPhone
+- 下一步最佳動作：ios-008（穿搭未自動累計單品使用次數），或等使用者有 iPhone 時收尾 ios-006
 
 ### 工作階段 008
 

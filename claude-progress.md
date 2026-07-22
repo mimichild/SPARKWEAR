@@ -8,12 +8,28 @@
 
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
-- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-17 為 303 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ios-006 新增單品支援相機拍照（not_started；ios-005 已 passing）
-- 目前 blocker：無
-- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005 皆已 passing（含 TestFlight 實機驗證），EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；實機測試時發現 3 個既有缺口，已建 ios-006/007/008 追蹤（相機拍照未實作、橫向照片裁切內容、穿搭未自動累計使用次數）；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-22 為 306 tests passed；另有 pnpm typecheck、pnpm regression）
+- 目前最高優先級未完成功能：ios-006 新增單品支援相機拍照（in_progress，模擬器已驗證選單/回歸/錯誤處理，剩下實機真正拍照存檔待驗證）
+- 目前 blocker：最後一步（實機拍照存檔）需要使用者的實體 iPhone
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-005 皆已 passing（含 TestFlight 實機驗證），EAS 雲端建置成功產出 .ipa；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；ios-007（裁切）、ios-008（使用次數）仍 not_started；行動計畫見 docs/IOS_READINESS_ROADMAP.md
 
 ## 工作階段日誌
+
+### 工作階段 008
+
+- 日期：2026-07-22
+- 本輪目標：開始處理 ios-006（新增單品支援相機拍照）
+- 已完成：
+  - `src/services/photoService.ts` 新增 `pickFromCamera()`（`launchCameraAsync` + 相機權限請求），mock 檔案早就有對應的 `launchCameraAsync`/`requestCameraPermissionsAsync`，app.json 的 `NSCameraUsageDescription`／`expo-image-picker` plugin 的 `cameraPermission` 也早就設定好，純粹是程式碼沒接上
+  - `app/closet/item/form.tsx` 的「+」新增照片按鈕改成 `Alert.alert` 選單（拍照／從相簿選擇／取消），沿用既有的 `PhotoEditorModal` 編輯流程
+  - 新增 `pickFromCamera` 的單元測試（權限拒絕／使用者取消／成功拍照三種情境）
+  - 模擬器實測時踩到一個新 bug 並修好：`expo-image-picker` 在無相機硬體（模擬器）時 `launchCameraAsync` 會直接 throw，但 `handlePickFromCamera` 沒包 try/catch，導致跳出未處理例外的紅色 LogBox 畫面；修法是在 `handlePickFromCamera` 加 try/catch，改成 `Alert.alert('無法開啟相機', ...)` 友善提示
+  - 模擬器上確認「從相簿選擇」跟改動前行為一致（回歸測試通過）
+- 執行過的驗證：`pnpm test`（306 tests passed）、模擬器手動操作（選單跳出、拍照錯誤處理、相簿選圖回歸）
+- 已擷取證據：見 feature_list.json ios-006 evidence
+- 提交記錄：（本輪 commit）
+- 已知風險或未解決問題：模擬器沒有相機硬體，無法驗證「真的拍到一張照片並存檔成功」這個核心路徑，需要使用者拿實體 iPhone 測試才能把 ios-006 標成 passing
+- 下一步最佳動作：等使用者有 iPhone 可測時，完成 ios-006 最後一步；或先處理 ios-007／ios-008
 
 ### 工作階段 007
 

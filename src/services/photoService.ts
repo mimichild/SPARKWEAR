@@ -47,6 +47,29 @@ export async function pickImages(limit: number): Promise<PickedImage[]> {
   }));
 }
 
+// ── Take a photo with the camera ────────────────────────────────
+
+export async function pickFromCamera(): Promise<PickedImage | null> {
+  const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+  if (!granted) return null;
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 1,
+    exif: false,
+  });
+
+  if (result.canceled || !result.assets[0]) return null;
+  const a = result.assets[0];
+  return {
+    uri: a.uri,
+    width: a.width,
+    height: a.height,
+    mimeType: a.mimeType ?? 'image/jpeg',
+    fileName: a.fileName ?? undefined,
+  };
+}
+
 // ── Compress and save a photo ─────────────────────────────────
 
 export async function savePhoto(uri: string, profile: PhotoProfile): Promise<Photo> {

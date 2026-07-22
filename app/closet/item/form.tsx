@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import type { Item, Season, Grade, Photo, Category, Origin, Color } from '../../../src/types';
 import { saveItem, updateItem, getItemById } from '../../../src/services/itemService';
-import { pickImages, savePhotos, deletePhotos, getPhotoUri } from '../../../src/services/photoService';
+import { pickImages, pickFromCamera, savePhotos, deletePhotos, getPhotoUri } from '../../../src/services/photoService';
 import {
   getCategories, addCategory, deleteCategory,
   getOrigins, addOrigin, deleteOrigin,
@@ -153,16 +153,35 @@ export default function ItemFormScreen() {
     );
   }, []);
 
-  const handlePickPhotos = useCallback(async () => {
-    const currentCount = existingPhotos.filter(p => !removedPhotoIds.has(p.id)).length;
-    const remaining = photoLimit - currentCount;
-    if (remaining <= 0) { Alert.alert('照片已達上限', `最多 ${photoLimit} 張`); return; }
+  const handlePickFromLibrary = useCallback(async (remaining: number) => {
     const picked = await pickImages(remaining);
     if (!picked.length) return;
     // 開啟照片編輯器讓使用者逐張預覽/調整
     setEditorPhotos(picked.map(p => ({ uri: p.uri, width: p.width, height: p.height })));
     setEditorVisible(true);
-  }, [existingPhotos, removedPhotoIds, photoLimit]);
+  }, []);
+
+  const handlePickFromCamera = useCallback(async () => {
+    try {
+      const picked = await pickFromCamera();
+      if (!picked) return;
+      setEditorPhotos([{ uri: picked.uri, width: picked.width, height: picked.height }]);
+      setEditorVisible(true);
+    } catch (e) {
+      Alert.alert('無法開啟相機', e instanceof Error ? e.message : '請確認相機是否可用');
+    }
+  }, []);
+
+  const handlePickPhotos = useCallback(() => {
+    const currentCount = existingPhotos.filter(p => !removedPhotoIds.has(p.id)).length;
+    const remaining = photoLimit - currentCount;
+    if (remaining <= 0) { Alert.alert('照片已達上限', `最多 ${photoLimit} 張`); return; }
+    Alert.alert('新增照片', undefined, [
+      { text: '拍照', onPress: () => { void handlePickFromCamera(); } },
+      { text: '從相簿選擇', onPress: () => { void handlePickFromLibrary(remaining); } },
+      { text: '取消', style: 'cancel' },
+    ]);
+  }, [existingPhotos, removedPhotoIds, photoLimit, handlePickFromLibrary, handlePickFromCamera]);
 
   const handleEditorComplete = useCallback(async (editedUris: string[]) => {
     setEditorVisible(false);

@@ -3,6 +3,7 @@ import {
   deletePhoto,
   savePhoto,
   pickImages,
+  pickFromCamera,
   getStorageStats,
 } from '../../services/photoService';
 import type { Photo } from '../../types';
@@ -162,6 +163,35 @@ describe('photoService', () => {
       expect(mockImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
         expect.objectContaining({ selectionLimit: 3 })
       );
+    });
+  });
+
+  describe('pickFromCamera', () => {
+    it('returns null if permission denied', async () => {
+      mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ granted: false });
+      const result = await pickFromCamera();
+      expect(result).toBeNull();
+    });
+
+    it('returns null if user cancels', async () => {
+      mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ granted: true });
+      mockImagePicker.launchCameraAsync.mockResolvedValue({ canceled: true, assets: [] });
+      const result = await pickFromCamera();
+      expect(result).toBeNull();
+    });
+
+    it('returns the captured photo', async () => {
+      mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({ granted: true });
+      mockImagePicker.launchCameraAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          { uri: '/tmp/shot.jpg', width: 720, height: 960, mimeType: 'image/jpeg', fileName: 'shot.jpg' },
+        ],
+      });
+      const result = await pickFromCamera();
+      expect(result).not.toBeNull();
+      expect(result?.uri).toBe('/tmp/shot.jpg');
+      expect(result?.width).toBe(720);
     });
   });
 

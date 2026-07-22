@@ -71,6 +71,12 @@
         "projectId": "97b73299-0361-4f6d-819f-3a7747b54802"
       }
     },
-    "owner": "mimichild"
+    "owner": "mimichild",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/97b73299-0361-4f6d-819f-3a7747b54802"
+    }
   }
 }

@@ -103,7 +103,7 @@ export default function CategoryTab() {
   }, [countByCategory, router]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <View style={styles.headerLeft}>

@@ -15,6 +15,17 @@
 
 ## 工作階段日誌
 
+### 工作階段 013
+
+- 日期：2026-07-23
+- 本輪目標：分頁列底部安全區改成依「有沒有廣告」動態決定，而不是固定不留（使用者要求：Android／iOS Pro 沒廣告時分頁列是螢幕真正的底部，要補回安全區；有廣告時分頁列上面接的是 AdBanner，不用留）
+- 已完成：
+  - `app/closet/(tabs)/_layout.tsx` 加 `useSafeAreaInsets()` + `useIsPro()`，`bottomInset = isPro ? insets.bottom : 0`，動態加到 `tabBarStyle.height`/`paddingBottom`
+  - 順手修掉 4 個分頁畫面（index/photos/category/ranking）原本 `SafeAreaView edges` 固定包含 `'bottom'`，導致不管有沒有廣告都無條件多留一份安全區的重複扣打問題（跟 SPARKSHAPE 上一輪修的分頁列過高是同一類 bug，只是這裡背景色跟分頁列不同色所以沒那麼顯眼）；改成只留 `['left','right']`，安全區統一交給分頁列這個唯一入口處理
+- 執行過的驗證：`npx tsc --noEmit`（唯一錯誤是 `app/outfits/form.tsx` 既有型別問題，用 `git stash` 確認改動前就存在、與本次無關）；`npx jest`（22 suites、316 tests 全過）
+- 已知風險或未解決問題：Pro（無廣告）分支目前無法在模擬器上實測（RevenueCat 尚未設定金鑰，iOS 端目前恆為免費/有廣告狀態；Android 端有實機才能測），邏輯依賴標準 `useSafeAreaInsets()` 數值疊加，未做額外模擬器驗證
+- 下一步最佳動作：待 RevenueCat 金鑰設定好或有 Android 實機時，實際切到 Pro 狀態確認分頁列底部有補回安全區、按鈕沒有貼著 Home 指示條
+
 ### 工作階段 012
 
 - 日期：2026-07-23

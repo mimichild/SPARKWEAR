@@ -100,7 +100,7 @@ export default function ItemsTab() {
   ), [handlePress, handleLongPress, selectedItemIds, isSelectionMode, themeColor, catIdToName]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top + 12 }]}>
         <View style={styles.headerLeft}>
           <Pressable onPress={() => router.replace('/')} style={styles.backBtn}>

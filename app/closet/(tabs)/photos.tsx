@@ -123,7 +123,7 @@ export default function PhotosTab() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       {header}
       {!loading && filtered.length === 0 ? (
         <View style={styles.empty}>

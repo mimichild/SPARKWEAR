@@ -9,7 +9,7 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：monetization-001（in_progress）——SPARKWEAR 作為 5 個 App 的付費功能範本，AdMob 橫幅廣告＋RevenueCat 訂閱＋Pro 功能鎖，iOS 模擬器已全部驗證完成；剩 Android 實機安裝新 APK 確認（匯出 bug 修復＋無廣告全功能開放）待使用者自行測試
+- 目前最高優先級未完成功能：無（monetization-001 已 passing）；下一步是把同一套付費功能模式複製到 SPARKPLATE/SPARKSHAPE/SPARKFIT/SPARKLOG
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
@@ -30,12 +30,13 @@
   - 應使用者要求建置 Android release APK 驗證「Android 全功能免費開放」的行為，過程中發現並修好兩個跟付費功能無關的既有問題：
     (a) `react-native-google-mobile-ads@16.4.0` 拉進來的 `play-services-ads 25.4.0` 用了比這個 Expo SDK 工具鏈支援上限（Kotlin 2.2.20）更新的 Kotlin metadata（2.3.0），`compileReleaseKotlin` 直接編譯失敗；改鎖定 `react-native-google-mobile-ads@16.3.4`（對應相容的 `play-services-ads 25.0.0`）解決，之後升級這個套件要注意同樣的 Kotlin 版本天花板問題
     (b) 使用者在自己手機上（真實資料 2916 張照片）用舊版 App 匯出備份時失敗，`Invalid URI: content://.../tree/primary%3ASPARKWEAR`；根因是 `android/app/src/main/java/com/sparkwear/app/DownloadsModule.kt` 的 `saveToTreeUri` 把 SAF 選好的原始 tree URI 直接丟給 `DocumentsContract.createDocument()` 當 parent，但那個 API 要的是「文件」URI（需要先用 `DocumentsContract.buildDocumentUriUsingTree` 轉換）；已修好。這個檔案在 gitignore 掉的 `android/` 資料夾裡，跟 SPARKSHAPE 的 iOS 原生修復是同樣的風險（見 `project_sparkshape_ios_native_fixes` 記憶）——刪掉 `android/` 重跑 `expo prebuild` 會遺失這個修復，之後要轉成 config plugin 才安全
-  - Build 成功，APK 上傳至 `SPARK-Builds/SPARKWEAR/sparkwear-v1.0.0-20260723-1406.apk`，使用者尚未在手機上安裝確認
-- 執行過的驗證：`./init.sh`（316 tests passed，含新增 `useIsPro.test.ts`/`purchases.test.ts`/`useProGate.test.ts`）、`npx tsc --noEmit -p .`（無新增錯誤）、`npx expo run:ios` 模擬器手動操作（主題色/匯出/匯入升級提示、字體鎖定樣式、AdMob WebView 廣告資源載入成功、各頁面廣告位置、照片上限）、`./gradlew assembleRelease`（Android release build 成功）
+  - Build 成功，APK 上傳至 `SPARK-Builds/SPARKWEAR/sparkwear-v1.0.0-20260723-1406.apk`；使用者一開始在自己手機上用舊版 App 想先備份也失敗（就是 (b) 那個 bug），教他改用「分享至…」（走 `expo-sharing`，不會碰到壞掉的 SAF 存檔邏輯）先備份成功；接著安裝新版 APK，確認資料完整保留（同一把 debug keystore 簽章，Android 視為正常更新不會清空資料）、匯出功能修好、且 Android 版無廣告、全部功能免費可用
+  - 使用者最終回報「測試沒有問題」，monetization-001 改為 `passing`
+- 執行過的驗證：`./init.sh`（316 tests passed，含新增 `useIsPro.test.ts`/`purchases.test.ts`/`useProGate.test.ts`）、`npx tsc --noEmit -p .`（無新增錯誤）、`npx expo run:ios` 模擬器手動操作（主題色/匯出/匯入升級提示、字體鎖定樣式、AdMob WebView 廣告資源載入成功、各頁面廣告位置、照片上限）、`./gradlew assembleRelease`（Android release build 成功）、使用者在自己手機（真實資料 2916 張照片）實機驗證
 - 已擷取證據：見 feature_list.json monetization-001 evidence
 - 提交記錄：（見本輪 commit）
-- 已知風險或未解決問題：monetization-001 還沒標 passing——使用者還沒在自己手機上安裝新 APK 確認匯出功能修好、以及 Android 版無廣告/全功能開放；RevenueCat/AdMob 都還是測試佔位設定，使用者還沒申請正式帳號
-- 下一步最佳動作：等使用者確認手機上安裝新 APK 後匯出正常、Android 無廣告全功能開放 → monetization-001 改 passing → 複製同一套模式到 SPARKPLATE/SPARKSHAPE/SPARKFIT/SPARKLOG
+- 已知風險或未解決問題：RevenueCat/AdMob 都還是測試佔位設定，使用者還沒申請正式帳號，正式上架前要記得換成真的 Key／廣告單元 ID；DownloadsModule.kt 的 SAF 修復跟 android/build.gradle 的 Kotlin 版本鎖定都在被 gitignore 的 android/ 資料夾裡，沒有進版控，之後如果整個刪掉重跑 prebuild 會遺失（需要轉成 config plugin 才安全，是既有的已知風險，非本輪新增）
+- 下一步最佳動作：monetization-001 已 passing，複製同一套模式（useProGate/useIsPro/AdBanner/purchases.ts/monetization.ts＋廣告版位規則）到 SPARKPLATE/SPARKSHAPE/SPARKFIT/SPARKLOG，每個 App 各自要鎖的功能清單見 monetization_spec_5_apps 記憶
 
 ### 工作階段 011
 

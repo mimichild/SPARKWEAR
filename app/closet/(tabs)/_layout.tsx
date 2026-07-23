@@ -18,11 +18,15 @@ export default function ClosetTabsLayout() {
           headerShown: false,
           tabBarActiveTintColor: themeColor,
           tabBarInactiveTintColor: '#999',
-          tabBarStyle: { borderTopColor: '#eee' },
-          tabBarLabelStyle: { fontSize: 17 },
+          // 分頁列下方接了 AdBanner，不是螢幕最底部，所以不需要 react-navigation
+          // 預設幫分頁列保留的底部安全區高度（會讓整條分頁列被墊高、文字偏上）。
+          tabBarStyle: { borderTopColor: '#eee', height: 50, paddingBottom: 0, paddingTop: 0 },
+          // lineHeight 跟分頁列的 height 對齊，才能真的把文字垂直置中——react-navigation
+          // 預設的 label 版面會保留給圖示的空間，光靠 tabBarItemStyle 的 justifyContent 頂不掉。
+          tabBarLabelStyle: { fontSize: 17, includeFontPadding: false, lineHeight: 50, margin: 0 },
           tabBarIcon: () => null,
-          tabBarIconStyle: { display: 'none' },
-          tabBarItemStyle: { paddingTop: 8 },
+          tabBarIconStyle: { display: 'none', width: 0, height: 0 },
+          tabBarItemStyle: { height: 50, paddingVertical: 0 },
         }}
       >
         {tabs.map((tab) => (

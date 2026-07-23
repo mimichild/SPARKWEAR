@@ -9,11 +9,20 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob 真實 iOS App ID 已設定（ca-app-pub-8914492142878610~7753825917），廣告單元 ID 待使用者提供後再換掉 BANNER_AD_UNIT_ID 的測試 ID；Android 端維持 Google 測試 ID（Android 一律 Pro，AdBanner 永遠不渲染，不需要真的廣告版位）
+- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob 真實 iOS App ID（ca-app-pub-8914492142878610~7753825917）與廣告單元 ID（ca-app-pub-8914492142878610/8955226946）皆已設定；Android 端維持 Google 測試 ID（Android 一律 Pro，AdBanner 永遠不渲染，不需要真的廣告版位）；待辦：跑一次原生 build 讓新 iOS App ID 生效、之後設定 RevenueCat
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 015
+
+- 日期：2026-07-23
+- 本輪目標：使用者在 AdMob 後台建好橫幅廣告單元，把測試版位換成正式的
+- 已完成：`src/constants/monetization.ts` 的 `BANNER_AD_UNIT_ID` 改成 `Platform.select`，iOS 用正式 ID `ca-app-pub-8914492142878610/8955226946`，Android 維持 `TestIds.BANNER`（AdBanner 在 Android 永遠不渲染，不需要真的版位）
+- 執行過的驗證：`npx tsc --noEmit`（無新增錯誤）；`npx jest`（22 suites、316 tests 全過）
+- 已知風險或未解決問題：跟上一輪的 App ID 一樣，這組真實廣告 ID 只有等下次原生 build（`expo prebuild`/EAS build）才會真正生效，目前模擬器上還是看得到測試廣告（因為還在跑上一次 build 的產物）；AdMob 應用程式狀態目前是「需審核」，正式廣告可能要審核通過才會有正常填充率
+- 下一步最佳動作：找時間跑一次原生 build 讓新 App ID／廣告單元 ID 生效；之後設定 RevenueCat
 
 ### 工作階段 014
 

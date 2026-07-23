@@ -1,5 +1,3 @@
-import { VIP_CODE } from '../constants/defaults';
-
 /** Move a tab one position up (towards index 0). Returns a new array. */
 export function moveTabUp(order: string[], index: number): string[] {
   if (index <= 0 || index >= order.length) return [...order];
@@ -27,12 +25,6 @@ export function toggleTab(enabled: string[], tab: string): string[] {
     return enabled.filter(t => t !== tab);
   }
   return [...enabled, tab];
-}
-
-/** Returns true if the supplied code matches VIP_CODE (case-insensitive, trimmed). */
-export function isValidVipCode(code: string): boolean {
-  if (!code) return false;
-  return code.trim().toUpperCase() === VIP_CODE.toUpperCase();
 }
 
 /** Format a byte count to a human-readable string (e.g. "12.3 MB"). */

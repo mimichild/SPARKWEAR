@@ -27,7 +27,9 @@
       "^expo-image-manipulator$": "<rootDir>/src/__mocks__/expo-image-manipulator.ts",
       "^expo-sharing$": "<rootDir>/src/__mocks__/expo-sharing.ts",
       "^expo-document-picker$": "<rootDir>/src/__mocks__/expo-document-picker.ts",
-      "^@react-native-async-storage/async-storage$": "<rootDir>/src/__mocks__/async-storage.ts"
+      "^@react-native-async-storage/async-storage$": "<rootDir>/src/__mocks__/async-storage.ts",
+      "^react-native-purchases$": "<rootDir>/src/__mocks__/react-native-purchases.ts",
+      "^react-native-google-mobile-ads$": "<rootDir>/src/__mocks__/react-native-google-mobile-ads.ts"
     },
     "testMatch": [
       "<rootDir>/src/__tests__/**/*.test.(ts|tsx)"
@@ -61,6 +63,8 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-google-mobile-ads": "^16.4.0",
+    "react-native-purchases": "^10.4.4",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

@@ -14,10 +14,14 @@ import {
 } from '../../src/constants/defaults';
 import { getStorageStats } from '../../src/services/photoService';
 import { exportBackup, importBackupFromPicker } from '../../src/services/backupService';
+import { purchasePro, restorePurchases } from '../../src/services/purchases';
 import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import {
-  moveTabUp, moveTabDown, toggleTab, isValidVipCode, formatBytes,
+  moveTabUp, moveTabDown, toggleTab, formatBytes,
 } from '../../src/utils/settingsUtils';
+import { useProGate } from '../../src/hooks/useProGate';
+import { useIsPro } from '../../src/hooks/useIsPro';
+import { AdBanner } from '../../src/components/AdBanner';
 import type { ImportMode, ExportResult } from '../../src/types';
 
 const HEX_REGEX = /^#([0-9a-fA-F]{6})$/;
@@ -30,14 +34,17 @@ export default function SettingsScreen() {
   const {
     themeColor, setThemeColor,
     fontKey, setFontKey,
-    isProUnlocked, setProUnlocked,
+    setProUnlocked,
     tabOrder, setTabOrder,
     enabledTabs, setEnabledTabs,
   } = useSettingsStore();
 
-  // VIP unlock state
-  const [vipInput, setVipInput] = useState('');
-  const [vipError, setVipError] = useState('');
+  const { requirePro } = useProGate();
+  const isProUnlocked = useIsPro();
+
+  // Pro 升級／恢復購買
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   // Custom hex color input
   const [customHex, setCustomHex] = useState('');
@@ -77,18 +84,36 @@ export default function SettingsScreen() {
   const rawEnabled = enabledTabs.filter(t => knownTabs.has(t));
   const sanitizedEnabledTabs = rawEnabled.length > 0 ? rawEnabled : [effectiveTabOrder[0]];
 
-  const handleUnlock = useCallback(async () => {
-    if (isValidVipCode(vipInput)) {
-      await setProUnlocked(true);
-      setVipInput('');
-      setVipError('');
-      Alert.alert('解鎖成功', 'Pro 功能已啟用');
-    } else {
-      setVipError('VIP code 不正確');
+  const handlePurchase = useCallback(async () => {
+    setPurchasing(true);
+    try {
+      const isPro = await purchasePro();
+      if (isPro) {
+        await setProUnlocked(true);
+        Alert.alert('升級成功', 'Pro 功能已啟用');
+      }
+    } catch (e) {
+      Alert.alert('升級失敗', e instanceof Error ? e.message : '請稍後再試');
+    } finally {
+      setPurchasing(false);
     }
-  }, [vipInput, setProUnlocked]);
+  }, [setProUnlocked]);
+
+  const handleRestore = useCallback(async () => {
+    setRestoring(true);
+    try {
+      const isPro = await restorePurchases();
+      await setProUnlocked(isPro);
+      Alert.alert(isPro ? '還原成功' : '沒有找到可還原的購買紀錄', isPro ? 'Pro 功能已啟用' : '若你曾經購買過，請確認使用的是同一個 Apple ID');
+    } catch (e) {
+      Alert.alert('還原失敗', e instanceof Error ? e.message : '請稍後再試');
+    } finally {
+      setRestoring(false);
+    }
+  }, [setProUnlocked]);
 
   const handleCustomHex = useCallback(async () => {
+    if (!requirePro('自訂主題色')) return;
     const trimmed = customHex.trim();
     if (!HEX_REGEX.test(trimmed)) {
       setCustomHexError('請輸入正確的色碼，例如 #ff0000');
@@ -97,7 +122,12 @@ export default function SettingsScreen() {
     setCustomHexError('');
     await setThemeColor(trimmed.toLowerCase());
     setCustomHex('');
-  }, [customHex, setThemeColor]);
+  }, [customHex, setThemeColor, requirePro]);
+
+  const handleSelectPreset = useCallback((color: string) => {
+    if (!requirePro('主題色')) return;
+    setThemeColor(color);
+  }, [setThemeColor, requirePro]);
 
   const handleMoveUp = useCallback(async (index: number) => {
     await setTabOrder(moveTabUp(effectiveTabOrder, index));
@@ -155,6 +185,7 @@ export default function SettingsScreen() {
   }, [db]);
 
   const handleExport = useCallback(() => {
+    if (!requirePro('匯出備份')) return;
     if (Platform.OS === 'android') {
       Alert.alert(
         '匯出備份',
@@ -175,7 +206,7 @@ export default function SettingsScreen() {
         ]
       );
     }
-  }, [doExport]);
+  }, [doExport, requirePro]);
 
   const handleImport = useCallback(async (mode: ImportMode) => {
     setImporting(true);
@@ -221,6 +252,7 @@ export default function SettingsScreen() {
   }, [db, loadStorage]);
 
   const handleImportPress = useCallback(() => {
+    if (!requirePro('匯入備份')) return;
     Alert.alert('匯入備份', '請選擇匯入方式', [
       {
         text: '合併（保留現有資料）',
@@ -233,7 +265,7 @@ export default function SettingsScreen() {
       },
       { text: '取消', style: 'cancel' },
     ]);
-  }, [handleImport]);
+  }, [handleImport, requirePro]);
 
   const handleResetTabs = useCallback(async () => {
     await setTabOrder([...DEFAULT_TAB_ORDER]);
@@ -254,30 +286,29 @@ export default function SettingsScreen() {
         {/* Pro 解鎖 */}
         <Text style={styles.sectionTitle}>PRO 解鎖</Text>
         <View style={styles.card}>
-          {isProUnlocked ? (
+          {Platform.OS === 'android' ? (
+            <View style={styles.proBadgeRow}>
+              <Text style={styles.proBadge}>✓ Pro 已解鎖（Android 版全功能免費開放）</Text>
+            </View>
+          ) : isProUnlocked ? (
             <View style={styles.proBadgeRow}>
               <Text style={styles.proBadge}>✓ Pro 已解鎖</Text>
             </View>
           ) : (
             <>
-              <Text style={styles.cardLabel}>輸入 VIP code 解鎖 Pro 功能</Text>
-              <View style={styles.inlineRow}>
-                <TextInput
-                  style={styles.input}
-                  value={vipInput}
-                  onChangeText={(t) => { setVipInput(t); setVipError(''); }}
-                  placeholder="VIP code"
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                />
-                <Pressable
-                  onPress={handleUnlock}
-                  style={[styles.actionBtn, { backgroundColor: themeColor || DEFAULT_THEME_COLOR }]}
-                >
-                  <Text style={styles.actionBtnText}>解鎖</Text>
-                </Pressable>
-              </View>
-              {vipError ? <Text style={styles.errorText}>{vipError}</Text> : null}
+              <Text style={styles.cardLabel}>升級 Pro 即可解鎖主題色、字體、匯出匯入，並移除廣告</Text>
+              <Pressable
+                onPress={handlePurchase}
+                disabled={purchasing}
+                style={[styles.actionBtn, { backgroundColor: themeColor || DEFAULT_THEME_COLOR, marginTop: 4 }]}
+              >
+                <Text style={styles.actionBtnText}>{purchasing ? '處理中…' : '升級 Pro'}</Text>
+              </Pressable>
+              <Pressable onPress={handleRestore} disabled={restoring} style={styles.restoreBtn}>
+                <Text style={[styles.restoreBtnText, { color: themeColor || DEFAULT_THEME_COLOR }]}>
+                  {restoring ? '還原中…' : '恢復購買'}
+                </Text>
+              </Pressable>
             </>
           )}
         </View>
@@ -291,7 +322,7 @@ export default function SettingsScreen() {
               return (
                 <Pressable
                   key={preset.color}
-                  onPress={() => setThemeColor(preset.color)}
+                  onPress={() => handleSelectPreset(preset.color)}
                   style={[
                     styles.swatch,
                     { backgroundColor: preset.color },
@@ -488,6 +519,8 @@ export default function SettingsScreen() {
         progress={importOverlayProgress}
         message={importProgress}
       />
+
+      <AdBanner />
     </SafeAreaView>
   );
 }
@@ -530,6 +563,8 @@ const styles = StyleSheet.create({
 
   proBadgeRow: { alignItems: 'center', paddingVertical: 4 },
   proBadge: { fontSize: 15, fontWeight: '600', color: '#43a047' },
+  restoreBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
+  restoreBtnText: { fontSize: 13, fontWeight: '500' },
 
   swatchWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatch: {

@@ -9,6 +9,7 @@ import { useUIStore } from '../../src/stores/uiStore';
 import { getPhotoUri } from '../../src/services/photoService';
 import { SearchBar } from '../../src/components/shared/SearchBar';
 import { ConfirmDialog } from '../../src/components/ui/ConfirmDialog';
+import { AdBanner } from '../../src/components/AdBanner';
 import type { Outfit } from '../../src/types';
 
 const COLUMNS   = 3;
@@ -181,6 +182,8 @@ export default function OutfitsScreen() {
         onConfirm={handleBulkDelete}
         onCancel={() => setBulkDeleteVisible(false)}
       />
+
+      <AdBanner />
     </SafeAreaView>
   );
 }
@@ -229,7 +232,7 @@ const styles = StyleSheet.create({
   emptyText: { color: '#bbb', fontSize: 14, textAlign: 'center', paddingHorizontal: 32 },
   fabContainer: {
     position: 'absolute', right: 20, bottom: 24,
-    alignItems: 'flex-end', gap: 10, zIndex: 10,
+    alignItems: 'flex-end', gap: 10, zIndex: 20,
   },
   fab: {
     width: 56, height: 56, borderRadius: 28,

@@ -44,6 +44,5 @@ export const RANKING_PERIOD_LABELS: Record<string, string> = {
 };
 
 export const APP_VERSION = '2.0.0';
-export const VIP_CODE = 'MIMILOVEYOU520';
-export const PHOTO_MAX_FREE = 5;
+export const PHOTO_MAX_FREE = 2;
 export const PHOTO_MAX_PRO = 20;

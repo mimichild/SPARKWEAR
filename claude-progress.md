@@ -8,12 +8,30 @@
 
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
-- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-22 為 306 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（feature_list.json 目前全部 passing）
+- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
+- 目前最高優先級未完成功能：monetization-001（in_progress）——SPARKWEAR 作為 5 個 App 的付費功能範本，AdMob 橫幅廣告＋RevenueCat 訂閱＋Pro 功能鎖，已在模擬器大致驗證完成，剩「新增單品第 3 張照片被擋」這一項待使用者自己在模擬器點過確認
 - 目前 blocker：無
-- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md
+- 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 012
+
+- 日期：2026-07-23
+- 本輪目標：開始做付費功能（monetization-001），先把 SPARKWEAR 做成 AdMob＋RevenueCat＋Pro 功能鎖的範本
+- 已完成：
+  - 安裝 `react-native-google-mobile-ads`（config plugin 寫入 app.json，Info.plist 的 GADApplicationIdentifier 已用 Google 官方測試 App ID）與 `react-native-purchases`
+  - 新增 `src/constants/monetization.ts`、`src/services/purchases.ts`（`fetchProStatus`/`purchasePro`/`restorePurchases`，空 API Key 時安全 no-op/丟出明確錯誤）、`src/hooks/useProGate.ts`（統一的「跳升級提示」互動）
+  - `PHOTO_MAX_FREE` 5→2；`app/settings/index.tsx` 的主題色/字體/匯出/匯入接上 `requirePro` 鎖
+  - `npx expo prebuild --platform ios && pod install` 裝好原生依賴，`npx expo run:ios` 建置成功並在模擬器實測：主題色/匯出/匯入皆正確跳出升級提示，字體區塊正確顯示鎖定樣式
+  - 使用者中途追加兩項決策並已實作：(1) 移除 VIP 兌換碼機制（`VIP_CODE`/`isValidVipCode` 連同測試都刪掉），PRO 解鎖區塊改成正式的「升級 Pro」／「恢復購買」按鈕；(2) 新增 `src/hooks/useIsPro.ts`，Android 沒有付費入口、一律視為 Pro（全功能免費、不顯示廣告），iOS 才看 RevenueCat 真實狀態——`useProGate`、`AdBanner`、兩個 photo form 都改用這個共用 hook
+  - 廣告版位依使用者要求擴大：首頁、穿搭紀錄列表各自放一條；衣櫃的四個分頁（單品/照片/分類/排行）原本各自放一條會重複渲染且位置跑到分頁列「上方」，改成掛在 `app/closet/(tabs)/_layout.tsx` 共用一條、顯示在分頁列下方——這個調整是使用者實測後回饋才發現要改的，過程中來回了兩次
+  - 使用者在模擬器逐一確認過首頁/衣櫃四分頁/穿搭列表的廣告都正確顯示在正確位置
+- 執行過的驗證：`./init.sh`（316 tests passed，含新增 `useIsPro.test.ts`/`purchases.test.ts`/`useProGate.test.ts`）、`npx tsc --noEmit -p .`（無新增錯誤）、`npx expo run:ios` 模擬器手動操作（主題色/匯出/匯入升級提示、字體鎖定樣式、AdMob WebView 廣告資源載入成功、各頁面廣告位置）
+- 已擷取證據：見 feature_list.json monetization-001 evidence
+- 提交記錄：（見本輪 commit）
+- 已知風險或未解決問題：monetization-001 還沒標 passing——剩「新增單品時第 3 張照片會被擋（上限 2 張）」這項使用者還沒在模擬器實際點過，邏輯有單元測試覆蓋但沒走過真實相簿挑照流程；RevenueCat/AdMob 都還是測試佔位設定，使用者還沒申請正式帳號
+- 下一步最佳動作：等使用者確認第 3 張照片會被擋 → monetization-001 改 passing → 複製同一套模式到 SPARKPLATE/SPARKSHAPE/SPARKFIT/SPARKLOG
 
 ### 工作階段 011
 

@@ -4,10 +4,14 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import mobileAds from 'react-native-google-mobile-ads';
 import { useSettingsStore, resolveFontFamily } from '../src/stores/settingsStore';
 import { SQLiteProvider, DB_NAME, initDatabase } from '../src/db/provider';
 import { useSQLiteContext } from '../src/db/context';
 import { cleanupExpiredTrash } from '../src/services/itemService';
+import { fetchProStatus } from '../src/services/purchases';
+
+mobileAds().initialize();
 
 // ── 全域字型注入 ───────────────────────────────────────────────
 // Text.defaultProps.style 只對無 style prop 的 Text 有效；
@@ -57,10 +61,18 @@ function TrashCleanup() {
 }
 
 export default function RootLayout() {
-  const { hydrate, themeColor, fontKey } = useSettingsStore();
+  const { hydrate, themeColor, fontKey, setProUnlocked } = useSettingsStore();
 
   useEffect(() => {
     hydrate();
+  }, []);
+
+  useEffect(() => {
+    // RevenueCat 尚未設定（沒有 API Key）時回傳 null，維持本機既有的 Pro 狀態
+    // （例如 VIP 兌換碼解鎖的結果），不要用 null 把它蓋掉。
+    fetchProStatus().then(isPro => {
+      if (isPro != null) setProUnlocked(isPro);
+    });
   }, []);
 
   return (

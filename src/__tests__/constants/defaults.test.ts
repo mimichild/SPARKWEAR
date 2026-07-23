@@ -6,7 +6,6 @@ import {
   DEFAULT_ENABLED_TABS,
   SEASONS,
   GRADES,
-  VIP_CODE,
   PHOTO_MAX_FREE,
   PHOTO_MAX_PRO,
   CLOSET_TAB_LABELS,
@@ -90,12 +89,8 @@ describe('defaults — 預設值', () => {
       expect(GRADES).toEqual(['A', 'B', 'C', 'D', 'E']);
     });
 
-    it('VIP CODE 正確', () => {
-      expect(VIP_CODE).toBe('MIMILOVEYOU520');
-    });
-
-    it('免費版最多 5 張照片', () => {
-      expect(PHOTO_MAX_FREE).toBe(5);
+    it('免費版最多 2 張照片', () => {
+      expect(PHOTO_MAX_FREE).toBe(2);
     });
 
     it('Pro 版最多 20 張照片', () => {

@@ -185,6 +185,31 @@
         "2026-07-22 | 模擬器操作：記錄單品使用次數 → 新增穿搭關聯該單品 → 返回單品詳情頁 | 使用者確認「有 +1 了」"
       ],
       "notes": "2026-07-21 於 ios-005 實機測試時發現使用次數沒有累計，一開始誤判成 outfitService.ts 沒有寫入邏輯。2026-07-22 重新查證發現：app/outfits/form.tsx:171 與 app/outfits/manual-log.tsx:67 其實都有正確呼叫 itemService.ts 既有的 incrementUsageCount()，寫入邏輯本身完全正常，DB 裡的 usage_count 有正確 +1。真正根因是 app/closet/item/[id].tsx（單品詳情頁）用的是普通 useEffect([id, db])，只在第一次掛載或 id 改變時抓資料，從別的畫面（例如新增穿搭）返回同一個單品詳情頁時不會重新查詢，畫面停留在舊快取，讓人誤以為沒寫入——是顯示端沒重新整理，不是資料沒更新。同專案的衣櫃列表（closet/(tabs)/index.tsx）、分類列表（closet/category/[name].tsx）、排行榜（closet/(tabs)/ranking.tsx）都已經正確用 useFocusEffect，只有這個單品詳情頁沒有，屬於單一畫面的遺漏。修法：把該畫面的資料載入 useEffect 改成 useFocusEffect（跟其他畫面用同一套慣例），回到畫面時就會重新查詢。"
+    },
+    {
+      "id": "monetization-001",
+      "priority": 9,
+      "area": "monetization",
+      "title": "SPARKWEAR 作為付費功能範本：AdMob 橫幅廣告＋RevenueCat 訂閱＋Pro 功能鎖",
+      "user_visible_behavior": "iOS 免費使用者：相片上限 2 張、無法換主題色/選字體/匯出匯入，點到這些功能會跳出升級提示並可導到設定頁的「升級 Pro」按鈕；首頁、衣櫃四個分頁（單品/照片/分類/排行，掛在分頁列下方共用一條）、穿搭紀錄列表都能看到橫幅廣告。iOS Pro 使用者（RevenueCat 訂閱，或按「恢復購買」）：相片上限 20 張、以上功能全部解鎖、無廣告。Android：沒有付費入口，一律視為 Pro，全部功能免費開放、不顯示廣告。",
+      "status": "in_progress",
+      "verification": [
+        "pnpm test 全部通過。",
+        "npx tsc --noEmit -p . 無新增型別錯誤。",
+        "模擬器（iOS，免費狀態）：點選主題色/匯出/匯入，皆跳出「為 Pro 專屬功能」升級提示；字體區塊顯示鎖定樣式。",
+        "模擬器：新增單品時上傳/拍攝照片在第 3 張時被擋（上限 2 張）——邏輯與既有消費端寫法相同，僅常數由 5 改為 2，單元測試已覆蓋，尚待使用者在模擬器實際點過確認。",
+        "模擬器：畫面上能看到 AdMob 測試橫幅廣告正常渲染（非 Pro 狀態），涵蓋首頁、衣櫃四分頁（共用一條，在分頁列下方）、穿搭紀錄列表。",
+        "確認 RevenueCat 相關程式碼在 REVENUECAT_API_KEY 為空字串（尚未申請帳號）時不會 crash，purchasePro/restorePurchases 安全地丟出明確錯誤並在畫面上顯示提示。",
+        "useIsPro 單元測試：iOS 跟隨 store 狀態、Android 一律回傳 true。"
+      ],
+      "evidence": [
+        "2026-07-23 | ./init.sh | 316 tests passed（含新增 useIsPro.test.ts 4 項、purchases.test.ts 11 項、useProGate.test.ts 3 項）",
+        "2026-07-23 | npx tsc --noEmit -p . | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤",
+        "2026-07-23 | npx expo prebuild --platform ios && pod install | Google-Mobile-Ads-SDK 13.5.0、RevenueCat 5.81.1 成功安裝；PlistBuddy 確認 Info.plist 的 GADApplicationIdentifier 正確寫入測試 App ID",
+        "2026-07-23 | npx expo run:ios 建置成功（0 error）並在 iPhone 17 Pro 模擬器實測 | 主題色/匯出/匯入皆正確跳出『XX為 Pro 專屬功能，升級 Pro 即可解鎖，要現在升級嗎？』提示；字體區塊顯示『升級 Pro 解鎖字體選擇』鎖定樣式；xcrun simctl log 確認 AdMob WebView 廣告資源請求成功載入",
+        "2026-07-23 | 使用者在模擬器手動確認 | 首頁、我的衣櫃（單品/照片/分類/排行，廣告在分頁列下方共用一條）、穿搭紀錄列表底部皆正確顯示 AdMob 測試橫幅廣告"
+      ],
+      "notes": "對應 2026-07-23 記憶 monetization_spec_5_apps.md 修訂版；此為 5 個 App 的範本實作，驗證通過後同一套模式要複製到 SPARKPLATE/SPARKSHAPE/SPARKFIT/SPARKLOG。RevenueCat/AdMob 目前使用 Google 官方測試 ID 與空字串佔位 API Key，待使用者申請好正式帳號後只需替換 src/constants/monetization.ts 常數，不需要改程式碼。訂閱購買僅限 iOS（Android 上 REVENUECAT_API_KEY 為空字串，hasApiKey() 回傳 false，安全 no-op）。2026-07-23 使用者在模擬器實測階段追加兩項決策，已實作：(1) 移除 VIP 兌換碼機制（連同 VIP_CODE 常數、isValidVipCode 與其測試都刪除），PRO 解鎖區塊改成正式的「升級 Pro」／「恢復購買」按鈕，呼叫 src/services/purchases.ts 的 purchasePro()/restorePurchases()；(2) 新增 src/hooks/useIsPro.ts，Android 因為沒有付費入口一律視為 Pro（全功能免費、不顯示廣告），iOS 才看 RevenueCat 真實狀態——useProGate、AdBanner、item/form.tsx、outfits/form.tsx 的 isProUnlocked 判斷都已經改用這個共用 hook。廣告放置位置也依使用者要求擴大到首頁、衣櫃四分頁（改掛在 app/closet/(tabs)/_layout.tsx 共用，顯示在分頁列下方，避免四個畫面各放一份重複渲染）、穿搭紀錄列表，使用者已在模擬器逐一確認過畫面。剩一項驗證尚未做：新增單品時第 3 張照片會被擋（上限 2 張）——邏輯與既有消費端寫法相同、單元測試已覆蓋，使用者稍後會自己在模擬器點過確認。"
     }
   ]
 }

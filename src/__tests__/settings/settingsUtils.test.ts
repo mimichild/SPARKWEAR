@@ -2,7 +2,6 @@ import {
   moveTabUp,
   moveTabDown,
   toggleTab,
-  isValidVipCode,
   formatBytes,
 } from '../../utils/settingsUtils';
 
@@ -115,32 +114,6 @@ describe('settingsUtils — 設定相關工具', () => {
     it('空陣列傳入時新增 tab', () => {
       const result = toggleTab([], 'items');
       expect(result).toEqual(['items']);
-    });
-  });
-
-  describe('isValidVipCode', () => {
-    it('正確的 VIP code 回傳 true', () => {
-      expect(isValidVipCode('MIMILOVEYOU520')).toBe(true);
-    });
-
-    it('小寫的 VIP code 也算正確（大小寫不敏感）', () => {
-      expect(isValidVipCode('mimiloveyou520')).toBe(true);
-    });
-
-    it('混合大小寫也算正確', () => {
-      expect(isValidVipCode('MimiLoveYou520')).toBe(true);
-    });
-
-    it('錯誤的 code 回傳 false', () => {
-      expect(isValidVipCode('WRONGCODE')).toBe(false);
-    });
-
-    it('空字串回傳 false', () => {
-      expect(isValidVipCode('')).toBe(false);
-    });
-
-    it('前後有空白的 code 也算正確（會 trim）', () => {
-      expect(isValidVipCode('  MIMILOVEYOU520  ')).toBe(true);
     });
   });
 

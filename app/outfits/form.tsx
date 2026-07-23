@@ -13,6 +13,7 @@ import { logItemUsages } from '../../src/services/usageLogService';
 import { getCategories } from '../../src/services/categoryService';
 import { pickImages, savePhotos, deletePhotos, getPhotoUri, photoIdFromPath } from '../../src/services/photoService';
 import { useSettingsStore } from '../../src/stores/settingsStore';
+import { useIsPro } from '../../src/hooks/useIsPro';
 import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import { SearchBar } from '../../src/components/shared/SearchBar';
 import { PhotoEditorModal, type EditablePhoto } from '../../src/components/items/PhotoEditorModal';
@@ -36,7 +37,8 @@ export default function OutfitFormScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const db = useSQLiteContext();
-  const { themeColor, isProUnlocked } = useSettingsStore();
+  const { themeColor } = useSettingsStore();
+  const isProUnlocked = useIsPro();
   const insets = useSafeAreaInsets();
   const isEdit = !!id;
   const photoLimit = isProUnlocked ? PHOTO_MAX_PRO : PHOTO_MAX_FREE;

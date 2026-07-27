@@ -9,11 +9,23 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob 真實 iOS App ID／廣告單元 ID 已設定；App Store Connect 訂閱項目（月費99/年費713）已建好；**RevenueCat 已完整設定並拿到正式 Public API Key，已寫入程式碼**（`appl_ttgLTAxglmgfHIzKKHjJGXkJoRN`）；待辦：跑一次原生 build 讓這些改動全部生效（目前都還是舊 build），之後實機測真實購買流程
+- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**（2026-07-27，`npx expo run:ios --device` 建置，設定頁「升級 Pro」真的跳出蘋果購買確認畫面）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 017
+
+- 日期：2026-07-27
+- 本輪目標：實機建置驗證 AdMob／RevenueCat 是否真的生效
+- 已完成：
+  - Xcode 登入 Apple ID、產生本機簽名憑證、開發者模式開啟、Provisioning Profile 產生（過程細節見 monetization_spec_5_apps 記憶「實機建置踩過的坑」）
+  - `npx expo run:ios --device "iPhone 17 - K"` 成功建置並安裝到實機
+  - 實機驗證：「設定 → 升級 Pro」跳出真的的蘋果購買確認畫面（不是舊的錯誤訊息），證明 RevenueCat／App Store 訂閱串接正確
+- 執行過的驗證：實機互動測試（如上）
+- 已知風險或未解決問題：廣告目前實機沒顯示（AdMob 帳號審核狀態「需審核」，推測是正常現象非程式碼問題，之後帳號審核通過再確認一次）；曾在瀏覽單品列表時無預期跳出「[RevenueCat] Purchase was cancelled」提示，原因不明、非使用者主動觸發，之後如果重現要再深入查
+- 下一步最佳動作：把同一套實機驗證流程複製到 SPARKPLATE/SPARKFIT/SPARKLOG/SPARKSHAPE
 
 ### 工作階段 016
 

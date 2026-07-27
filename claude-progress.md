@@ -9,11 +9,25 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob 真實 iOS App ID（ca-app-pub-8914492142878610~7753825917）與廣告單元 ID（ca-app-pub-8914492142878610/8955226946）皆已設定；Android 端維持 Google 測試 ID（Android 一律 Pro，AdBanner 永遠不渲染，不需要真的廣告版位）；待辦：跑一次原生 build 讓新 iOS App ID 生效、之後設定 RevenueCat
+- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob 真實 iOS App ID／廣告單元 ID 已設定；App Store Connect 訂閱項目（月費99/年費713）已建好；**RevenueCat 已完整設定並拿到正式 Public API Key，已寫入程式碼**（`appl_ttgLTAxglmgfHIzKKHjJGXkJoRN`）；待辦：跑一次原生 build 讓這些改動全部生效（目前都還是舊 build），之後實機測真實購買流程
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 016
+
+- 日期：2026-07-27
+- 本輪目標：完整設定 RevenueCat（帳號、App、Entitlement、Offering/Package），把正式 Public API Key 換進程式碼
+- 已完成：
+  - App Store Connect 產生 In-App Purchase Key（P8 檔案，5 個 App 共用同一組：Key ID `XLCX2BBUZB`、Issuer ID `26d21cac-4b89-4016-8377-b905fc5773f6`）
+  - RevenueCat 建立 SPARKWEAR 專屬 Project + App（Bundle ID `com.sparkwear.app`，上傳 P8 金鑰），拿到 Public API Key `appl_ttgLTAxglmgfHIzKKHjJGXkJoRN`
+  - 建立 `pro` entitlement，接上 `com.sparkwear.app.pro.monthly`／`.pro.yearly` 兩個 App Store 商品
+  - `default` offering 的 `monthly pro`／`yearly pro` 兩個 package 各自接上對應的 App Store 商品（過程中發現 RevenueCat onboarding 精靈會自動生一堆 Test Store 示範資料，容易搞混，處理方式已記錄進 monetization_spec_5_apps 記憶）
+  - `src/constants/monetization.ts` 的 `REVENUECAT_API_KEY`（iOS 分支）換成正式 Key
+- 執行過的驗證：`npx tsc --noEmit`（無新增錯誤）；`npx jest src/__tests__/hooks/useIsPro.test.ts src/__tests__/services`（12 suites、158 tests 全過）
+- 已知風險或未解決問題：這個改動屬於 App 啟動時初始化用的 Key（純 JS 常數），理論上 `eas update` OTA 就能推送生效，不像 AdMob App ID 那樣需要重新原生 build——但目前還沒有實機/模擬器驗證過真實購買流程是否真的能跑通（RevenueCat 那邊商品狀態一直顯示「Could not check」，RevenueCat 官方回報是他們自己那邊連線 Apple 服務有已知事故，不是我們設定錯誤，但也代表還沒有實測證據）
+- 下一步最佳動作：複製同一套 RevenueCat 設定流程到 SPARKPLATE/SPARKFIT/SPARKLOG/SPARKSHAPE（P8/Key ID/Issuer ID 沿用同一組，只是各自建立新 App/Entitlement/Offering）；5 個都做完後找時間排一次原生 build，實機測試真實購買/恢復購買流程
 
 ### 工作階段 015
 

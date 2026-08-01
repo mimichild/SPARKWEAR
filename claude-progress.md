@@ -9,11 +9,24 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**（2026-07-27，`npx expo run:ios --device` 建置，設定頁「升級 Pro」真的跳出蘋果購買確認畫面）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）
+- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 018
+
+- 日期：2026-08-01
+- 本輪目標：RevenueCat 官方事故排除後重測，修好順便發現的真實 bug
+- 已完成：
+  - 確認 RevenueCat 官方狀態頁（`status.revenuecat.com`）「新建立 App 的 Bundle ID 驗證錯誤」問題已於 7/31 06:30 UTC 解決
+  - 實機重測「升級 Pro」，發現：直接在設定頁點主按鈕正常，但**從鎖定功能（例如某個 Pro 專屬 toggle）跳出的升級提示裡點「升級 Pro」卻沒反應**——排查後確認是 `useProGate.ts` 原本設計成「導到 /settings 頁」，但使用者觸發時通常已經身處設定頁，導頁動作沒有可見效果
+  - 修正：`useProGate.ts` 的「升級 Pro」按鈕改成直接呼叫 `purchasePro()` 觸發真實購買（不管在哪裡觸發都一樣行為），成功後呼叫 `setProUnlocked(true)` 並顯示「升級成功」，失敗則顯示「升級失敗」＋錯誤訊息（跟設定頁主按鈕的 `handlePurchase` 邏輯一致）
+  - 更新 `src/__tests__/hooks/useProGate.test.ts` 對應新行為
+- 執行過的驗證：`npx tsc --noEmit`（無新增錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`npx jest`（22 suites、317 tests 全過）；實機互動測試確認修好
+- 已知風險或未解決問題：無
+- 下一步最佳動作：把同一個修正複製到 SPARKPLATE/SPARKFIT/SPARKLOG/SPARKSHAPE（這 4 個 App 是同一套 `useProGate.ts` 範本複製出來的，同樣的 bug）
 
 ### 工作階段 017
 

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, Alert, StyleSheet, Platform,
+  View, Text, TextInput, Pressable, ScrollView, Alert, StyleSheet, Platform, Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { useSQLiteContext } from '../../src/db/context';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import {
@@ -12,9 +13,12 @@ import {
 import {
   APP_VERSION, DEFAULT_TAB_ORDER, DEFAULT_ENABLED_TABS, CLOSET_TAB_LABELS,
 } from '../../src/constants/defaults';
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../../src/constants/monetization';
 import { getStorageStats } from '../../src/services/photoService';
 import { exportBackup, importBackupFromPicker } from '../../src/services/backupService';
-import { purchasePro, restorePurchases } from '../../src/services/purchases';
+import {
+  purchasePro, purchasePackage, restorePurchases, fetchPackages,
+} from '../../src/services/purchases';
 import { ProgressOverlay } from '../../src/components/ui/ProgressOverlay';
 import {
   moveTabUp, moveTabDown, toggleTab, formatBytes,
@@ -25,6 +29,22 @@ import { AdBanner } from '../../src/components/AdBanner';
 import type { ImportMode, ExportResult } from '../../src/types';
 
 const HEX_REGEX = /^#([0-9a-fA-F]{6})$/;
+
+function packagePlanLabel(pkg: PurchasesPackage): string {
+  if (pkg.packageType === 'ANNUAL') return 'SPARK WEAR Pro 年費方案';
+  if (pkg.packageType === 'MONTHLY') return 'SPARK WEAR Pro 月費方案';
+  return pkg.product.title;
+}
+
+function packagePeriodLabel(pkg: PurchasesPackage): string {
+  if (pkg.packageType === 'ANNUAL') return '訂閱期間：每年自動續訂';
+  if (pkg.packageType === 'MONTHLY') return '訂閱期間：每月自動續訂';
+  const iso = pkg.product.subscriptionPeriod;
+  if (iso === 'P1Y') return '訂閱期間：每年自動續訂';
+  if (iso === 'P1M') return '訂閱期間：每月自動續訂';
+  if (iso === 'P1W') return '訂閱期間：每週自動續訂';
+  return '訂閱期間：自動續訂';
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -45,6 +65,8 @@ export default function SettingsScreen() {
   // Pro 升級／恢復購買
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+  const [loadingPackages, setLoadingPackages] = useState(false);
 
   // Custom hex color input
   const [customHex, setCustomHex] = useState('');
@@ -74,6 +96,18 @@ export default function SettingsScreen() {
 
   useEffect(() => { loadStorage(); }, [loadStorage]);
 
+  // 需要顯示各方案的標題／期間／價格（Apple Guideline 3.1.2(c)），只有 iOS
+  // 且尚未解鎖 Pro 時才需要載入。
+  useEffect(() => {
+    if (Platform.OS === 'android' || isProUnlocked) return;
+    let cancelled = false;
+    setLoadingPackages(true);
+    fetchPackages()
+      .then(pkgs => { if (!cancelled) setPackages(pkgs); })
+      .finally(() => { if (!cancelled) setLoadingPackages(false); });
+    return () => { cancelled = true; };
+  }, [isProUnlocked]);
+
   // Sanitize persisted tabOrder: keep only known keys, append any missing ones at the end
   const knownTabs = new Set<string>(DEFAULT_TAB_ORDER);
   const filtered = tabOrder.filter(t => knownTabs.has(t));
@@ -88,6 +122,21 @@ export default function SettingsScreen() {
     setPurchasing(true);
     try {
       const isPro = await purchasePro();
+      if (isPro) {
+        await setProUnlocked(true);
+        Alert.alert('升級成功', 'Pro 功能已啟用');
+      }
+    } catch (e) {
+      Alert.alert('升級失敗', e instanceof Error ? e.message : '請稍後再試');
+    } finally {
+      setPurchasing(false);
+    }
+  }, [setProUnlocked]);
+
+  const handlePurchasePackage = useCallback(async (pkg: PurchasesPackage) => {
+    setPurchasing(true);
+    try {
+      const isPro = await purchasePackage(pkg);
       if (isPro) {
         await setProUnlocked(true);
         Alert.alert('升級成功', 'Pro 功能已啟用');
@@ -297,18 +346,52 @@ export default function SettingsScreen() {
           ) : (
             <>
               <Text style={styles.cardLabel}>升級 Pro 即可解鎖主題色、字體、匯出匯入，並移除廣告</Text>
-              <Pressable
-                onPress={handlePurchase}
-                disabled={purchasing}
-                style={[styles.actionBtn, { backgroundColor: themeColor || DEFAULT_THEME_COLOR, marginTop: 4 }]}
-              >
-                <Text style={styles.actionBtnText}>{purchasing ? '處理中…' : '升級 Pro'}</Text>
-              </Pressable>
+
+              {loadingPackages ? (
+                <Text style={styles.cardLabel}>載入方案中…</Text>
+              ) : packages.length > 0 ? (
+                packages.map(pkg => (
+                  <View key={pkg.identifier} style={styles.planRow}>
+                    <View style={styles.planInfo}>
+                      <Text style={styles.planTitle}>{packagePlanLabel(pkg)}</Text>
+                      <Text style={styles.planMeta}>{packagePeriodLabel(pkg)}</Text>
+                      <Text style={styles.planMeta}>價格：{pkg.product.priceString}</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => handlePurchasePackage(pkg)}
+                      disabled={purchasing}
+                      style={[styles.actionBtn, { backgroundColor: themeColor || DEFAULT_THEME_COLOR }]}
+                    >
+                      <Text style={styles.actionBtnText}>{purchasing ? '處理中…' : '訂閱'}</Text>
+                    </Pressable>
+                  </View>
+                ))
+              ) : (
+                <Pressable
+                  onPress={handlePurchase}
+                  disabled={purchasing}
+                  style={[styles.actionBtn, { backgroundColor: themeColor || DEFAULT_THEME_COLOR, marginTop: 4 }]}
+                >
+                  <Text style={styles.actionBtnText}>{purchasing ? '處理中…' : '升級 Pro'}</Text>
+                </Pressable>
+              )}
+
               <Pressable onPress={handleRestore} disabled={restoring} style={styles.restoreBtn}>
                 <Text style={[styles.restoreBtnText, { color: themeColor || DEFAULT_THEME_COLOR }]}>
                   {restoring ? '還原中…' : '恢復購買'}
                 </Text>
               </Pressable>
+
+              <View style={styles.legalRow}>
+                <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} hitSlop={8}>
+                  <Text style={styles.legalLink}>隱私權政策</Text>
+                </Pressable>
+                <Text style={styles.legalDot}>·</Text>
+                <Pressable onPress={() => Linking.openURL(TERMS_OF_USE_URL)} hitSlop={8}>
+                  <Text style={styles.legalLink}>服務條款</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.legalHint}>訂閱將自動續訂，可隨時於 App Store 帳號設定中取消</Text>
             </>
           )}
         </View>
@@ -565,6 +648,25 @@ const styles = StyleSheet.create({
   proBadge: { fontSize: 15, fontWeight: '600', color: '#43a047' },
   restoreBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
   restoreBtnText: { fontSize: 13, fontWeight: '500' },
+
+  planRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0f0f0',
+  },
+  planInfo: { flex: 1 },
+  planTitle: { fontSize: 14, fontWeight: '600', color: '#333' },
+  planMeta: { fontSize: 12, color: '#888', marginTop: 2 },
+
+  legalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginTop: 12,
+  },
+  legalLink: { fontSize: 12, color: '#666', textDecorationLine: 'underline' },
+  legalDot: { fontSize: 12, color: '#ccc' },
+  legalHint: {
+    fontSize: 11, color: '#aaa', textAlign: 'center', marginTop: 6, lineHeight: 16,
+  },
 
   swatchWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatch: {

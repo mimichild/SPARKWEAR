@@ -237,19 +237,24 @@
       "priority": 11,
       "area": "items",
       "title": "單品新增/編輯表單開放手動設定使用次數",
-      "user_visible_behavior": "使用者在「我的衣櫃」單品的新增或編輯表單中，價格/尺寸區塊新增一個「使用次數」數字輸入欄；編輯既有單品時預填目前次數並可修改，新增單品時預設為 0 且可在儲存前自行輸入初始次數；輸入非數字或負數會被清理成 0 以上的整數。",
+      "user_visible_behavior": "使用者在「我的衣櫃」單品的新增或編輯表單中，價格/尺寸區塊新增一個「使用次數」數字輸入欄；編輯既有單品時預填目前次數並可修改，新增單品時預設為 0 且可在儲存前自行輸入初始次數；輸入非數字或負數會被清理成 0 以上的整數。修改後，單品詳細頁的「使用次數」與「平均使用價格」要同步反映新數字。",
       "status": "passing",
       "verification": [
         "pnpm test 全部通過。",
         "npx tsc --noEmit -p . 無新增型別錯誤（既有 app/outfits/form.tsx Photo/createdAt 錯誤與本次改動無關）。",
-        "程式碼檢視：app/closet/item/form.tsx 的 usageCountText 狀態在編輯模式從 item.usageCount 預填、新增模式預設 '0'；儲存時 parseInt 並用 Math.max(0, ...) 防止負數/NaN，取代原本『編輯用 existingUsageCount、新增一律寫死 0』的邏輯。"
+        "程式碼檢視：app/closet/item/form.tsx 的 usageCountText 狀態在編輯模式從 item.usageCount 預填、新增模式預設 '0'；儲存時 parseInt 並用 Math.max(0, ...) 防止負數/NaN，取代原本『編輯用 existingUsageCount、新增一律寫死 0』的邏輯。",
+        "程式碼檢視：app/closet/item/[id].tsx 的「使用次數」「平均使用價格」改讀 item.usageCount（items 表欄位，跟編輯表單同一個來源），不再讀 item_usage_logs 的 COUNT(*)。",
+        "使用者實機安裝驗證：新增/編輯表單皆可正常操作使用次數欄位。"
       ],
       "evidence": [
         "2026-08-10 | pnpm test | 22 suites、321 tests passed，無新增/新壞測試",
         "2026-08-10 | npx tsc --noEmit | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤",
-        "2026-08-10 | ./gradlew assembleRelease（Android release build）| 建置成功，上傳 SPARK-Builds/SPARKWEAR/sparkwear-v2.0.0-20260810-1306.apk 供使用者實機安裝驗證新欄位"
+        "2026-08-10 | ./gradlew assembleRelease（Android release build）| 建置成功，上傳 SPARK-Builds/SPARKWEAR/sparkwear-v2.0.0-20260810-1306.apk 供使用者實機安裝驗證新欄位",
+        "2026-08-10 | 使用者實機測試回報 | 新增/編輯單品的使用次數欄位操作正常；但發現編輯後單品詳細頁『使用次數』與『平均使用價格』沒有跟著變，回報後排查修好",
+        "2026-08-10 | pnpm test（修好 app/closet/item/[id].tsx 後重跑）| 22 suites、321 tests passed",
+        "2026-08-10 | ./gradlew assembleRelease（修好後重新建置）| 建置成功，上傳 SPARK-Builds/SPARKWEAR/sparkwear-v2.0.0-20260810-1314.apk 供使用者實機安裝驗證修復"
       ],
-      "notes": "使用者需求：單品編輯表單按「編輯」時要能手動修改使用次數；新增單品時也要能自行輸入初始使用次數。實作只加一個 TextInput 欄位（keyboardType number-pad，onChangeText 過濾非數字字元），沒有另外做遞增/遞減按鈕或範圍上限，符合使用者原始要求的最小範圍。本次未做模擬器/實機互動截圖驗證，改用靜態型別檢查＋既有測試套件＋建置成功作為證據；若使用者在實機測試後發現行為不符預期，需要再補一輪修正。"
+      "notes": "使用者需求：單品編輯表單按「編輯」時要能手動修改使用次數；新增單品時也要能自行輸入初始使用次數。實作只加一個 TextInput 欄位（keyboardType number-pad，onChangeText 過濾非數字字元），沒有另外做遞增/遞減按鈕或範圍上限，符合使用者原始要求的最小範圍。第一輪只改了表單，使用者實機測試後回報單品詳細頁的『使用次數』『平均使用價格』修改後沒變化——根因是這個 App 一直有兩條平行的使用次數資料：(1) items.usage_count 欄位（ItemCard 列表、編輯表單都讀這個，每次新增/刪除穿搭時同步 +1/-1），(2) item_usage_logs 表的逐筆使用記錄（單品詳細頁原本改讀這張表的 COUNT(*) 來顯示『使用次數』與算『平均使用價格』，用途是給 useRanking.ts 的『本月/本週』區間排行用）。手動編輯 usage_count 只會動到 (1)，完全不影響 (2)，所以詳細頁沒反應。修法：把單品詳細頁的顯示來源統一改成 item.usageCount（同一個欄位，跟列表/編輯表單一致），不再讀 item_usage_logs 的 COUNT(*)；item_usage_logs 本身保留不動，因為 useRanking.ts 的期間排行（本月/本週最常穿）仍依賴它做日期區間統計，跟這次的顯示欄位是不同用途。"
     }
   ]
 }

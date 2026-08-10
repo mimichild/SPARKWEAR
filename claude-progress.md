@@ -9,11 +9,25 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 321 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001、ios-009、items-001 皆已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄（items-001），尚待使用者在實機上互動驗證
+- 目前最高優先級未完成功能：無（monetization-001、ios-009、items-001 皆已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常，詳細頁修復待下一次確認）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 021
+
+- 日期：2026-08-10
+- 本輪目標：使用者實機測試 items-001（使用次數欄位）後回報：編輯單品修改使用次數後，單品詳細頁的「使用次數」與「平均使用價格」沒有跟著變
+- 已完成：
+  - 排查發現這個 App 一直有兩條平行的使用次數資料來源：(1) `items.usage_count` 欄位——`ItemCard.tsx`（列表）與編輯表單都讀這個，新增/刪除穿搭時同步 +1/-1；(2) `item_usage_logs` 表的逐筆使用記錄——`app/closet/item/[id].tsx`（單品詳細頁）原本改讀這張表的 `COUNT(*)` 來顯示「使用次數」並計算「平均使用價格」，這條資料原本是給 `useRanking.ts` 的「本月/本週」期間排行用的
+  - 手動編輯 `usage_count`（items-001 新增的功能）只會動到來源 (1)，完全不影響來源 (2)，所以單品詳細頁沒反應
+  - 修法：`app/closet/item/[id].tsx` 拿掉原本對 `item_usage_logs` 的 `COUNT(*)` 查詢與 `logUsageCount` state，「使用次數」「平均使用價格」改直接讀 `item.usageCount`，跟列表/編輯表單統一同一個資料來源；`item_usage_logs` 表本身沒有動，`useRanking.ts` 的期間排行仍照舊依賴它
+  - 更新 `feature_list.json` 的 `items-001`：補上這次的根因、修法、evidence
+  - 重新本機建置 Android release APK 並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（22 suites、321 tests 全過，無新增/新壞測試）；`npx tsc --noEmit`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：這次的詳細頁修復本身還沒經過使用者實機互動驗證（只做了型別檢查＋既有測試＋建置成功），需要使用者用新 APK 確認編輯使用次數後詳細頁數字真的會跟著變
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1314.apk）實機測試後回報
 
 ### 工作階段 020
 

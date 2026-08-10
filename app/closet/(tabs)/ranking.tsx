@@ -148,7 +148,7 @@ export default function RankingTab() {
     switch (period) {
       case 'month':   return `${y}年${pad(m)}月`;
       case 'quarter': return `${y}年 第${q}季（${pad((q - 1) * 3 + 1)}月～${pad(q * 3)}月）`;
-      case 'year':    return `${y}年（當年）`;
+      case 'year':    return `${y}年（當年度）`;
       case 'rolling': return `${agoStr} ～ ${today}（往前推一年）`;
       case 'all':     return '購買至今（累積總計）';
     }

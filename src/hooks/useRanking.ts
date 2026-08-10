@@ -13,6 +13,11 @@ export function calcCP(item: Item): number {
   return price / item.usageCount;
 }
 
+export function filterByCategory(items: Item[], categoryIds: string[]): Item[] {
+  if (categoryIds.length === 0) return items;
+  return items.filter(item => item.categoryId != null && categoryIds.includes(item.categoryId));
+}
+
 export function filterByPeriod(items: Item[], period: RankingPeriod, ref: Date): Item[] {
   if (period === 'all') return items;
 
@@ -224,7 +229,12 @@ function getPeriodDateRange(period: RankingPeriod, ref: Date): { start: string; 
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: SortDir = 'desc') {
+export function useRanking(
+  metric: RankingMetric,
+  period: RankingPeriod,
+  dir: SortDir = 'desc',
+  categoryIds: string[] = []
+) {
   const db = useSQLiteContext();
   const [ranked, setRanked] = useState<RankEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,11 +242,12 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [items, voteCounts, colors] = await Promise.all([
+      const [rawItems, voteCounts, colors] = await Promise.all([
         getItems(db),
         getAllVoteCounts(db),
         getColors(db),
       ]);
+      const items = filterByCategory(rawItems, categoryIds);
       const colorMap: Record<string, string> = {};
       colors.forEach(c => { colorMap[c.id] = c.name; });
 
@@ -344,7 +355,7 @@ export function useRanking(metric: RankingMetric, period: RankingPeriod, dir: So
     } finally {
       setLoading(false);
     }
-  }, [db, metric, period, dir]);
+  }, [db, metric, period, dir, categoryIds]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -14,6 +14,12 @@ export const DEFAULT_CATEGORIES = [
   { name: '未分類', color: '#e0e0e0' },
 ] as const;
 
+// 新增分類時依序使用的預設顏色
+export const CATEGORY_PALETTE = [
+  '#f48fb1', '#ce93d8', '#90caf9', '#a5d6a7', '#80cbc4',
+  '#ffe082', '#bcaaa4', '#ef9a9a', '#b0bec5', '#c5cae9',
+] as const;
+
 export const DEFAULT_ORIGINS = ['日貨', '韓貨', '品牌', '蝦皮', '其他'] as const;
 
 export const DEFAULT_COLORS = [

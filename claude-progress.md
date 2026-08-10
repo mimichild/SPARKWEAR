@@ -8,13 +8,28 @@
 
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
-- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 321 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無
+- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
+- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列，多選/單選＋自訂新增刪除分類）——程式碼完成、自動化驗證通過、APK 已建置上傳，等待使用者實機互動確認後才能改成 passing
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 025
+
+- 日期：2026-08-10
+- 本輪目標：使用者要求在「排行」頁最上排新增分類篩選項目（多選/單選），項目為上衣/裙裝/褲裝/洋裝/外套/套裝/日常/鞋類/包包/猶豫/留校/冷凍，且要能自行新增/刪除
+- 已完成：
+  - 逐字比對後發現使用者列的篩選項目就是 `src/constants/defaults.ts` 的 `DEFAULT_CATEGORIES`——App 既有的可編輯分類系統（見「分類」分頁 `app/closet/(tabs)/category.tsx`），因此直接重用既有 `categories` 表與 `categoryService`，不另建新的標籤系統
+  - `src/hooks/useRanking.ts` 新增匯出的純函式 `filterByCategory(items, categoryIds)`（`categoryIds` 為空陣列時不篩選）與 `categoryIds` 參數；篩選發生在抓到 `items` 之後、進入任何指標分支之前，所以 usage/cp/price（逐品項）與 brand_count/color_count（聚合）指標都能正確反映篩選結果
+  - 把「分類」分頁原本內嵌在 `category.tsx` 裡的編輯 Modal（新增/上下排序/刪除，含確認刪除對話框）抽成共用元件 `src/components/shared/CategoryEditModal.tsx`；連同「新增分類時依序使用的預設顏色」PALETTE 一起移到 `src/constants/defaults.ts`（`CATEGORY_PALETTE`）；`category.tsx` 改用這個共用元件，行為完全不變
+  - `app/closet/(tabs)/ranking.tsx` 在頭部下方、指標選單之上新增一排分類篩選 chip：`selectedCategoryIds`（`Set<string>`）以 toggle 方式支援多選/單選，選中的分類用主題色反白；chip 列最右側加一個「編輯」按鈕，開啟同一份 `CategoryEditModal` 做新增/刪除/排序；刪除某分類時同步把它從 `selectedCategoryIds` 移除，避免殘留無效篩選條件
+  - 新增 `src/__tests__/hooks/useRanking.test.ts` 的 `filterByCategory` 測試（空陣列不篩選、單一分類、多分類 OR 邏輯、未分類單品在有篩選時被排除，共 4 項）
+  - 本機建置 Android release APK 並上傳 Google Drive 供使用者實機測試
+- 執行過的驗證：`pnpm test`（23 suites、334 tests 全過，含新增 4 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過靜態檢查（型別＋單元測試）與建置成功，**完全沒有做過模擬器或實機互動驗證**——分類 chip 多選/取消是否符合預期、排行清單是否正確依篩選結果更新、「編輯」Modal 的新增/刪除是否跟「分類」分頁行為一致，都還沒有實際點過確認
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1408.apk）實機測試分類篩選功能後回報，確認正常再把 `ranking-001` 補齊 evidence 並改成 `passing`
 
 ### 工作階段 024
 

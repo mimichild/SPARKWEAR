@@ -1,4 +1,4 @@
-import { filterByPeriod, sortByMetric, calcCP } from '../../hooks/useRanking';
+import { filterByPeriod, filterByCategory, sortByMetric, calcCP } from '../../hooks/useRanking';
 import type { Item } from '../../types';
 
 const base: Omit<Item, 'id' | 'name' | 'purchaseDate'> = {
@@ -52,6 +52,37 @@ describe('filterByPeriod', () => {
   it('all：全部（無日期也包含）', () => {
     const r = filterByPeriod(items, 'all', REF);
     expect(r).toHaveLength(6);
+  });
+});
+
+// ─── filterByCategory ──────────────────────────────────────────────────────
+
+describe('filterByCategory', () => {
+  const items: Item[] = [
+    makeItem({ id: '1', name: 'A', categoryId: 'cat-top' }),
+    makeItem({ id: '2', name: 'B', categoryId: 'cat-skirt' }),
+    makeItem({ id: '3', name: 'C', categoryId: 'cat-top' }),
+    makeItem({ id: '4', name: 'D' }), // 未分類
+  ];
+
+  it('categoryIds 為空陣列：不篩選，回傳全部', () => {
+    const r = filterByCategory(items, []);
+    expect(r).toHaveLength(4);
+  });
+
+  it('單一分類：只留該分類的單品', () => {
+    const r = filterByCategory(items, ['cat-top']);
+    expect(r.map(i => i.id)).toEqual(['1', '3']);
+  });
+
+  it('多個分類（多選）：留任一符合的單品', () => {
+    const r = filterByCategory(items, ['cat-top', 'cat-skirt']);
+    expect(r.map(i => i.id)).toEqual(['1', '2', '3']);
+  });
+
+  it('未分類的單品在有指定分類時被排除', () => {
+    const r = filterByCategory(items, ['cat-top']);
+    expect(r.map(i => i.id)).not.toContain('4');
   });
 });
 

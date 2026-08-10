@@ -6,11 +6,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import { useRanking } from '../../../src/hooks/useRanking';
+import { useCategories } from '../../../src/hooks/useCategories';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
 import { useUIStore } from '../../../src/stores/uiStore';
 import { addVote } from '../../../src/services/itemService';
+import { reorderCategories } from '../../../src/services/categoryService';
 import { getPhotoUri } from '../../../src/services/photoService';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
+import { CategoryEditModal } from '../../../src/components/shared/CategoryEditModal';
+import { CATEGORY_PALETTE } from '../../../src/constants/defaults';
 import type { RankingMetric, RankingPeriod, SortDir, RankEntry } from '../../../src/types';
 
 const METRICS: { key: RankingMetric; label: string }[] = [
@@ -50,7 +54,13 @@ export default function RankingTab() {
   const [period, setPeriod] = useState<RankingPeriod>('all');
   const [dirs, setDirs] = useState<Record<RankingMetric, SortDir>>(DEFAULT_DIRS);
   const dir = dirs[metric];
-  const { ranked, loading, reload } = useRanking(metric, period, dir);
+
+  const { categories, reload: reloadCategories, addCategory, deleteCategory } = useCategories();
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
+  const [catEditVisible, setCatEditVisible] = useState(false);
+  const categoryIdsArray = useMemo(() => Array.from(selectedCategoryIds), [selectedCategoryIds]);
+
+  const { ranked, loading, reload } = useRanking(metric, period, dir, categoryIdsArray);
 
   const handleMetricPress = useCallback((key: RankingMetric) => {
     if (key === metric) {
@@ -61,6 +71,38 @@ export default function RankingTab() {
     }
   }, [metric]);
 
+  const toggleCategory = useCallback((id: string) => {
+    setSelectedCategoryIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleAddCategory = useCallback(async (name: string) => {
+    const color = CATEGORY_PALETTE[categories.length % CATEGORY_PALETTE.length];
+    await addCategory(name, color);
+  }, [categories, addCategory]);
+
+  const handleDeleteCategory = useCallback(async (id: string) => {
+    await deleteCategory(id);
+    setSelectedCategoryIds(prev => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, [deleteCategory]);
+
+  const handleMoveCategory = useCallback(async (index: number, dir: 'up' | 'down') => {
+    const newOrder = [...categories];
+    const swapIdx = dir === 'up' ? index - 1 : index + 1;
+    if (swapIdx < 0 || swapIdx >= newOrder.length) return;
+    [newOrder[index], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[index]];
+    await reorderCategories(db, newOrder.map(c => c.id));
+    await reloadCategories();
+  }, [categories, db, reloadCategories]);
+
   // Vote modal state
   const [voteVisible, setVoteVisible] = useState(false);
   const [selectedForVote, setSelectedForVote] = useState<Set<string>>(new Set());
@@ -68,7 +110,7 @@ export default function RankingTab() {
   const [voteEntries, setVoteEntries] = useState<RankEntry[]>([]);
   const [confirmVote, setConfirmVote] = useState(false);
 
-  useFocusEffect(useCallback(() => { reload(); }, [reload]));
+  useFocusEffect(useCallback(() => { reload(); reloadCategories(); }, [reload, reloadCategories]));
 
   const periodDescription = useMemo(() => {
     const now = new Date();
@@ -125,6 +167,32 @@ export default function RankingTab() {
         <Text style={styles.headerTitle}>排行</Text>
         <View style={styles.headerRight} />
       </View>
+
+      {/* Category filter */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryRow}
+        contentContainerStyle={styles.categoryContent}
+      >
+        {categories.map(cat => {
+          const isActive = selectedCategoryIds.has(cat.id);
+          return (
+            <Pressable
+              key={cat.id}
+              style={[styles.categoryChip, isActive && { backgroundColor: themeColor, borderColor: themeColor }]}
+              onPress={() => toggleCategory(cat.id)}
+            >
+              <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>
+                {cat.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Pressable style={styles.categoryEditBtn} onPress={() => setCatEditVisible(true)}>
+          <Text style={styles.categoryEditBtnText}>編輯</Text>
+        </Pressable>
+      </ScrollView>
 
       {/* Metric selector */}
       <ScrollView
@@ -268,6 +336,16 @@ export default function RankingTab() {
         onConfirm={handleConfirmVote}
         onCancel={() => setConfirmVote(false)}
       />
+
+      <CategoryEditModal
+        visible={catEditVisible}
+        categories={categories}
+        themeColor={themeColor}
+        onClose={() => setCatEditVisible(false)}
+        onAdd={handleAddCategory}
+        onDelete={handleDeleteCategory}
+        onMove={handleMoveCategory}
+      />
     </SafeAreaView>
   );
 }
@@ -285,6 +363,19 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   voteBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4 },
   voteBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  categoryRow: { flexShrink: 0, borderBottomWidth: 1, borderBottomColor: '#f0ede8' },
+  categoryContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  categoryChip: {
+    borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff',
+  },
+  categoryChipText: { fontSize: 12, color: '#777' },
+  categoryChipTextActive: { color: '#fff', fontWeight: '600' },
+  categoryEditBtn: {
+    borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: '#ddd', borderStyle: 'dashed', backgroundColor: '#fafafa',
+  },
+  categoryEditBtnText: { fontSize: 12, color: '#999' },
   metricRow: { flexShrink: 0, borderBottomWidth: 1, borderBottomColor: '#f0ede8' },
   metricContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   periodRow: { flexShrink: 0 },

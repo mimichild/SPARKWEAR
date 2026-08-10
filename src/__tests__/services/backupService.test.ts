@@ -350,4 +350,18 @@ describe('exportBackup — 儲存至手機時每次詢問資料夾', () => {
 
     expect(downloadsService.pickBackupFolder).toHaveBeenCalledWith('content://last-dir');
   });
+
+  it('讀取 item_usage_logs 一併寫入備份，避免還原後排行頁的期間統計是空的', async () => {
+    jest.mocked(downloadsService.pickBackupFolder).mockResolvedValue({
+      directoryUri: 'content://dir',
+      label: '內部儲存空間/Backup',
+    });
+    jest.mocked(downloadsService.saveFileToTreeUri).mockResolvedValue('content://saved-file-uri');
+
+    await exportBackup(__mockDb, true);
+
+    expect(__mockDb.getAllAsync).toHaveBeenCalledWith(
+      expect.stringContaining('FROM item_usage_logs')
+    );
+  });
 });

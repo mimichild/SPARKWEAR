@@ -94,6 +94,14 @@ export interface VoteCount {
   count: number;
 }
 
+export interface UsageLog {
+  id: string;
+  itemId: string;
+  loggedAt: string;
+  source: 'outfit' | 'manual' | 'migration';
+  createdAt: string;
+}
+
 export interface AppSettings {
   themeColor: string;
   fontKey: string;
@@ -126,6 +134,8 @@ export interface BackupManifest {
     origins: Origin[];
     colors: Color[];
     voteCounts: VoteCount[];
+    // 舊版備份檔（本次修復前匯出）不含這個欄位；匯入時要用 ?? [] 保底
+    usageLogs: UsageLog[];
     settings: Partial<AppSettings>;
   };
   media: {

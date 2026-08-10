@@ -1,4 +1,4 @@
-import { reconcileUsageLogs } from '../../services/usageLogService';
+import { reconcileUsageLogs, getAllUsageLogs } from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
   return {
@@ -8,6 +8,29 @@ function makeDb(overrides: Record<string, jest.Mock> = {}) {
     ...overrides,
   } as unknown as import('expo-sqlite').SQLiteDatabase;
 }
+
+// ── getAllUsageLogs ───────────────────────────────────────────────
+// 用於備份匯出：把 item_usage_logs 整張表讀出來一併寫進備份 manifest，
+// 這樣還原備份後排行頁的期間統計（本月/本季最常穿）才不會是空的。
+
+describe('usageLogService — getAllUsageLogs', () => {
+  it('maps snake_case rows to camelCase UsageLog objects', async () => {
+    const db = makeDb({
+      getAllAsync: jest.fn().mockResolvedValue([
+        { id: 'log-1', item_id: 'item-1', logged_at: '2024-05-10', source: 'outfit', created_at: '2024-05-10T00:00:00.000Z' },
+      ]),
+    });
+    const logs = await getAllUsageLogs(db);
+    expect(logs).toEqual([
+      { id: 'log-1', itemId: 'item-1', loggedAt: '2024-05-10', source: 'outfit', createdAt: '2024-05-10T00:00:00.000Z' },
+    ]);
+  });
+
+  it('returns an empty array when there are no logs', async () => {
+    const db = makeDb();
+    expect(await getAllUsageLogs(db)).toEqual([]);
+  });
+});
 
 // ── reconcileUsageLogs ───────────────────────────────────────────
 // 手動編輯 items.usage_count 時，item_usage_logs 的筆數要跟著補齊/刪減，

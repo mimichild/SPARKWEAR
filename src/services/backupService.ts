@@ -13,9 +13,10 @@ import { getItems } from './itemService';
 import { getOutfits } from './outfitService';
 import { getCategories, getOrigins, getColors } from './categoryService';
 import { getAllVoteCounts } from './itemService';
+import { getAllUsageLogs } from './usageLogService';
 import { ensurePhotosDirExists } from './photoService';
 import type {
-  Item, Outfit, Category, Origin, Color, VoteCount,
+  Item, Outfit, Category, Origin, Color, VoteCount, UsageLog,
   BackupManifest, BackupPhotoEntry,
   LegacyManifest, LegacyItem, LegacyOutfit,
   ImportMode, ImportResult, ExportResult,
@@ -162,6 +163,7 @@ export async function exportBackup(
   const origins       = await getOrigins(db);
   const colors        = await getColors(db);
   const voteCountsMap = await getAllVoteCounts(db);
+  const usageLogs     = await getAllUsageLogs(db);
 
   // Collect unique photo paths
   const allPaths = new Set<string>();
@@ -245,7 +247,7 @@ export async function exportBackup(
     exportedAt: new Date().toISOString(),
     data: {
       items: exportItems, outfits: exportOutfits,
-      categories, origins, colors, voteCounts, settings: {},
+      categories, origins, colors, voteCounts, usageLogs, settings: {},
     },
     media: { photos: mediaPhotos },
   };
@@ -350,6 +352,7 @@ export async function importBackupFromUri(
   // DB writes
   if (mode === 'replace') {
     await db.runAsync('DELETE FROM vote_counts');
+    await db.runAsync('DELETE FROM item_usage_logs');
     await db.runAsync('DELETE FROM outfits');
     await db.runAsync('DELETE FROM items');
     await db.runAsync('DELETE FROM colors');
@@ -392,6 +395,8 @@ export async function importBackupFromUri(
   const importedItemCount = await insertItems(db, itemsToImport, mode);
   const importedOutfitCount = await insertOutfits(db, outfitsToImport, mode);
   await insertVoteCounts(db, manifest.data.voteCounts, mode);
+  // 舊版備份檔（本次修復前匯出）沒有 usageLogs 欄位，?? [] 保底避免炸掉
+  await insertUsageLogs(db, manifest.data.usageLogs ?? []);
 
   onProgress?.('done', 1, 1);
 
@@ -658,6 +663,7 @@ function convertV4ToV5(legacy: LegacyManifest): BackupManifest {
       origins: originsV5,
       colors: colorsV5,
       voteCounts,
+      usageLogs: [], // v4 沒有 item_usage_logs 這個概念，轉換時沒有資料可帶
       settings: {},
     },
     media: { photos: mediaPhotos },
@@ -797,6 +803,28 @@ async function insertOutfits(
     count++;
   }
   return count;
+}
+
+async function insertUsageLogs(
+  db: SQLiteDatabase,
+  usageLogs: UsageLog[]
+): Promise<void> {
+  if (usageLogs.length === 0) return;
+
+  // 跳過參照到沒被匯入的單品的 log（避免留下孤兒紀錄）；不分合併/覆蓋模式，
+  // 兩者都用 INSERT OR IGNORE by id——同一份備份重複匯入時天然不會產生重複筆數，
+  // 跟 insertOutfits/insertItems 用同一套「以 id 判斷是否已存在」的邏輯一致
+  const validIds = new Set(
+    (await db.getAllAsync<{ id: string }>('SELECT id FROM items')).map(r => r.id)
+  );
+
+  for (const log of usageLogs) {
+    if (!validIds.has(log.itemId)) continue;
+    await db.runAsync(
+      'INSERT OR IGNORE INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
+      [log.id, log.itemId, log.loggedAt, log.source, log.createdAt]
+    );
+  }
 }
 
 async function insertVoteCounts(

@@ -11,12 +11,27 @@
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
 - 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列，多選/單選＋自訂新增刪除分類）——程式碼完成、自動化驗證通過、APK 已建置上傳，等待使用者實機互動確認後才能改成 passing
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
-- 已知未修的既有缺口（非本輪任務，記錄避免遺失）：backupService.ts 的匯出/匯入 manifest 完全沒有涵蓋 item_usage_logs 表，還原備份後 items.usage_count 會對但排行頁的期間統計（本月/本季/本年最常穿）會是空的；範圍較大，需要使用者確認後再排入 feature_list
 - 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
+- 2026-08-10 補上一個已知缺口：備份/還原（backupService.ts）現在會把 item_usage_logs 表一併納入匯出/匯入，還原備份後排行頁的期間統計（本月/本季/本年最常穿）不再是空的；細節見工作階段 028。**這塊只做過自動化檢查，尚未經過使用者實機「匯出→還原」完整驗證**，且匯入覆蓋模式本身就是會清空現有資料再寫入的動作，使用者實測前務必先自行確認裝置上沒有還沒備份過的重要資料
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 028
+
+- 日期：2026-08-10
+- 本輪目標：補上工作階段 026 排查時發現、使用者要求現在就處理的既有缺口——備份/還原沒有涵蓋 item_usage_logs 表，還原備份後排行頁的期間統計（本月/本季/本年最常穿）會是空的
+- 已完成：
+  - 確認根因細節：`src/services/backupService.ts` 的匯出（`exportBackup`）只讀 `items`/`outfits`/`categories`/`origins`/`colors`/`vote_counts` 六張表寫進備份 manifest；匯入（`importBackupFromUri`）的 `insertItems()` 也是直接對 `items` 表做原始 SQL INSERT，完全繞過 `itemService.saveItem`/`updateItem`，所以連工作階段 026 剛加的 `reconcileUsageLogs()` 自動同步都不會被觸發——`item_usage_logs` 表從頭到尾都沒被匯出/匯入邏輯碰過
+  - `src/types/index.ts` 新增 `UsageLog` 型別（`id`/`itemId`/`loggedAt`/`source`/`createdAt`），`BackupManifest.data` 新增 `usageLogs: UsageLog[]` 欄位；因為是新增欄位，manifest 版本沒有升版（仍是 5），匯入時用 `manifest.data.usageLogs ?? []` 保底相容本次修復之前匯出的舊備份檔（那些檔案裡沒有這個欄位）
+  - `src/services/usageLogService.ts` 新增 `getAllUsageLogs(db)`，把 `item_usage_logs` 整張表讀出來、欄位轉成 camelCase
+  - `src/services/backupService.ts`：`exportBackup()` 呼叫 `getAllUsageLogs()` 把資料寫進 manifest；`importBackupFromUri()` 覆蓋模式的清空清單新增 `DELETE FROM item_usage_logs`；新增 `insertUsageLogs()`（不分合併/覆蓋模式都用 `INSERT OR IGNORE` by log id，跟 `insertItems`/`insertOutfits` 同一套「以 id 判斷是否已存在」邏輯，同一份備份重複匯入不會產生重複筆數；匯入前用匯入後的 `items` 表查一次有效 id 集合，略過參照到未匯入單品的孤兒 log，跟既有 `insertVoteCounts` 的作法一致）；v4→v5 舊格式轉換（`convertV4ToV5`）也補上 `usageLogs: []`（v4 格式沒有這個概念，沒資料可帶，滿足新的必要型別欄位）
+  - 新增測試：`src/__tests__/services/usageLogService.test.ts` 補 2 項（`getAllUsageLogs` 欄位轉換、查無資料回傳空陣列）；`src/__tests__/services/backupService.test.ts` 補 1 項（`exportBackup` 有呼叫讀取 `item_usage_logs` 的 SQL）。`insertUsageLogs`／匯入端沒有新增單元測試——這個檔案原本就沒有任何測試涵蓋 `insertItems`/`insertOutfits`/`insertCategories` 這類匯入 DB 寫入的內部函式（牽涉 fflate 串流解壓縮＋mock 檔案系統，複雜度高，這個專案一直是靠實機做真的匯出/匯入來驗證這塊，不是單元測試），這次沿用同樣的既有慣例，不是漏補
+  - 本機建置 Android release APK（sparkwear-v2.0.0-20260810-1756.apk）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（24 suites、347 tests 全過，含新增 3 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：**這是這幾輪修復裡風險最高的一項，完全沒有經過使用者實機「匯出→匯入」的完整驗證**——只做過型別檢查、單元測試（涵蓋範圍不含實際匯入流程）與建置成功；匯入覆蓋模式本身是會先清空現有 items/outfits/item_usage_logs 等表再寫入的破壞性操作，使用者實測前要注意先備份現有真實資料再測，不要直接拿主力資料裸測；也還沒有驗證過「用本次修復前匯出的舊備份檔（沒有 usageLogs 欄位）」匯入時是否真的不會出錯（程式邏輯上用 `?? []` 保底，但沒有實機拿一份真的舊備份檔測過）
+- 下一步最佳動作：這項需要使用者謹慎測試——建議用測試/非主力資料匯出一份新備份、清空或换一支裝置後匯入，確認匯入後排行頁「本月/本季」等期間統計不再是空的；驗證通過後才能視情況決定是否要開一個正式 feature_list 項目追蹤（目前先只記在這裡，沒有新增 feature_list 項目，也沒有動 ranking-001 的 in_progress 狀態）；同時仍待回報的還有工作階段 026（排行頁使用次數同步）、027（編輯後停留頁面）與 ranking-001（分類篩選）的實機測試結果
 
 ### 工作階段 027
 

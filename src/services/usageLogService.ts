@@ -1,4 +1,18 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { UsageLog } from '../types';
+
+export async function getAllUsageLogs(db: SQLiteDatabase): Promise<UsageLog[]> {
+  const rows = await db.getAllAsync<{
+    id: string; item_id: string; logged_at: string; source: string; created_at: string;
+  }>('SELECT id, item_id, logged_at, source, created_at FROM item_usage_logs');
+  return rows.map(r => ({
+    id: r.id,
+    itemId: r.item_id,
+    loggedAt: r.logged_at,
+    source: r.source as UsageLog['source'],
+    createdAt: r.created_at,
+  }));
+}
 
 export async function logItemUsages(
   db: SQLiteDatabase,

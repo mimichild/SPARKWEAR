@@ -26,7 +26,7 @@ export default function ItemDetailScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { themeColor } = useSettingsStore();
-  const { itemNavIds } = useUIStore();
+  const { itemNavIds, setOutfitNavIds } = useUIStore();
   const insets = useSafeAreaInsets();
 
   const [item, setItem] = useState<Item | null>(null);
@@ -204,7 +204,10 @@ export default function ItemDetailScreen() {
                             <Pressable
                               key={outfit.id}
                               style={styles.outfitThumb}
-                              onPress={() => router.push(`/outfits/${outfit.id}`)}
+                              onPress={() => {
+                                setOutfitNavIds([]);
+                                router.push(`/outfits/${outfit.id}`);
+                              }}
                             >
                               {uri ? (
                                 <Image source={{ uri }} style={styles.outfitThumbImg} resizeMode="cover" />

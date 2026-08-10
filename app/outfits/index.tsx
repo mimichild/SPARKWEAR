@@ -29,7 +29,7 @@ export default function OutfitsScreen() {
   const {
     outfitQuery: query, setOutfitQuery,
     selectedOutfitIds, toggleOutfitSelection, clearSelection,
-    isSelectionMode, enterSelectionMode,
+    isSelectionMode, enterSelectionMode, setOutfitNavIds,
   } = useUIStore();
 
   const { outfits, loading, removeOutfit, reload } = useOutfits(outfitSort);
@@ -48,8 +48,11 @@ export default function OutfitsScreen() {
 
   const handlePress = useCallback((outfit: Outfit) => {
     if (isSelectionMode) toggleOutfitSelection(outfit.id);
-    else router.push(`/outfits/${outfit.id}`);
-  }, [isSelectionMode, toggleOutfitSelection, router]);
+    else {
+      setOutfitNavIds(filtered.map(o => o.id));
+      router.push(`/outfits/${outfit.id}`);
+    }
+  }, [isSelectionMode, toggleOutfitSelection, router, setOutfitNavIds, filtered]);
 
   const handleBulkDelete = useCallback(async () => {
     for (const id of Array.from(selectedOutfitIds)) await removeOutfit(id);

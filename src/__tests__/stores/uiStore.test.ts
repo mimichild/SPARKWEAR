@@ -8,6 +8,8 @@ beforeEach(() => {
   state.setClosetQuery('');
   state.setOutfitQuery('');
   state.setRankingQuery('');
+  state.setItemNavIds([]);
+  state.setOutfitNavIds([]);
 });
 
 describe('uiStore', () => {
@@ -27,6 +29,24 @@ describe('uiStore', () => {
 
     it('選取模式關閉', () => {
       expect(useUIStore.getState().isSelectionMode).toBe(false);
+    });
+
+    it('滑動切換清單為空', () => {
+      const { itemNavIds, outfitNavIds } = useUIStore.getState();
+      expect(itemNavIds).toEqual([]);
+      expect(outfitNavIds).toEqual([]);
+    });
+  });
+
+  describe('左右滑動切換上一筆/下一筆的清單順序', () => {
+    it('setItemNavIds 更新單品清單順序', () => {
+      act(() => useUIStore.getState().setItemNavIds(['a', 'b', 'c']));
+      expect(useUIStore.getState().itemNavIds).toEqual(['a', 'b', 'c']);
+    });
+
+    it('setOutfitNavIds 更新穿搭清單順序', () => {
+      act(() => useUIStore.getState().setOutfitNavIds(['o1', 'o2']));
+      expect(useUIStore.getState().outfitNavIds).toEqual(['o1', 'o2']);
     });
   });
 

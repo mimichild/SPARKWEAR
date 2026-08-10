@@ -9,6 +9,7 @@ interface UIState {
   selectedOutfitIds: Set<string>;
   isSelectionMode: boolean;
   itemNavIds: string[];
+  outfitNavIds: string[];
 
   setClosetQuery: (q: string) => void;
   setOutfitQuery: (q: string) => void;
@@ -19,6 +20,7 @@ interface UIState {
   clearSelection: () => void;
   enterSelectionMode: () => void;
   setItemNavIds: (ids: string[]) => void;
+  setOutfitNavIds: (ids: string[]) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -30,6 +32,7 @@ export const useUIStore = create<UIState>((set) => ({
   selectedOutfitIds: new Set(),
   isSelectionMode: false,
   itemNavIds: [],
+  outfitNavIds: [],
 
   setClosetQuery: (q) => set({ closetQuery: q }),
   setOutfitQuery: (q) => set({ outfitQuery: q }),
@@ -56,4 +59,5 @@ export const useUIStore = create<UIState>((set) => ({
   enterSelectionMode: () => set({ isSelectionMode: true }),
 
   setItemNavIds: (ids) => set({ itemNavIds: ids }),
+  setOutfitNavIds: (ids) => set({ outfitNavIds: ids }),
 }));

@@ -260,21 +260,25 @@
       "id": "items-002",
       "priority": 12,
       "area": "items",
-      "title": "單品詳細頁支援左右滑動切換上一筆/下一筆單品",
-      "user_visible_behavior": "使用者在「我的衣櫃」單品列表、照片格、或分類（上衣/裙裝/褲裝等小分類）的單品/照片子分頁中點進某件單品的詳細頁後，在詳細頁（照片輪播以外的區域）由右向左滑可以切換到清單中下一筆單品、由左向右滑可以切換到上一筆單品，滑動順序跟進入時該畫面當下的排序/篩選結果一致；在清單第一筆/最後一筆時滑不出邊界。",
-      "status": "in_progress",
+      "title": "單品詳細頁／穿搭詳細頁支援左右滑動切換上一筆/下一筆項目",
+      "user_visible_behavior": "(1) 使用者在「我的衣櫃」單品列表、照片格、或分類（上衣/裙裝/褲裝等小分類）的單品/照片子分頁中點進某件單品的詳細頁後，在詳細頁（照片輪播以外的區域）由右向左滑可以切換到清單中下一筆單品、由左向右滑可以切換到上一筆單品，滑動順序跟進入時該畫面當下的排序/篩選結果一致；在清單第一筆/最後一筆時滑不出邊界。(2) 使用者在「穿搭紀錄」列表點進某筆穿搭的詳細頁後，同樣在照片輪播以外的區域由左向右滑切換到上一項（清單中較新/較前面的一筆）、由右向左滑切換到下一項（較舊/較後面的一筆），滑動順序跟進入時穿搭紀錄列表當下的排序/篩選結果一致，清單頭尾滑不出邊界。",
+      "status": "passing",
       "verification": [
-        "pnpm test 全部通過（含 getNeighborIds 的新單元測試）。",
+        "pnpm test 全部通過（含 getNeighborIds、uiStore 的 itemNavIds/outfitNavIds 新單元測試）。",
         "npx tsc --noEmit -p . 無新增型別錯誤（既有 app/outfits/form.tsx Photo/createdAt 錯誤與本次改動無關）。",
-        "程式碼檢視：uiStore 新增 itemNavIds/setItemNavIds；closet 首頁單品分頁、照片分頁、分類詳細頁（單品/照片兩個子分頁）在點進單品前都會把當下可見清單的順序寫入 itemNavIds；排行榜、穿搭詳細頁連到單品詳細頁的入口會清空 itemNavIds，避免沿用不相關清單造成滑動結果錯亂。",
-        "程式碼檢視：app/closet/item/[id].tsx 新增只涵蓋『照片輪播以外區域』的水平滑動手勢（不與 PhotoCarousel 自身的滑動照片手勢重疊/衝突），滑動超過門檻且存在上一筆/下一筆時以 router.replace 切換，維持返回鍵能一次回到清單而不是逐筆單品往回退。",
-        "使用者實機或模擬器互動確認：從分類子分類（例如上衣）點進單品後左右滑動可正確切換前後單品，且照片輪播區域的左右滑動仍然只切換照片、不會誤觸切換單品。"
+        "程式碼檢視：uiStore 新增 itemNavIds/setItemNavIds、outfitNavIds/setOutfitNavIds；closet 首頁單品分頁、照片分頁、分類詳細頁（單品/照片兩個子分頁）、穿搭紀錄列表在點進詳細頁前都會把當下可見清單的順序寫入對應的 NavIds；排行榜、穿搭詳細頁連到單品詳細頁的入口、單品詳細頁連到穿搭詳細頁的入口，這些不在本次需求範圍內的路徑都會清空對應的 NavIds，避免沿用不相關清單造成滑動結果錯亂。",
+        "程式碼檢視：app/closet/item/[id].tsx、app/outfits/[id].tsx 都新增只涵蓋『照片輪播以外區域』的水平滑動手勢（不與 PhotoCarousel 自身的滑動照片手勢重疊/衝突），滑動超過門檻且存在上一筆/下一筆時以 router.replace 切換，維持返回鍵能一次回到清單而不是逐筆項目往回退。",
+        "使用者實機或模擬器互動確認：從分類子分類（例如上衣）點進單品、以及從穿搭紀錄點進某筆穿搭後，左右滑動皆可正確切換前後項目，且兩個畫面的照片輪播區域左右滑動仍然只切換照片、不會誤觸切換項目。"
       ],
       "evidence": [
-        "2026-08-10 | pnpm test | 23 suites、327 tests passed（含新增 src/__tests__/utils/itemNav.test.ts 6 項）",
-        "2026-08-10 | npx tsc --noEmit -p . | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤"
+        "2026-08-10 | pnpm test | 23 suites、327 tests passed（含新增 src/__tests__/utils/itemNav.test.ts 6 項，單品詳細頁部分）",
+        "2026-08-10 | npx tsc --noEmit -p . | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤（單品詳細頁部分）",
+        "2026-08-10 | pnpm test（穿搭詳細頁部分：app/outfits/index.tsx、app/outfits/[id].tsx 加上 outfitNavIds 之後重跑）| 23 suites、330 tests passed（另新增 uiStore.test.ts 3 項）",
+        "2026-08-10 | npx tsc --noEmit -p .（穿搭詳細頁部分完成後重跑）| 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤",
+        "2026-08-10 | ./gradlew assembleRelease（sparkwear-v2.0.0-20260810-1352.apk）| 建置成功，上傳 Google Drive 供使用者實機安裝測試",
+        "2026-08-10 | 使用者實機安裝測試回報「滑動測試沒問題」| 單品詳細頁與穿搭詳細頁的左右滑動切換皆確認正常"
       ],
-      "notes": "使用者需求：分類的小分類（上衣/裙裝/褲裝等）與衣櫃單品/照片分頁點進單品詳細頁後可左右滑動切換上一筆/下一筆單品。設計決策：滑動用的『清單順序』改用 Zustand store（uiStore.itemNavIds）傳遞而非塞進網址 query，避免清單很長時網址過長；且為了不跟 PhotoCarousel 既有的照片滑動手勢（src/components/shared/PhotoCarousel.tsx）在同一塊畫面區域搶手勢造成衝突或誤觸，新的『切換單品』手勢只包在 ScrollView 中 PhotoCarousel 以外的內容（單品標題卡、詳細列、穿搭紀錄區、編輯/刪除按鈕），兩者在畫面上互不重疊，不需要額外處理手勢優先權（requireExternalGestureToFail 之類），風險較低。"
+      "notes": "使用者先要求分類的小分類（上衣/裙裝/褲裝等）與衣櫃單品/照片分頁點進單品詳細頁後可左右滑動切換上一筆/下一筆單品，隨後追加要求穿搭紀錄列表點進穿搭詳細頁也要有同樣的左右滑動切換行為，兩者共用同一套機制所以合併記錄在同一個 feature。設計決策：滑動用的『清單順序』改用 Zustand store（uiStore.itemNavIds／outfitNavIds）傳遞而非塞進網址 query，避免清單很長時網址過長；且為了不跟 PhotoCarousel 既有的照片滑動手勢（src/components/shared/PhotoCarousel.tsx）在同一塊畫面區域搶手勢造成衝突或誤觸，新的『切換項目』手勢只包在 ScrollView 中 PhotoCarousel 以外的內容，兩者在畫面上互不重疊，不需要額外處理手勢優先權（requireExternalGestureToFail 之類），風險較低。共用的『算上一筆/下一筆 id』邏輯抽成 src/utils/itemNav.ts 的 getNeighborIds()（純函式，不限定 item，outfit 也直接沿用同一個函式）。同一輪順便處理使用者回報的小型 UI 調整：穿搭詳細頁（app/outfits/[id].tsx）左上角返回按鈕原本是『← 返回』，使用者覺得箭頭多餘，改成純文字『返回』，跟其他畫面（單品詳細頁、分類詳細頁等）的返回按鈕樣式一致；這項只是文字調整，未另開 feature 追蹤。"
     }
   ]
 }

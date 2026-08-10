@@ -9,12 +9,40 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 321 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：items-002（單品詳細頁左右滑動切換上一筆/下一筆單品）——程式碼已完成、單元測試與型別檢查皆通過，但**還沒經過模擬器/實機的實際手指滑動互動驗證**，`in_progress`
-- 其餘功能：monetization-001、ios-009、items-001 皆已 passing；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）
+- 目前最高優先級未完成功能：無
+- 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 024
+
+- 日期：2026-08-10
+- 本輪目標：使用者用工作階段 023 建的 APK 實機測試左右滑動切換，並追加一個小型 UI 要求
+- 已完成：
+  - 使用者回報「滑動測試沒問題」——單品詳細頁與穿搭詳細頁的左右滑動切換皆確認正常，`items-002` 補齊實機測試 evidence 並改成 `passing`
+  - 使用者回報穿搭詳細頁左上角「← 返回」的箭頭多餘，`app/outfits/[id].tsx` 改成純文字「返回」，跟其他畫面的返回按鈕一致；只是文字調整，未另開 feature 追蹤
+- 執行過的驗證：`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`pnpm test`（23 suites、330 tests 全過）
+- 已知風險或未解決問題：箭頭移除這個小改動本身還沒有另外建新 APK 給使用者看畫面，使用者表示先不用、之後有需要再一起測
+- 下一步最佳動作：無明確待辦，等使用者下次有新需求
+
+### 工作階段 023
+
+- 日期：2026-08-10
+- 本輪目標：使用者追加需求——穿搭紀錄列表點進某筆穿搭詳細頁後，也要能左右滑動切換上一項/下一項（沿用工作階段 022 剛做完的單品滑動切換機制）
+- 已完成：
+  - `src/stores/uiStore.ts` 新增 `outfitNavIds`/`setOutfitNavIds`（跟既有 `itemNavIds`/`setItemNavIds`同一套模式）
+  - `app/outfits/index.tsx`（穿搭紀錄列表）的 `handlePress` 在 `router.push` 進穿搭詳細頁前，把當下畫面（含搜尋/排序後）可見的清單順序寫入 `outfitNavIds`
+  - `app/outfits/[id].tsx`：沿用 `src/utils/itemNav.ts` 既有的 `getNeighborIds()`（純函式本來就不限定 item，直接可用在 outfit id 清單上）算出上一筆/下一筆穿搭 id；同樣用 `Gesture.Pan()` 包住「照片輪播以外」的區域（資訊列、搭配單品照片牆），滑動超過螢幕寬度 25% 且存在對應項目時用 `router.replace` 切換
+  - 使用者要求的方向語意「左向右滑到上一項（較新）、右向左滑到下一項（較舊）」跟工作階段 022 單品滑動的 prevId/nextId 語意完全一致，沒有另外反轉方向邏輯
+  - 兩個不在本次需求範圍內、但也會連到穿搭/單品詳細頁的入口改成清空對應 NavIds，避免沿用不相關清單造成滑動結果錯亂：`app/closet/(tabs)/ranking.tsx`／`app/outfits/[id].tsx` 連到單品詳細頁的入口清空 `itemNavIds`（工作階段 022 已做）；新增 `app/closet/item/[id].tsx`「使用該單品的穿搭」照片牆連到穿搭詳細頁的入口清空 `outfitNavIds`
+  - 因為這次是同一套機制的延伸，沒有另開新 feature，改成擴大 `feature_list.json` 的 `items-002` 範圍（標題與 user_visible_behavior 都改成同時涵蓋單品/穿搭兩種詳細頁），維持只有一個 `in_progress`
+  - `src/__tests__/stores/uiStore.test.ts` 新增 `itemNavIds`/`outfitNavIds` 初始狀態與 setter 的測試（工作階段 022 當時漏補這塊）
+  - 本機建置 Android release APK 並上傳 Google Drive 供使用者實機測試（單品與穿搭的滑動切換都在同一份 build 裡）
+- 執行過的驗證：`pnpm test`（23 suites、330 tests 全過，含新增 3 項 uiStore 測試）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：跟工作階段 022 一樣，**穿搭詳細頁的滑動切換本身還沒有經過任何手指互動驗證**，只做過型別檢查＋單元測試＋建置成功；單品詳細頁部分的滑動切換也還在等使用者用這次新建的 APK 實機確認
+- 下一步最佳動作：等使用者用新 APK 實機測試「單品詳細頁」與「穿搭詳細頁」的左右滑動切換後回報，皆確認正常再把 `items-002` 補齊 evidence 並改成 `passing`
 
 ### 工作階段 022
 

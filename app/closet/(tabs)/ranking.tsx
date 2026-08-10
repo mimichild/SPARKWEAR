@@ -60,13 +60,21 @@ export default function RankingTab() {
   const [categoryFilterTouched, setCategoryFilterTouched] = useState(false);
   const [catEditVisible, setCatEditVisible] = useState(false);
 
+  // getCategories() 每次查詢都會回傳新的陣列參照（即使內容沒變），
+  // 用內容組出來的字串當依賴，避免每次重新載入分類都被判定成「變了」而重跑這個 effect
+  // ──（曾經直接依賴 categories 陣列本身，導致每次 reload 都觸發這個 effect →
+  //     selectedCategoryIds 變新物件 → categoryIdsArray 變新參照 → useRanking 的
+  //     reload 變新函式 → useFocusEffect 判定 callback 變了、在畫面仍聚焦時立刻重跑
+  //     → 又觸發一次 reload/reloadCategories，形成無限迴圈、畫面一直閃）
+  const categoryIdsKey = useMemo(() => categories.map(c => c.id).join(','), [categories]);
+
   // 使用者還沒手動篩選過時，分類清單一載入就預設全選（畫面上全部反白），
   // 這樣底下的單品清單一開始就會完整顯示，不會因為「沒有勾選任何分類」而顯示不出來
   useEffect(() => {
     if (!categoryFilterTouched && categories.length > 0) {
       setSelectedCategoryIds(new Set(categories.map(c => c.id)));
     }
-  }, [categories, categoryFilterTouched]);
+  }, [categoryIdsKey, categoryFilterTouched]);
 
   // 選滿全部分類（或使用者取消到一個都沒選）等同於不篩選，把「未分類」的單品也一起顯示
   const categoryIdsArray = useMemo(() => {

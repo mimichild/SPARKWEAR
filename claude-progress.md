@@ -31,9 +31,13 @@
   - 修法：`app/closet/(tabs)/ranking.tsx` 新增 `categoryFilterTouched` 旗標；分類清單載入後，只要這個旗標還是 `false`（使用者從沒手動點過 chip），就用 `useEffect` 把 `selectedCategoryIds` 同步成全部分類 id（畫面全反白）；`toggleCategory` 一被呼叫就把旗標設成 `true`，之後這個自動同步永久停止，選取結果完全交給使用者手動控制，不會因為 `useFocusEffect` 重新載入分類清單就被重置
   - 實際傳給 `useRanking` 的 `categoryIdsArray` 在「全選」與「使用者取消到一個都沒選」這兩種情況都視為不篩選（回傳空陣列，含未分類單品都顯示），避免清單意外變成完全空白；使用者手動縮小到具體幾個分類時，未分類單品會被排除，是預期行為
   - 修好後重新本機建置 Android release APK（sparkwear-v2.0.0-20260810-1417.apk）並上傳 Google Drive
-- 執行過的驗證：`pnpm test`（23 suites、334 tests 全過，含新增 4 項，兩輪皆重跑過一次）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease`（兩輪皆建置成功）
-- 已知風險或未解決問題：本次改動只做過靜態檢查（型別＋單元測試）與建置成功，**完全沒有做過模擬器或實機互動驗證**——分類 chip 預設全反白、多選/取消、排行清單是否正確依篩選結果更新且不會自動跳回全選、「編輯」Modal 的新增/刪除是否跟「分類」分頁行為一致，都還沒有實際點過確認
-- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1417.apk）實機測試分類篩選功能後回報，確認正常再把 `ranking-001` 補齊 evidence 並改成 `passing`
+  - 使用者實機測試後回報「點進排行頁畫面一直閃」；用 systematic-debugging 排查，追蹤 `node_modules/@react-navigation/core/lib/module/useFocusEffect.js` 原始碼確認根因：它的 `React.useEffect` 依賴 `[effect, navigation]`，且只要畫面仍在聚焦、傳入的 `effect` 函式參照一改變就會立刻重新執行一次 callback（不是只在真正的 focus 事件才觸發）；第二輪加的「自動全選」`useEffect` 直接依賴 `categories` 這個陣列物件本身，但 `categoryService.getCategories()` 每次 SQL 查詢都回傳全新的陣列參照（即使資料內容完全沒變），於是形成無限迴圈：`reloadCategories()` 回傳新陣列 → 自動全選 effect 誤判內容變了又重跑 → `selectedCategoryIds` 變新物件 → `categoryIdsArray`／`useRanking` 的 `reload` 跟著變新參照 → `useFocusEffect` 判定 callback 參照改變、在畫面仍聚焦時立刻重跑 → 又呼叫一次 `reload()`/`reloadCategories()` → 迴圈繼續，畫面因此不停重新渲染而一直閃
+  - 修法：把自動全選 effect 的依賴從 `categories` 陣列本身改成用分類 id 組出來的字串 `categoryIdsKey`（`categories.map(c => c.id).join(',')`），同一批分類重複 reload 只要 id 內容沒變，字串值就相同，effect 不會被誤判成要重跑，從根本打斷這條無限迴圈；只動依賴陣列，不影響任何篩選邏輯本身
+  - Expo web（`pnpm web`）因為 `react-native-google-mobile-ads` 用了 web 不支援的原生模組（`codegenNativeComponent`）而 bundling 失敗，這個專案目前無法在瀏覽器裡快速驗證畫面互動，只能靠自動化檢查＋實機測試
+  - 修好無限迴圈後重新本機建置 Android release APK（sparkwear-v2.0.0-20260810-1426.apk）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（23 suites、334 tests 全過，含新增 4 項，三輪皆重跑過一次）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease`（三輪皆建置成功）
+- 已知風險或未解決問題：本次改動只做過靜態檢查（型別＋單元測試）與建置成功，**完全沒有做過模擬器或實機互動驗證**（Expo web 因原生模組限制無法用來驗證）——分類 chip 預設全反白、畫面不再閃爍、多選/取消、排行清單是否正確依篩選結果更新且不會自動跳回全選、「編輯」Modal 的新增/刪除是否跟「分類」分頁行為一致，都還沒有實際點過確認
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1426.apk）實機測試分類篩選功能（特別是確認畫面不再閃爍）後回報，確認正常再把 `ranking-001` 補齊 evidence 並改成 `passing`
 
 ### 工作階段 024
 

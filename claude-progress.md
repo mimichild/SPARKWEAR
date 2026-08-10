@@ -10,11 +10,29 @@
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
 - 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列，多選/單選＋自訂新增刪除分類）——程式碼完成、自動化驗證通過、APK 已建置上傳，等待使用者實機互動確認後才能改成 passing
-- 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）
+- 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
+- 已知未修的既有缺口（非本輪任務，記錄避免遺失）：backupService.ts 的匯出/匯入 manifest 完全沒有涵蓋 item_usage_logs 表，還原備份後 items.usage_count 會對但排行頁的期間統計（本月/本季/本年最常穿）會是空的；範圍較大，需要使用者確認後再排入 feature_list
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 026
+
+- 日期：2026-08-10
+- 本輪目標：使用者回報「我手動更改了使用次數，但是排行中的使用次數卻還是用舊的數據」，用 systematic-debugging 排查根因並修好
+- 已完成：
+  - 追根因：這個 App 一直有兩條平行的使用次數資料——(1) `items.usage_count` 欄位（單品表單直接讀寫），(2) `item_usage_logs` 表的逐筆使用記錄。`src/hooks/useRanking.ts` 的 usage/cp 兩個排行指標（不論『全部』還是『本月/本季/本年/近一年』區間）完全依 `getAllUsageCounts()`/`getUsageCountsByPeriod()`（皆對 `item_usage_logs` 做 `COUNT(*)`）計算，從未讀過 `items.usage_count`；`app/closet/item/form.tsx` 手動編輯使用次數時只呼叫 `updateItem()` 寫 (1)，完全不會在 (2) 補上對應紀錄，兩邊因此不同步，排行頁看到的是舊資料
+  - 這個雙軌設計本身是刻意的（`item_usage_logs` 帶日期才能支援排行頁的區間篩選），`src/db/index.ts` 的 v3→v4 migration 也證實同樣的思路：那次是一次性把 `items.usage_count` 超過 `item_usage_logs` 筆數的落差，用 `source='migration'` 補插回 `item_usage_logs`；但這個補洞邏輯只在該次 migration 執行過一次，之後任何新的手動編輯都不會再觸發，所以這次的修法是把同一套「補落差」邏輯做成一個常駐函式，往後每次手動編輯都會自動同步
+  - `src/services/usageLogService.ts` 新增 `reconcileUsageLogs(db, itemId, targetCount, referenceDate)`：查出該單品目前 `item_usage_logs` 筆數，比目標值少就用 `source='manual'` 補插（日期用該單品購買日期，沒有則用今天），比目標值多就優先刪除 `manual`／`migration` 來源的 log（留下跟真實穿搭紀錄對應的 `outfit` 來源 log，不破壞既有刪除穿搭時的計數機制）
+  - `src/services/itemService.ts` 的 `saveItem()`（新增單品時若初始 usageCount > 0）與 `updateItem()`（usageCount 有變動時）都呼叫 `reconcileUsageLogs()`，讓表單編輯路徑也會同步 `item_usage_logs`，不再只更新 (1) 不動 (2)
+  - 範圍只涵蓋「表單手動編輯 usage_count」這一條路徑；意外發現 `backupService.ts` 的匯出/匯入 manifest 完全沒有涵蓋 `item_usage_logs` 表（還原備份後 usage_count 會對但排行頁期間統計會是空的），屬於另一個更大範圍、使用者尚未回報過的既有缺口，本輪沒有動它，只記錄在「目前已驗證狀態」避免遺失
+  - 新增測試：`src/__tests__/services/usageLogService.test.ts`（`reconcileUsageLogs` 5 項：數量吻合不動作／補插差額／從 0 開始補插／刪除優先順序／查無 log 視為 0）、`itemService.test.ts` 補 4 項（`saveItem`/`updateItem` 在 usageCount 有無變動、增加、減少時是否正確呼叫 `reconcileUsageLogs`）
+  - 本機建置 Android release APK（sparkwear-v2.0.0-20260810-1728.apk）並上傳 Google Drive 供使用者實機測試
+  - 這是 items-001（單品表單手動編輯使用次數功能）已通過驗證後才浮現的後續問題，屬於同一功能的關聯修復，記在 items-001 的 `notes` 裡（不改變它的 `passing` 狀態，因為表單欄位本身運作正常，壞的是另一個子系統／排行頁的資料同步），沒有另開新的 feature_list 項目，也沒有動 `ranking-001`（分類篩選功能）目前 `in_progress` 的狀態，避免違反「同時只允許一個 in_progress」
+- 執行過的驗證：`pnpm test`（24 suites、344 tests 全過，含新增 9 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過自動化檢查（單元測試＋型別檢查）與建置成功，**尚未經過使用者實機互動驗證**——需要使用者用新 APK 手動改一件單品的使用次數，回到排行頁確認數字有跟著變才算完整驗證；backupService.ts 未涵蓋 item_usage_logs 的既有缺口也還沒處理
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1728.apk）實機測試「編輯單品使用次數 → 排行頁確認數字更新」後回報；仍要等使用者回報 ranking-001（分類篩選）的實機測試結果，才能把它改成 passing
 
 ### 工作階段 025
 

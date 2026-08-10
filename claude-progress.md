@@ -12,10 +12,24 @@
 - 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列，多選/單選＋自訂新增刪除分類）——程式碼完成、自動化驗證通過、APK 已建置上傳，等待使用者實機互動確認後才能改成 passing
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
 - 已知未修的既有缺口（非本輪任務，記錄避免遺失）：backupService.ts 的匯出/匯入 manifest 完全沒有涵蓋 item_usage_logs 表，還原備份後 items.usage_count 會對但排行頁的期間統計（本月/本季/本年最常穿）會是空的；範圍較大，需要使用者確認後再排入 feature_list
+- 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 027
+
+- 日期：2026-08-10
+- 本輪目標：使用者要求「點入單品並編輯，按下儲存之後，畫面停留在單品中，不要跳回單品首頁」
+- 已完成：
+  - `app/closet/item/form.tsx` 的 `handleSave`：編輯模式（`isEdit && id`）儲存成功後，原本一律 `router.replace('/closet')` 跳回衣櫃首頁；改成跟既有「取消」按鈕同一套邏輯——`router.canDismiss?.() ? router.dismiss() : router.replace('/closet/item/${id}')`，因為這個表單本身是以 modal 形式從單品詳細頁 push 出來的（`app/closet/_layout.tsx` 設定 `item/form` 為 `presentation: 'modal'`），`dismiss()` 會直接關掉 modal 回到底下原本開著的單品詳細頁；該頁（`app/closet/item/[id].tsx`）已經是用 `useFocusEffect`（ios-008 修過）載入資料，回到畫面時會自動重新查詢，能看到剛存檔的新資料
+  - 新增單品（非編輯模式）的儲存後導頁行為維持不變，仍然 `router.replace('/closet')` 回衣櫃首頁——使用者這次的需求明確只針對「編輯」情境，新增單品時還沒有一個可以回去的「該單品詳細頁」
+  - 這是純導頁邏輯調整，沒有新增依賴、沒有動任何資料層程式碼，不需要新增單元測試（`form.tsx` 本身也沒有既有的元件測試涵蓋這塊）
+  - 本機建置 Android release APK（sparkwear-v2.0.0-20260810-1739.apk）並上傳 Google Drive 供使用者實機測試
+- 執行過的驗證：`pnpm test`（24 suites、344 tests 全過，無新增/新壞測試）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過型別檢查與建置成功，**尚未經過使用者實機互動驗證**——需要使用者實際點進某單品、按編輯、改點東西存檔，確認畫面留在該單品詳細頁而不是跳回衣櫃首頁
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1739.apk）實機測試「編輯單品儲存後畫面停留」，以及仍待回報的「使用次數排行同步」（工作階段 026）與 `ranking-001`（分類篩選）的實機測試結果
 
 ### 工作階段 026
 

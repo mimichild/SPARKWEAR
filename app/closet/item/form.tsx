@@ -226,10 +226,14 @@ export default function ItemFormScreen() {
         await updateItem(db, id, data);
         const toDelete = existingPhotos.filter(p => removedPhotoIds.has(p.id));
         if (toDelete.length) await deletePhotos(toDelete);
+        // 編輯後停留在該單品詳細頁（不是跳回衣櫃首頁），用跟「取消」按鈕一樣的
+        // dismiss 邏輯關掉這個 modal，回到底下原本就開著的單品詳細頁；
+        // 該頁用 useFocusEffect 載入資料，回到畫面時會自動抓到剛存的新資料。
+        router.canDismiss?.() ? router.dismiss() : router.replace(`/closet/item/${id}`);
       } else {
         await saveItem(db, data);
+        router.replace('/closet');
       }
-      router.replace('/closet');
     } catch (e) {
       Alert.alert('儲存失敗', e instanceof Error ? e.message : '請稍後再試');
     } finally { setSaving(false); }

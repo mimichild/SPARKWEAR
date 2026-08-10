@@ -1,6 +1,6 @@
 {
   "project": "SPARKWEAR",
-  "last_updated": "2026-07-17",
+  "last_updated": "2026-08-10",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -231,6 +231,25 @@
         "2026-08-10 | npx tsc --noEmit | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤"
       ],
       "notes": "根因：app/outfits/form.tsx 新增穿搭時會呼叫 itemService.incrementUsageCount() + usageLogService.logItemUsages() 幫每個關聯單品 +1，但 src/services/outfitService.ts 的 deleteOutfit() 只單純 DELETE FROM outfits，從未反向處理過 usage_count 或 item_usage_logs，兩個刪除入口（app/outfits/[id].tsx 單筆刪除、app/outfits/index.tsx 多選刪除）都是透過 useOutfits.removeOutfit → deleteOutfit，共用同一個漏洞。修法：deleteOutfit() 刪除前先查出該筆 outfit 的 itemIds/date，對每個 itemId 呼叫新增的 itemService.decrementUsageCount()（SQL 用 MAX(usage_count - 1, 0) 防止減成負數），並呼叫新增的 usageLogService.removeItemUsages() 依 item_id + logged_at(=outfit.date) + source='outfit' 各刪除一筆對應的 log（item_usage_logs 沒有 outfit_id 外鍵，log 列彼此可互換，刪除任一筆吻合的都能讓計數正確歸位，不需要改 schema）。範圍只涵蓋「新增後刪除」這個回報案例；編輯穿搭時增減關聯單品目前仍不會調整使用次數，屬於另一個未回報的缺口，未動它。"
+    },
+    {
+      "id": "items-001",
+      "priority": 11,
+      "area": "items",
+      "title": "單品新增/編輯表單開放手動設定使用次數",
+      "user_visible_behavior": "使用者在「我的衣櫃」單品的新增或編輯表單中，價格/尺寸區塊新增一個「使用次數」數字輸入欄；編輯既有單品時預填目前次數並可修改，新增單品時預設為 0 且可在儲存前自行輸入初始次數；輸入非數字或負數會被清理成 0 以上的整數。",
+      "status": "passing",
+      "verification": [
+        "pnpm test 全部通過。",
+        "npx tsc --noEmit -p . 無新增型別錯誤（既有 app/outfits/form.tsx Photo/createdAt 錯誤與本次改動無關）。",
+        "程式碼檢視：app/closet/item/form.tsx 的 usageCountText 狀態在編輯模式從 item.usageCount 預填、新增模式預設 '0'；儲存時 parseInt 並用 Math.max(0, ...) 防止負數/NaN，取代原本『編輯用 existingUsageCount、新增一律寫死 0』的邏輯。"
+      ],
+      "evidence": [
+        "2026-08-10 | pnpm test | 22 suites、321 tests passed，無新增/新壞測試",
+        "2026-08-10 | npx tsc --noEmit | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤",
+        "2026-08-10 | ./gradlew assembleRelease（Android release build）| 建置成功，上傳 SPARK-Builds/SPARKWEAR/sparkwear-v2.0.0-20260810-1306.apk 供使用者實機安裝驗證新欄位"
+      ],
+      "notes": "使用者需求：單品編輯表單按「編輯」時要能手動修改使用次數；新增單品時也要能自行輸入初始使用次數。實作只加一個 TextInput 欄位（keyboardType number-pad，onChangeText 過濾非數字字元），沒有另外做遞增/遞減按鈕或範圍上限，符合使用者原始要求的最小範圍。本次未做模擬器/實機互動截圖驗證，改用靜態型別檢查＋既有測試套件＋建置成功作為證據；若使用者在實機測試後發現行為不符預期，需要再補一輪修正。"
     }
   ]
 }

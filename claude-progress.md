@@ -9,11 +9,25 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 321 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001、ios-009 皆已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）
+- 目前最高優先級未完成功能：無（monetization-001、ios-009、items-001 皆已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄（items-001），尚待使用者在實機上互動驗證
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 020
+
+- 日期：2026-08-10
+- 本輪目標：使用者要求在「我的衣櫃」單品的新增/編輯表單開放手動設定使用次數
+- 已完成：
+  - `app/closet/item/form.tsx`：新增 `usageCountText` 狀態，取代原本的 `existingUsageCount`（原本編輯模式會預填但畫面上沒有欄位可改，新增模式一律寫死 0）
+  - 在價格/尺寸區塊新增「使用次數」TextInput（`number-pad`，`onChangeText` 過濾非數字字元）；編輯模式從 `item.usageCount` 預填，新增模式預設 `'0'`
+  - `handleSave` 儲存時 `parseInt` 後用 `Math.max(0, ...)` 防止負數/NaN，兩種模式（新增/編輯）共用同一段解析邏輯，取代原本 `isEdit ? existingUsageCount : 0` 的分支
+  - 新增 `feature_list.json` 的 `items-001`
+  - 本機建置 Android release APK 並上傳 Google Drive 供使用者實機測試
+- 執行過的驗證：`pnpm test`（22 suites、321 tests 全過，無新增/新壞測試）；`npx tsc --noEmit`（無新增型別錯誤，既有 outfits/form.tsx Photo/createdAt 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過靜態檢查（型別＋既有測試）與建置成功，**未做模擬器/實機互動截圖驗證**這個新欄位在畫面上實際顯示與操作是否符合預期；欄位目前沒有上限（例如允許輸入超大數字），使用者若沒有特別要求就先不加限制
+- 下一步最佳動作：等使用者用新 APK 實機測試「使用次數」欄位後回報是否符合預期
 
 ### 工作階段 019
 

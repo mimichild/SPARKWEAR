@@ -224,6 +224,10 @@ export async function incrementUsageCount(db: SQLiteDatabase, id: string): Promi
   await db.runAsync('UPDATE items SET usage_count = usage_count + 1 WHERE id = ?', [id]);
 }
 
+export async function decrementUsageCount(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('UPDATE items SET usage_count = MAX(usage_count - 1, 0) WHERE id = ?', [id]);
+}
+
 // ── Search ────────────────────────────────────────────────────
 
 export type ItemSearchMeta = {

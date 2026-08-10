@@ -8,12 +8,27 @@
 
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
-- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-07-23 為 316 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001 已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）
+- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 321 tests passed；另有 pnpm typecheck、pnpm regression）
+- 目前最高優先級未完成功能：無（monetization-001、ios-009 皆已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 019
+
+- 日期：2026-08-10
+- 本輪目標：修使用者回報的 bug——新增穿搭後發現寫錯而刪除，關聯單品的使用次數沒有跟著降回去
+- 已完成：
+  - 用 systematic-debugging 排查根因：`app/outfits/form.tsx` 新增穿搭時會呼叫 `incrementUsageCount()` + `logItemUsages()` 幫每個關聯單品 +1，但 `src/services/outfitService.ts` 的 `deleteOutfit()` 只單純 `DELETE FROM outfits`，從未反向處理過 `usage_count` 欄位或 `item_usage_logs` 表，兩個刪除入口（單筆刪除 `app/outfits/[id].tsx`、多選刪除 `app/outfits/index.tsx` → `useOutfits.removeOutfit`）都共用這個漏洞
+  - 新增 `itemService.decrementUsageCount()`（`usage_count = MAX(usage_count - 1, 0)`，防止減成負數）
+  - 新增 `usageLogService.removeItemUsages()`（依 item_id + logged_at + source 各刪除一筆對應 log；`item_usage_logs` 沒有 outfit_id 外鍵，log 列彼此可互換，不需要改 schema）
+  - `outfitService.deleteOutfit()` 改成刪除前先查出該筆 outfit 的 itemIds/date，呼叫上述兩個函式把之前 +1 的動作對稱地 -1
+  - 新增回歸測試：`outfitService.test.ts`（deleteOutfit 3 項新測試）、`itemService.test.ts`（decrementUsageCount 1 項新測試）
+  - 新增 feature_list.json 的 `ios-009`，記錄根因與範圍（只涵蓋「新增後刪除」；編輯穿搭時增減關聯單品目前仍不調整使用次數，是另一個未回報的缺口，本輪未動）
+- 執行過的驗證：`pnpm test`（22 suites、321 tests 全過，含新增 4 項測試）；`npx tsc --noEmit`（無新增型別錯誤，既有 outfits/form.tsx Photo/createdAt 錯誤與本次改動無關，改動前後皆存在，已用 git stash 比對確認非本次引入）
+- 已知風險或未解決問題：編輯穿搭時新增/移除關聯單品不會調整使用次數（不在本次回報範圍內，已記錄在 ios-009 notes，之後如有人回報再處理）
+- 下一步最佳動作：無明確待辦；若使用者要求可比照本次修法檢查編輯穿搭的使用次數同步問題
 
 ### 工作階段 018
 

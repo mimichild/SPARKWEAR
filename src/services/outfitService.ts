@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Outfit, SortOrder } from '../types';
+import { decrementUsageCount } from './itemService';
+import { removeItemUsages } from './usageLogService';
 
 // ── Serialization ─────────────────────────────────────────────
 
@@ -129,6 +131,13 @@ export async function updateOutfit(
 }
 
 export async function deleteOutfit(db: SQLiteDatabase, id: string): Promise<void> {
+  const outfit = await getOutfitById(db, id);
+  if (outfit && outfit.itemIds.length > 0) {
+    for (const itemId of outfit.itemIds) {
+      await decrementUsageCount(db, itemId);
+    }
+    await removeItemUsages(db, outfit.itemIds, outfit.date, 'outfit');
+  }
   await db.runAsync('DELETE FROM outfits WHERE id = ?', [id]);
 }
 

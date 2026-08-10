@@ -1,6 +1,6 @@
 import {
   getItems, getItemById, saveItem, updateItem, deleteItem,
-  filterItems, getVoteCount, addVote, getAllVoteCounts, incrementUsageCount,
+  filterItems, getVoteCount, addVote, getAllVoteCounts, incrementUsageCount, decrementUsageCount,
 } from '../../services/itemService';
 import type { Item } from '../../types';
 
@@ -256,6 +256,17 @@ describe('itemService — votes', () => {
       await incrementUsageCount(db, 'item-1');
       expect(db.runAsync).toHaveBeenCalledWith(
         'UPDATE items SET usage_count = usage_count + 1 WHERE id = ?',
+        ['item-1']
+      );
+    });
+  });
+
+  describe('decrementUsageCount', () => {
+    it('calls UPDATE with -1, floored at 0', async () => {
+      const db = makeDb();
+      await decrementUsageCount(db, 'item-1');
+      expect(db.runAsync).toHaveBeenCalledWith(
+        'UPDATE items SET usage_count = MAX(usage_count - 1, 0) WHERE id = ?',
         ['item-1']
       );
     });

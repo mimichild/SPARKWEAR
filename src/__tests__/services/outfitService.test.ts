@@ -154,6 +154,45 @@ describe('outfitService — deleteOutfit', () => {
       ['outfit-1']
     );
   });
+
+  it('decrements usage_count for every linked item when outfit existed', async () => {
+    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue(fullRow) });
+    await deleteOutfit(db, 'outfit-1');
+
+    expect(db.runAsync).toHaveBeenCalledWith(
+      'UPDATE items SET usage_count = MAX(usage_count - 1, 0) WHERE id = ?',
+      ['item-1']
+    );
+    expect(db.runAsync).toHaveBeenCalledWith(
+      'UPDATE items SET usage_count = MAX(usage_count - 1, 0) WHERE id = ?',
+      ['item-2']
+    );
+  });
+
+  it('removes one matching item_usage_logs row per linked item', async () => {
+    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue(fullRow) });
+    await deleteOutfit(db, 'outfit-1');
+
+    expect(db.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM item_usage_logs'),
+      ['item-1', '2024-05-10', 'outfit']
+    );
+    expect(db.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM item_usage_logs'),
+      ['item-2', '2024-05-10', 'outfit']
+    );
+  });
+
+  it('skips usage adjustments when outfit no longer exists', async () => {
+    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue(null) });
+    await deleteOutfit(db, 'ghost');
+
+    expect(db.runAsync).toHaveBeenCalledTimes(1);
+    expect(db.runAsync).toHaveBeenCalledWith(
+      'DELETE FROM outfits WHERE id = ?',
+      ['ghost']
+    );
+  });
 });
 
 // ── filterOutfits ─────────────────────────────────────────────

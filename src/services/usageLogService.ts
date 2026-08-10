@@ -16,6 +16,24 @@ export async function logItemUsages(
   }
 }
 
+export async function removeItemUsages(
+  db: SQLiteDatabase,
+  itemIds: string[],
+  date: string,
+  source: 'outfit' | 'manual' = 'outfit'
+): Promise<void> {
+  for (const itemId of itemIds) {
+    await db.runAsync(
+      `DELETE FROM item_usage_logs WHERE id IN (
+         SELECT id FROM item_usage_logs
+         WHERE item_id = ? AND logged_at = ? AND source = ?
+         LIMIT 1
+       )`,
+      [itemId, date, source]
+    );
+  }
+}
+
 export async function getAllUsageCounts(
   db: SQLiteDatabase
 ): Promise<Record<string, number>> {

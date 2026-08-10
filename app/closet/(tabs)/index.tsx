@@ -21,7 +21,7 @@ export default function ItemsTab() {
   const {
     closetQuery: query, setClosetQuery,
     selectedItemIds, toggleItemSelection, clearSelection,
-    isSelectionMode, enterSelectionMode,
+    isSelectionMode, enterSelectionMode, setItemNavIds,
   } = useUIStore();
 
   const { items, loading, trashItem, recategorizeItem, reload } = useItems(purchaseSort);
@@ -71,8 +71,11 @@ export default function ItemsTab() {
 
   const handlePress = useCallback((item: Item) => {
     if (isSelectionMode) toggleItemSelection(item.id);
-    else router.push(`/closet/item/${item.id}`);
-  }, [isSelectionMode, toggleItemSelection, router]);
+    else {
+      setItemNavIds(filtered.map(i => i.id));
+      router.push(`/closet/item/${item.id}`);
+    }
+  }, [isSelectionMode, toggleItemSelection, router, setItemNavIds, filtered]);
 
   const handleBulkTrash = useCallback(async () => {
     for (const id of Array.from(selectedItemIds)) await trashItem(id);

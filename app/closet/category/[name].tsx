@@ -35,7 +35,7 @@ export default function CategoryDetailScreen() {
   const {
     closetQuery: query, setClosetQuery,
     selectedItemIds, toggleItemSelection, clearSelection,
-    isSelectionMode, enterSelectionMode,
+    isSelectionMode, enterSelectionMode, setItemNavIds,
   } = useUIStore();
 
   const [activeTab, setActiveTab] = useState<'items' | 'photos'>('items');
@@ -55,11 +55,6 @@ export default function CategoryDetailScreen() {
     if (!isSelectionMode) enterSelectionMode();
     toggleItemSelection(itemId);
   }, [isSelectionMode, enterSelectionMode, toggleItemSelection]);
-
-  const handlePress = useCallback((item: Item) => {
-    if (isSelectionMode) toggleItemSelection(item.id);
-    else router.push(`/closet/item/${item.id}`);
-  }, [isSelectionMode, toggleItemSelection, router]);
 
   const handleBulkTrash = useCallback(async () => {
     for (const id of Array.from(selectedItemIds)) await trashItem(id);
@@ -106,6 +101,14 @@ export default function CategoryDetailScreen() {
     colorNames: colorIdToName,
   });
   const withPhotos = useMemo(() => filtered.filter(i => i.photoIds.length > 0), [filtered]);
+
+  const handlePress = useCallback((item: Item) => {
+    if (isSelectionMode) toggleItemSelection(item.id);
+    else {
+      setItemNavIds((activeTab === 'items' ? filtered : withPhotos).map(i => i.id));
+      router.push(`/closet/item/${item.id}`);
+    }
+  }, [isSelectionMode, toggleItemSelection, router, setItemNavIds, activeTab, filtered, withPhotos]);
 
   // ── 單品列表 ──────────────────────────────────────────────────
   const renderListItem = useCallback(({ item }: { item: Item }) => (

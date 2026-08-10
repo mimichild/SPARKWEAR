@@ -9,11 +9,27 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 321 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：無（monetization-001、ios-009、items-001 皆已 passing）；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常，詳細頁修復待下一次確認）
+- 目前最高優先級未完成功能：items-002（單品詳細頁左右滑動切換上一筆/下一筆單品）——程式碼已完成、單元測試與型別檢查皆通過，但**還沒經過模擬器/實機的實際手指滑動互動驗證**，`in_progress`
+- 其餘功能：monetization-001、ios-009、items-001 皆已 passing；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）
 - 目前 blocker：無
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 022
+
+- 日期：2026-08-10
+- 本輪目標：使用者要求新增功能——在單品／照片／分類的上衣.裙裝.褲裝等小分類中點進單品詳細頁後，可左右滑動切換上一筆/下一筆單品
+- 已完成：
+  - 設計決策：滑動用的「當下清單順序」改用 Zustand（`src/stores/uiStore.ts` 新增 `itemNavIds`/`setItemNavIds`）傳遞，不塞進網址 query，避免清單很長時網址過長
+  - `app/closet/(tabs)/index.tsx`（單品分頁）、`app/closet/(tabs)/photos.tsx`（照片分頁）、`app/closet/category/[name].tsx`（分類詳細頁，單品/照片兩個子分頁依 `activeTab` 各自取對應清單）的 `handlePress` 在 `router.push` 進單品詳細頁前，都會把當下畫面實際可見（含搜尋/排序後）的清單順序寫入 `itemNavIds`
+  - `app/closet/(tabs)/ranking.tsx`（排行榜）、`app/outfits/[id].tsx`（穿搭詳細頁的關聯單品）這兩個不在本次需求範圍內的入口，改成點進單品前把 `itemNavIds` 清空，避免沿用前一個畫面殘留的清單造成滑動結果對不上
+  - `app/closet/item/[id].tsx`：新增 `src/utils/itemNav.ts` 的 `getNeighborIds(ids, currentId)` 純函式算出上一筆/下一筆 id；用 `react-native-gesture-handler` 的 `Gesture.Pan()`（`activeOffsetX([-10,10])`／`failOffsetY([-10,10])`，跟既有 `PhotoCarousel.tsx` 同一套閾值寫法）包住「照片輪播以外」的區域（單品標題卡、詳細列、穿搭紀錄區、編輯/刪除按鈕），滑動距離超過螢幕寬度 25% 且存在對應的上一筆/下一筆時用 `router.replace` 切換（用 replace 而不是 push，這樣返回鍵能一次回到清單，不會逐筆單品往回退）
+  - 刻意把新手勢包在 `PhotoCarousel` 以外、而不是包住整個畫面：`PhotoCarousel` 本身已經有自己的左右滑動手勢（用來切換單品照片），兩個水平 Pan 手勢如果重疊在同一塊畫面區域，沒有額外設定優先權關係（`requireExternalGestureToFail` 之類）容易搶手勢/誤觸；用「兩個手勢區域完全不重疊」這個結構上的方式繞開整個衝突問題，不需要額外的手勢優先權工程
+  - 新增 `src/__tests__/utils/itemNav.test.ts`（6 項測試，涵蓋中間/頭/尾/單筆/找不到/空清單）
+- 執行過的驗證：`pnpm test`（23 suites、327 tests 全過，含新增 6 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）
+- 已知風險或未解決問題：**本次改動只做過靜態檢查（型別＋單元測試），完全沒有做過模擬器或實機的手指滑動互動驗證**——尤其是「照片輪播區域的滑動仍然只切換照片、不會誤觸切換單品」這件事，理論上因為兩個手勢區域不重疊所以不會有衝突，但沒有實際滑過確認觸感/門檻（25% 螢幕寬）是否符合預期；另外 `router.replace` 切換單品後 ScrollView 是否正確捲回頂端、`outfitPage` 分頁狀態是否正確歸零，也還沒有實際操作驗證，只是根據既有的路由/元件行為推論
+- 下一步最佳動作：請使用者選擇驗證方式（`pnpm start` 用 Expo Go/dev client 現場滑、或推一次 EAS Update OTA 到現有 TestFlight build、或重新建一份 Android APK），實際滑動測試通過後把 `items-002` 補齊 evidence 並改成 `passing`
 
 ### 工作階段 021
 

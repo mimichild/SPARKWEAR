@@ -255,6 +255,26 @@
         "2026-08-10 | ./gradlew assembleRelease（修好後重新建置）| 建置成功，上傳 SPARK-Builds/SPARKWEAR/sparkwear-v2.0.0-20260810-1314.apk 供使用者實機安裝驗證修復"
       ],
       "notes": "使用者需求：單品編輯表單按「編輯」時要能手動修改使用次數；新增單品時也要能自行輸入初始使用次數。實作只加一個 TextInput 欄位（keyboardType number-pad，onChangeText 過濾非數字字元），沒有另外做遞增/遞減按鈕或範圍上限，符合使用者原始要求的最小範圍。第一輪只改了表單，使用者實機測試後回報單品詳細頁的『使用次數』『平均使用價格』修改後沒變化——根因是這個 App 一直有兩條平行的使用次數資料：(1) items.usage_count 欄位（ItemCard 列表、編輯表單都讀這個，每次新增/刪除穿搭時同步 +1/-1），(2) item_usage_logs 表的逐筆使用記錄（單品詳細頁原本改讀這張表的 COUNT(*) 來顯示『使用次數』與算『平均使用價格』，用途是給 useRanking.ts 的『本月/本週』區間排行用）。手動編輯 usage_count 只會動到 (1)，完全不影響 (2)，所以詳細頁沒反應。修法：把單品詳細頁的顯示來源統一改成 item.usageCount（同一個欄位，跟列表/編輯表單一致），不再讀 item_usage_logs 的 COUNT(*)；item_usage_logs 本身保留不動，因為 useRanking.ts 的期間排行（本月/本週最常穿）仍依賴它做日期區間統計，跟這次的顯示欄位是不同用途。"
+    },
+    {
+      "id": "items-002",
+      "priority": 12,
+      "area": "items",
+      "title": "單品詳細頁支援左右滑動切換上一筆/下一筆單品",
+      "user_visible_behavior": "使用者在「我的衣櫃」單品列表、照片格、或分類（上衣/裙裝/褲裝等小分類）的單品/照片子分頁中點進某件單品的詳細頁後，在詳細頁（照片輪播以外的區域）由右向左滑可以切換到清單中下一筆單品、由左向右滑可以切換到上一筆單品，滑動順序跟進入時該畫面當下的排序/篩選結果一致；在清單第一筆/最後一筆時滑不出邊界。",
+      "status": "in_progress",
+      "verification": [
+        "pnpm test 全部通過（含 getNeighborIds 的新單元測試）。",
+        "npx tsc --noEmit -p . 無新增型別錯誤（既有 app/outfits/form.tsx Photo/createdAt 錯誤與本次改動無關）。",
+        "程式碼檢視：uiStore 新增 itemNavIds/setItemNavIds；closet 首頁單品分頁、照片分頁、分類詳細頁（單品/照片兩個子分頁）在點進單品前都會把當下可見清單的順序寫入 itemNavIds；排行榜、穿搭詳細頁連到單品詳細頁的入口會清空 itemNavIds，避免沿用不相關清單造成滑動結果錯亂。",
+        "程式碼檢視：app/closet/item/[id].tsx 新增只涵蓋『照片輪播以外區域』的水平滑動手勢（不與 PhotoCarousel 自身的滑動照片手勢重疊/衝突），滑動超過門檻且存在上一筆/下一筆時以 router.replace 切換，維持返回鍵能一次回到清單而不是逐筆單品往回退。",
+        "使用者實機或模擬器互動確認：從分類子分類（例如上衣）點進單品後左右滑動可正確切換前後單品，且照片輪播區域的左右滑動仍然只切換照片、不會誤觸切換單品。"
+      ],
+      "evidence": [
+        "2026-08-10 | pnpm test | 23 suites、327 tests passed（含新增 src/__tests__/utils/itemNav.test.ts 6 項）",
+        "2026-08-10 | npx tsc --noEmit -p . | 只剩既有無關的 app/outfits/form.tsx Photo/createdAt 型別錯誤，無新增錯誤"
+      ],
+      "notes": "使用者需求：分類的小分類（上衣/裙裝/褲裝等）與衣櫃單品/照片分頁點進單品詳細頁後可左右滑動切換上一筆/下一筆單品。設計決策：滑動用的『清單順序』改用 Zustand store（uiStore.itemNavIds）傳遞而非塞進網址 query，避免清單很長時網址過長；且為了不跟 PhotoCarousel 既有的照片滑動手勢（src/components/shared/PhotoCarousel.tsx）在同一塊畫面區域搶手勢造成衝突或誤觸，新的『切換單品』手勢只包在 ScrollView 中 PhotoCarousel 以外的內容（單品標題卡、詳細列、穿搭紀錄區、編輯/刪除按鈕），兩者在畫面上互不重疊，不需要額外處理手勢優先權（requireExternalGestureToFail 之類），風險較低。"
     }
   ]
 }

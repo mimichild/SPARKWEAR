@@ -7,6 +7,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from '../../../src/db/context';
 import { useRanking } from '../../../src/hooks/useRanking';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
+import { useUIStore } from '../../../src/stores/uiStore';
 import { addVote } from '../../../src/services/itemService';
 import { getPhotoUri } from '../../../src/services/photoService';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
@@ -42,6 +43,7 @@ export default function RankingTab() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { themeColor } = useSettingsStore();
+  const { setItemNavIds } = useUIStore();
   const insets = useSafeAreaInsets();
 
   const [metric, setMetric] = useState<RankingMetric>('usage');
@@ -187,7 +189,11 @@ export default function RankingTab() {
             return (
               <Pressable
                 style={styles.row}
-                onPress={() => entry.itemId ? router.push(`/closet/item/${entry.itemId}`) : undefined}
+                onPress={() => {
+                  if (!entry.itemId) return;
+                  setItemNavIds([]);
+                  router.push(`/closet/item/${entry.itemId}`);
+                }}
               >
                 <Text style={[styles.rank, index < 3 && { color: themeColor, fontWeight: '700' }]}>
                   {index + 1}

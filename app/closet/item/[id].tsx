@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Image, Dimensions } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
-const THUMB_W = Math.floor(Dimensions.get('window').width / 5);
+const SCREEN_W = Dimensions.get('window').width;
+const THUMB_W = Math.floor(SCREEN_W / 5);
 const THUMB_H = Math.round(THUMB_W * 4 / 3);
 const OUTFITS_PER_PAGE = 10;
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +16,9 @@ import { getCategories, getOrigins, getColors } from '../../../src/services/cate
 import { getPhotoUri } from '../../../src/services/photoService';
 import { getOutfitsByItemId } from '../../../src/services/outfitService';
 import { useSettingsStore } from '../../../src/stores/settingsStore';
+import { useUIStore } from '../../../src/stores/uiStore';
 import { ConfirmDialog } from '../../../src/components/ui/ConfirmDialog';
+import { getNeighborIds } from '../../../src/utils/itemNav';
 import type { Item, Category, Origin, Color, Outfit } from '../../../src/types';
 
 export default function ItemDetailScreen() {
@@ -21,6 +26,7 @@ export default function ItemDetailScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { themeColor } = useSettingsStore();
+  const { itemNavIds } = useUIStore();
   const insets = useSafeAreaInsets();
 
   const [item, setItem] = useState<Item | null>(null);
@@ -83,6 +89,23 @@ export default function ItemDetailScreen() {
   const originName = origins.find(o => o.id === item.originId)?.name ?? '';
   const photos = item.photoIds;
 
+  // 左右滑動切換上一筆/下一筆單品：手勢只包在照片輪播以外的區域，
+  // 避免跟 PhotoCarousel 自己的左右滑動照片手勢搶手勢。
+  const { prevId, nextId } = getNeighborIds(itemNavIds, item.id);
+  const goToItem = (targetId: string) => router.replace(`/closet/item/${targetId}`);
+  const navPan = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-10, 10])
+    .onEnd((e) => {
+      'worklet';
+      const threshold = SCREEN_W * 0.25;
+      if (e.translationX < -threshold && nextId) {
+        runOnJS(goToItem)(nextId);
+      } else if (e.translationX > threshold && prevId) {
+        runOnJS(goToItem)(prevId);
+      }
+    });
+
   const detailsData = [
     { label: '品牌',    value: item.brand,                                    visible: false },
     { label: '購買日期', value: item.purchaseDate,                              visible: !!item.purchaseDate },
@@ -132,104 +155,109 @@ export default function ItemDetailScreen() {
         {/* 全寬 3:4 照片輪播 */}
         <PhotoCarousel photoPaths={photos} accentColor={themeColor} />
 
-        {/* 單品標題卡 */}
-        <View style={styles.itemCard}>
-          <Text style={styles.itemTitle} numberOfLines={1}>
-            {item.brand ? `${item.brand}　${item.name}` : item.name}
-          </Text>
-        </View>
+        {/* 照片輪播以外的區域：包一個水平滑動手勢，用來切換上一筆/下一筆單品 */}
+        <GestureDetector gesture={navPan}>
+          <View>
+            {/* 單品標題卡 */}
+            <View style={styles.itemCard}>
+              <Text style={styles.itemTitle} numberOfLines={1}>
+                {item.brand ? `${item.brand}　${item.name}` : item.name}
+              </Text>
+            </View>
 
-        {detailsData.map((detail, index) => (
-          <View key={index} style={styles.row}>
-            <Text style={styles.rowLabel}>{detail.label}</Text>
-            <Text
-              style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
-              numberOfLines={detail.multiline ? undefined : 1}
-            >
-              {detail.value}
-            </Text>
-          </View>
-        ))}
-
-        {/* 使用該單品的穿搭 */}
-        {(() => {
-          const totalPages = Math.max(1, Math.ceil(itemOutfits.length / OUTFITS_PER_PAGE));
-          const paged = itemOutfits.slice(outfitPage * OUTFITS_PER_PAGE, (outfitPage + 1) * OUTFITS_PER_PAGE);
-          return (
-            <>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>使用該單品的穿搭</Text>
-                {itemOutfits.length > 0 && (
-                  <Text style={styles.sectionCount}>{itemOutfits.length} 筆</Text>
-                )}
+            {detailsData.map((detail, index) => (
+              <View key={index} style={styles.row}>
+                <Text style={styles.rowLabel}>{detail.label}</Text>
+                <Text
+                  style={[styles.rowValue, detail.multiline && styles.rowMultiline]}
+                  numberOfLines={detail.multiline ? undefined : 1}
+                >
+                  {detail.value}
+                </Text>
               </View>
+            ))}
 
-              {itemOutfits.length === 0 ? (
-                <View style={styles.emptyRow}>
-                  <Text style={styles.emptyText}>尚無穿搭紀錄</Text>
-                </View>
-              ) : (
+            {/* 使用該單品的穿搭 */}
+            {(() => {
+              const totalPages = Math.max(1, Math.ceil(itemOutfits.length / OUTFITS_PER_PAGE));
+              const paged = itemOutfits.slice(outfitPage * OUTFITS_PER_PAGE, (outfitPage + 1) * OUTFITS_PER_PAGE);
+              return (
                 <>
-                  <View style={styles.outfitGrid}>
-                    {paged.map(outfit => {
-                      const uri = outfit.photoIds.length > 0
-                        ? getPhotoUri(outfit.photoIds[0]) : null;
-                      return (
-                        <Pressable
-                          key={outfit.id}
-                          style={styles.outfitThumb}
-                          onPress={() => router.push(`/outfits/${outfit.id}`)}
-                        >
-                          {uri ? (
-                            <Image source={{ uri }} style={styles.outfitThumbImg} resizeMode="cover" />
-                          ) : (
-                            <View style={styles.outfitThumbEmpty} />
-                          )}
-                          <Text style={styles.outfitThumbDate} numberOfLines={1}>{outfit.date}</Text>
-                        </Pressable>
-                      );
-                    })}
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>使用該單品的穿搭</Text>
+                    {itemOutfits.length > 0 && (
+                      <Text style={styles.sectionCount}>{itemOutfits.length} 筆</Text>
+                    )}
                   </View>
 
-                  {totalPages > 1 && (
-                    <View style={styles.pagination}>
-                      <Pressable
-                        onPress={() => setOutfitPage(p => Math.max(0, p - 1))}
-                        disabled={outfitPage === 0}
-                        style={styles.pageBtn}
-                      >
-                        <Text style={[styles.pageBtnText, outfitPage === 0 && styles.pageBtnDisabled]}>‹</Text>
-                      </Pressable>
-                      <Text style={styles.pageIndicator}>{outfitPage + 1} / {totalPages}</Text>
-                      <Pressable
-                        onPress={() => setOutfitPage(p => Math.min(totalPages - 1, p + 1))}
-                        disabled={outfitPage === totalPages - 1}
-                        style={styles.pageBtn}
-                      >
-                        <Text style={[styles.pageBtnText, outfitPage === totalPages - 1 && styles.pageBtnDisabled]}>›</Text>
-                      </Pressable>
+                  {itemOutfits.length === 0 ? (
+                    <View style={styles.emptyRow}>
+                      <Text style={styles.emptyText}>尚無穿搭紀錄</Text>
                     </View>
+                  ) : (
+                    <>
+                      <View style={styles.outfitGrid}>
+                        {paged.map(outfit => {
+                          const uri = outfit.photoIds.length > 0
+                            ? getPhotoUri(outfit.photoIds[0]) : null;
+                          return (
+                            <Pressable
+                              key={outfit.id}
+                              style={styles.outfitThumb}
+                              onPress={() => router.push(`/outfits/${outfit.id}`)}
+                            >
+                              {uri ? (
+                                <Image source={{ uri }} style={styles.outfitThumbImg} resizeMode="cover" />
+                              ) : (
+                                <View style={styles.outfitThumbEmpty} />
+                              )}
+                              <Text style={styles.outfitThumbDate} numberOfLines={1}>{outfit.date}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      {totalPages > 1 && (
+                        <View style={styles.pagination}>
+                          <Pressable
+                            onPress={() => setOutfitPage(p => Math.max(0, p - 1))}
+                            disabled={outfitPage === 0}
+                            style={styles.pageBtn}
+                          >
+                            <Text style={[styles.pageBtnText, outfitPage === 0 && styles.pageBtnDisabled]}>‹</Text>
+                          </Pressable>
+                          <Text style={styles.pageIndicator}>{outfitPage + 1} / {totalPages}</Text>
+                          <Pressable
+                            onPress={() => setOutfitPage(p => Math.min(totalPages - 1, p + 1))}
+                            disabled={outfitPage === totalPages - 1}
+                            style={styles.pageBtn}
+                          >
+                            <Text style={[styles.pageBtnText, outfitPage === totalPages - 1 && styles.pageBtnDisabled]}>›</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </>
                   )}
                 </>
-              )}
-            </>
-          );
-        })()}
+              );
+            })()}
 
-        <View style={styles.actions}>
-          <Pressable
-            onPress={() => router.push(`/closet/item/form?id=${item.id}`)}
-            style={[styles.actionBtn, { borderColor: themeColor }]}
-          >
-            <Text style={[styles.actionBtnText, { color: themeColor }]}>編輯</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setDeleteVisible(true)}
-            style={[styles.actionBtn, styles.deleteBtn]}
-          >
-            <Text style={[styles.actionBtnText, styles.deleteBtnText]}>刪除</Text>
-          </Pressable>
-        </View>
+            <View style={styles.actions}>
+              <Pressable
+                onPress={() => router.push(`/closet/item/form?id=${item.id}`)}
+                style={[styles.actionBtn, { borderColor: themeColor }]}
+              >
+                <Text style={[styles.actionBtnText, { color: themeColor }]}>編輯</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setDeleteVisible(true)}
+                style={[styles.actionBtn, styles.deleteBtn]}
+              >
+                <Text style={[styles.actionBtnText, styles.deleteBtnText]}>刪除</Text>
+              </Pressable>
+            </View>
+          </View>
+        </GestureDetector>
       </ScrollView>
 
       <ConfirmDialog

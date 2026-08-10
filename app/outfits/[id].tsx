@@ -10,6 +10,7 @@ import { getOutfitById, deleteOutfit } from '../../src/services/outfitService';
 import { getPhotoUri } from '../../src/services/photoService';
 import { getItemById } from '../../src/services/itemService';
 import { useSettingsStore } from '../../src/stores/settingsStore';
+import { useUIStore } from '../../src/stores/uiStore';
 import { ConfirmDialog } from '../../src/components/ui/ConfirmDialog';
 import { PhotoCarousel } from '../../src/components/shared/PhotoCarousel';
 import type { Outfit, Item } from '../../src/types';
@@ -23,6 +24,7 @@ export default function OutfitDetailScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const { themeColor } = useSettingsStore();
+  const { setItemNavIds } = useUIStore();
   const insets = useSafeAreaInsets();
 
   const [outfit, setOutfit] = useState<Outfit | null>(null);
@@ -111,7 +113,10 @@ export default function OutfitDetailScreen() {
                   <Pressable
                     key={item.id}
                     style={styles.itemThumb}
-                    onPress={() => router.push(`/closet/item/${item.id}`)}
+                    onPress={() => {
+                      setItemNavIds([]);
+                      router.push(`/closet/item/${item.id}`);
+                    }}
                   >
                     {uri ? (
                       <Image source={{ uri }} style={styles.itemThumbImg} resizeMode="cover" />

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, Pressable, StyleSheet, ScrollView, Modal, FlatList, Image,
 } from 'react-native';
@@ -57,8 +57,22 @@ export default function RankingTab() {
 
   const { categories, reload: reloadCategories, addCategory, deleteCategory } = useCategories();
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
+  const [categoryFilterTouched, setCategoryFilterTouched] = useState(false);
   const [catEditVisible, setCatEditVisible] = useState(false);
-  const categoryIdsArray = useMemo(() => Array.from(selectedCategoryIds), [selectedCategoryIds]);
+
+  // 使用者還沒手動篩選過時，分類清單一載入就預設全選（畫面上全部反白），
+  // 這樣底下的單品清單一開始就會完整顯示，不會因為「沒有勾選任何分類」而顯示不出來
+  useEffect(() => {
+    if (!categoryFilterTouched && categories.length > 0) {
+      setSelectedCategoryIds(new Set(categories.map(c => c.id)));
+    }
+  }, [categories, categoryFilterTouched]);
+
+  // 選滿全部分類（或使用者取消到一個都沒選）等同於不篩選，把「未分類」的單品也一起顯示
+  const categoryIdsArray = useMemo(() => {
+    if (selectedCategoryIds.size === 0 || selectedCategoryIds.size >= categories.length) return [];
+    return Array.from(selectedCategoryIds);
+  }, [selectedCategoryIds, categories.length]);
 
   const { ranked, loading, reload } = useRanking(metric, period, dir, categoryIdsArray);
 
@@ -72,6 +86,7 @@ export default function RankingTab() {
   }, [metric]);
 
   const toggleCategory = useCallback((id: string) => {
+    setCategoryFilterTouched(true);
     setSelectedCategoryIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);

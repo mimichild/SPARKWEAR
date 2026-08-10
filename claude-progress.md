@@ -26,10 +26,14 @@
   - 把「分類」分頁原本內嵌在 `category.tsx` 裡的編輯 Modal（新增/上下排序/刪除，含確認刪除對話框）抽成共用元件 `src/components/shared/CategoryEditModal.tsx`；連同「新增分類時依序使用的預設顏色」PALETTE 一起移到 `src/constants/defaults.ts`（`CATEGORY_PALETTE`）；`category.tsx` 改用這個共用元件，行為完全不變
   - `app/closet/(tabs)/ranking.tsx` 在頭部下方、指標選單之上新增一排分類篩選 chip：`selectedCategoryIds`（`Set<string>`）以 toggle 方式支援多選/單選，選中的分類用主題色反白；chip 列最右側加一個「編輯」按鈕，開啟同一份 `CategoryEditModal` 做新增/刪除/排序；刪除某分類時同步把它從 `selectedCategoryIds` 移除，避免殘留無效篩選條件
   - 新增 `src/__tests__/hooks/useRanking.test.ts` 的 `filterByCategory` 測試（空陣列不篩選、單一分類、多分類 OR 邏輯、未分類單品在有篩選時被排除，共 4 項）
-  - 本機建置 Android release APK 並上傳 Google Drive 供使用者實機測試
-- 執行過的驗證：`pnpm test`（23 suites、334 tests 全過，含新增 4 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
-- 已知風險或未解決問題：本次改動只做過靜態檢查（型別＋單元測試）與建置成功，**完全沒有做過模擬器或實機互動驗證**——分類 chip 多選/取消是否符合預期、排行清單是否正確依篩選結果更新、「編輯」Modal 的新增/刪除是否跟「分類」分頁行為一致，都還沒有實際點過確認
-- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1408.apk）實機測試分類篩選功能後回報，確認正常再把 `ranking-001` 補齊 evidence 並改成 `passing`
+  - 本機建置 Android release APK（sparkwear-v2.0.0-20260810-1408.apk）並上傳 Google Drive 供使用者實機測試
+  - 使用者看過設計後立刻回報修正需求：分類 chip 應該「預設全部都按」（畫面上一開始就全部反白），不然使用者會誤以為「沒按=不會顯示」；且使用者自行縮小到某幾個分類後，這個篩選結果要維持住，不能又自動跳回全選，要等使用者下次自己改選才變
+  - 修法：`app/closet/(tabs)/ranking.tsx` 新增 `categoryFilterTouched` 旗標；分類清單載入後，只要這個旗標還是 `false`（使用者從沒手動點過 chip），就用 `useEffect` 把 `selectedCategoryIds` 同步成全部分類 id（畫面全反白）；`toggleCategory` 一被呼叫就把旗標設成 `true`，之後這個自動同步永久停止，選取結果完全交給使用者手動控制，不會因為 `useFocusEffect` 重新載入分類清單就被重置
+  - 實際傳給 `useRanking` 的 `categoryIdsArray` 在「全選」與「使用者取消到一個都沒選」這兩種情況都視為不篩選（回傳空陣列，含未分類單品都顯示），避免清單意外變成完全空白；使用者手動縮小到具體幾個分類時，未分類單品會被排除，是預期行為
+  - 修好後重新本機建置 Android release APK（sparkwear-v2.0.0-20260810-1417.apk）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（23 suites、334 tests 全過，含新增 4 項，兩輪皆重跑過一次）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease`（兩輪皆建置成功）
+- 已知風險或未解決問題：本次改動只做過靜態檢查（型別＋單元測試）與建置成功，**完全沒有做過模擬器或實機互動驗證**——分類 chip 預設全反白、多選/取消、排行清單是否正確依篩選結果更新且不會自動跳回全選、「編輯」Modal 的新增/刪除是否跟「分類」分頁行為一致，都還沒有實際點過確認
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260810-1417.apk）實機測試分類篩選功能後回報，確認正常再把 `ranking-001` 補齊 evidence 並改成 `passing`
 
 ### 工作階段 024
 

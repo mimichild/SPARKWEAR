@@ -1,4 +1,7 @@
-import { reconcileUsageLogs, getAllUsageLogs, getLastUsedDates, repairStaleReconciledLogDates } from '../../services/usageLogService';
+import {
+  reconcileUsageLogs, getAllUsageLogs, getLastUsedDates,
+  repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair,
+} from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
   return {
@@ -97,6 +100,63 @@ describe('usageLogService — repairStaleReconciledLogDates', () => {
     const [sql] = getAllAsync.mock.calls[0];
     expect(sql).toContain("source IN ('manual', 'migration')");
     expect(sql).toContain('COALESCE(i.purchase_date, substr(i.created_at, 1, 10))');
+  });
+});
+
+// ── revertOverAggressiveLogDateRepair ─────────────────────────────
+// 修正 repairStaleReconciledLogDates（v4→v5）的錯誤假設：它把「單品最後編輯時間」
+// 誤當成「最後使用時間」，導致完全沒有最近使用的單品被誤判成最近使用。
+// 用「logged_at 晚於自己的 created_at」這個不可能發生在正常寫入紀錄上的矛盾訊號，
+// 找出被那次修復誤改過的紀錄，改回購買日期／建立日期。
+
+describe('usageLogService — revertOverAggressiveLogDateRepair', () => {
+  it('reverts matched rows to purchase_date when available, and returns the count', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getAllAsync: jest.fn().mockResolvedValue([
+        { log_id: 'log-1', purchase_date: '2024-03-01', created_at_date: '2026-07-01' },
+      ]),
+    });
+    const count = await revertOverAggressiveLogDateRepair(db);
+    expect(count).toBe(1);
+    expect(runAsync).toHaveBeenCalledWith(
+      'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
+      ['2024-03-01', 'log-1']
+    );
+  });
+
+  it('falls back to created_at date when the item has no purchase_date', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getAllAsync: jest.fn().mockResolvedValue([
+        { log_id: 'log-1', purchase_date: null, created_at_date: '2026-07-01' },
+      ]),
+    });
+    await revertOverAggressiveLogDateRepair(db);
+    expect(runAsync).toHaveBeenCalledWith(
+      'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
+      ['2026-07-01', 'log-1']
+    );
+  });
+
+  it('does nothing when there are no mis-dated rows', async () => {
+    const runAsync = jest.fn();
+    const db = makeDb({ runAsync, getAllAsync: jest.fn().mockResolvedValue([]) });
+    const count = await revertOverAggressiveLogDateRepair(db);
+    expect(count).toBe(0);
+    expect(runAsync).not.toHaveBeenCalled();
+  });
+
+  it('queries rows whose logged_at is after their own created_at (the impossible-for-real-data signal)', async () => {
+    const getAllAsync = jest.fn().mockResolvedValue([]);
+    const db = makeDb({ getAllAsync });
+    await revertOverAggressiveLogDateRepair(db);
+    const [sql] = getAllAsync.mock.calls[0];
+    expect(sql).toContain("source IN ('manual', 'migration')");
+    expect(sql).toContain('l.logged_at = substr(i.updated_at, 1, 10)');
+    expect(sql).toContain('l.logged_at > substr(l.created_at, 1, 10)');
   });
 });
 

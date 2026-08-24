@@ -7,7 +7,7 @@ import {
   DEFAULT_COLORS,
 } from '../constants/defaults';
 import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY } from '../constants/theme';
-import { repairStaleReconciledLogDates } from '../services/usageLogService';
+import { repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair } from '../services/usageLogService';
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(CREATE_TABLES_SQL);
@@ -87,6 +87,12 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
     // repairStaleReconciledLogDates 的說明
     await repairStaleReconciledLogDates(db);
     await db.runAsync('PRAGMA user_version = 5');
+  }
+  if (current < 6) {
+    // v5 → v6：修正 v4→v5 的錯誤假設（把「單品最後編輯時間」誤當成「最後使用時間」），
+    // 見 usageLogService.ts revertOverAggressiveLogDateRepair 的說明
+    await revertOverAggressiveLogDateRepair(db);
+    await db.runAsync('PRAGMA user_version = 6');
   }
 }
 

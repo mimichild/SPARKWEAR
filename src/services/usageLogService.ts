@@ -86,12 +86,16 @@ export async function getUsageCountsByPeriod(
   return result;
 }
 
-// 一次性修復：舊版 reconcileUsageLogs／v3→v4 migration 補插 item_usage_logs 時
-// 用「購買日期（沒有就用建立日期）」當日期，導致「未使用天數」（見 useRanking.ts
-// calcDaysUnused）對只靠手動改使用次數追蹤穿搭的單品失真。只鎖定日期剛好等於那個
-// filler 值、且單品後來又被編輯過（updated_at 更新）的紀錄，改用單品最後編輯時間
-// 當更貼近真實的估計值；不會動到「新增穿搭」／「手動登錄穿搭紀錄」等有真實日期的紀錄，
-// 因為那些紀錄的日期幾乎不會剛好等於購買日期／建立日期這個 filler 值。
+// 一次性修復（db v4→v5）：舊版 reconcileUsageLogs／v3→v4 migration 補插
+// item_usage_logs 時用「購買日期（沒有就用建立日期）」當日期，導致「未使用天數」
+// （見 useRanking.ts calcDaysUnused）對只靠手動改使用次數追蹤穿搭的單品失真。只鎖定
+// 日期剛好等於那個 filler 值、且單品後來又被編輯過（updated_at 更新）的紀錄，改用
+// 單品最後編輯時間當更貼近真實的估計值。
+// 【已知問題，下面 v5→v6 的 revertOverAggressiveLogDateRepair 會修正】：這個假設
+// 太寬鬆——updated_at 只要編輯單品任何欄位（不只是使用次數）就會更新，導致完全沒有
+// 最近使用、也沒有手動改次數的單品被誤判成「最近使用」。函式本身保留不動（歷史紀錄，
+// 且新裝置一路 migrate 上來時 v5→v6 會馬上修正它造成的誤判），之後不要再依賴它的
+// 「用 updated_at 當最後使用時間」這個做法。
 export async function repairStaleReconciledLogDates(db: SQLiteDatabase): Promise<number> {
   const rows = await db.getAllAsync<{ log_id: string; updated_at: string }>(
     `SELECT l.id as log_id, i.updated_at as updated_at
@@ -105,6 +109,38 @@ export async function repairStaleReconciledLogDates(db: SQLiteDatabase): Promise
     await db.runAsync(
       'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
       [row.updated_at.slice(0, 10), row.log_id]
+    );
+  }
+  return rows.length;
+}
+
+// 修正上面 repairStaleReconciledLogDates（db v4→v5）的錯誤假設：它把「單品最後
+// 編輯時間」(items.updated_at) 當成「最後使用時間」的估計值，但 updated_at 只要
+// 編輯單品的任何欄位（不只是使用次數，例如改價格/備註/照片）就會更新，導致完全
+// 沒有最近使用、也沒有手動改次數的單品，被誤判成「最近使用」而未使用天數失真。
+// 用「logged_at 是否晚於同一筆紀錄自己的 created_at」這個矛盾訊號找出真正被
+// repairStaleReconciledLogDates 誤改過的紀錄：正常寫入的紀錄，logged_at（事件
+// 發生日）不可能晚於 created_at（這筆紀錄被寫進資料庫的時間）；只有被那次修復
+// 回溯改成未來日期的紀錄才會出現 logged_at > created_at 這種不可能的狀態。
+// 找到後改回原本的購買日期／建立日期（保守、不會誤判成最近使用，跟這次修復之前
+// 的行為一致）。
+export async function revertOverAggressiveLogDateRepair(db: SQLiteDatabase): Promise<number> {
+  const rows = await db.getAllAsync<{
+    log_id: string; purchase_date: string | null; created_at_date: string;
+  }>(
+    `SELECT l.id as log_id, i.purchase_date as purchase_date,
+            substr(i.created_at, 1, 10) as created_at_date
+     FROM item_usage_logs l
+     JOIN items i ON i.id = l.item_id
+     WHERE l.source IN ('manual', 'migration')
+       AND l.logged_at = substr(i.updated_at, 1, 10)
+       AND l.logged_at > substr(l.created_at, 1, 10)`
+  );
+  for (const row of rows) {
+    const fallback = row.purchase_date ?? row.created_at_date;
+    await db.runAsync(
+      'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
+      [fallback, row.log_id]
     );
   }
   return rows.length;

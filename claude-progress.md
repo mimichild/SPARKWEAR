@@ -9,7 +9,7 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1737.apk），等待使用者實機互動確認後才能改成 passing。工作階段 030 修好「手動改使用次數」欄位補插紀錄日期用購買日期（改成用編輯當下日期）；工作階段 031 接續補上 db v4→v5 migration（repairStaleReconciledLogDates），一次性修復使用者裝置上已經存在、被舊邏輯記錯日期的舊紀錄，使用者安裝新版後下次啟動會自動套用，不需要逐件手動重新編輯
+- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1752.apk），等待使用者實機互動確認後才能改成 passing。這個指標的資料修復經過三輪：工作階段 030 修好「手動改使用次數」欄位往後新產生的補插紀錄日期（改成用編輯當下日期）；工作階段 031 加 db v4→v5 migration 一次性修復舊資料，但用「單品最後編輯時間」當「最後使用時間」的假設太寬鬆；工作階段 032 加 db v5→v6 migration 修正這個過度誤判，用「logged_at 晚於自己 created_at」這個矛盾訊號精準找出被誤改的紀錄並改回保守值。都已接到既有的 db migration 機制，使用者安裝新版後下次啟動會自動依序套用，不需要手動操作。**如果之後還有第三種方向的異常（真的最近用過的單品被顯示成很久沒穿），代表這套「用既有欄位回推歷史日期」的做法可能已經到極限，要考慮改成畫面上明確標示「未知」而不是猜測日期**（詳見 feature_list.json ranking-001 notes 結尾）
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
 - 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
 - 2026-08-10 補上一個已知缺口：備份/還原（backupService.ts）現在會把 item_usage_logs 表一併納入匯出/匯入，還原備份後排行頁的期間統計（本月/本季/本年最常穿）不再是空的；細節見工作階段 028。**這塊只做過自動化檢查，尚未經過使用者實機「匯出→還原」完整驗證**，且匯入覆蓋模式本身就是會清空現有資料再寫入的動作，使用者實測前務必先自行確認裝置上沒有還沒備份過的重要資料
@@ -17,6 +17,23 @@
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 032
+
+- 日期：2026-08-24
+- 本輪目標：使用者安裝工作階段 031 的 APK 後回報反方向的異常——有些單品完全沒有手動改過使用次數、最近也沒穿，未使用天數卻只有 8-9 天
+- 已完成：
+  - 排查確認是工作階段 031 那次一次性修復（`repairStaleReconciledLogDates`）本身的假設錯誤：它把 `items.updated_at`（單品最後編輯時間）當成「最後使用時間」的估計值，但 `updated_at` 只要編輯單品的任何欄位（不只是使用次數，例如改價格/備註/照片，或這幾週測試其他功能時順手存過檔）就會更新，導致完全沒有最近使用的單品被誤判成「最近使用」——這正是詢問使用者要不要做這個修復時，preview 裡已經預告過的風險（「不保證 100% 精確，因為也可能是改別的欄位才觸發存檔」），這次真的發生了
+  - 排查發現：`items.updated_at` 本身不帶「這次編輯改了什麼」的資訊，沒辦法單從現在的資料庫狀態分辨「當初 v4→v5 誤改的紀錄」跟「之後真的因為手動改次數、用修復後新邏輯正確產生的今天日期紀錄」；但找到一個可靠的間接訊號：`item_usage_logs` 每筆紀錄都有 `created_at`（紀錄被寫進資料庫的時間）與 `logged_at`（紀錄代表的使用日期）兩個欄位，正常寫入的紀錄 `logged_at` 不可能晚於 `created_at`（沒有人會「先把紀錄存進資料庫，事後才把它改成更晚的日期」，除了 v4→v5 這次修復本身就是在做這件事）——`logged_at > created_at` 是只有被 v4→v5 動過手腳的紀錄才會出現的矛盾狀態，精準且不會誤傷之後正確新建的紀錄
+  - `src/services/usageLogService.ts` 新增 `revertOverAggressiveLogDateRepair(db)`：找出 `source IN ('manual','migration')` 且 `logged_at` 等於單品 `updated_at` 日期部分、且 `logged_at` 晚於自己 `created_at` 日期部分的紀錄，改回 `COALESCE(購買日期, 建立日期)`——回到 v4→v5 修復之前更保守但誠實的估計值，理由是「未使用天數」功能的用途就是幫使用者找出被冷落的單品，錯誤地把真正被冷落的單品排除在外（顯示成最近使用），比顯示保守的大數字傷害更大
+  - `src/db/index.ts` 的 `runMigrations()` 新增 `current < 6` 區塊，接到既有 migration 機制當 v5→v6；還沒升級過、要一次從 v3 或更早版本跳上來的裝置，v4→v5 跟 v5→v6 會在同一次 `initDatabase()` 呼叫中依序執行，等於「先誤改、緊接著馬上修正」，結果正確，只是多做一點虛功
+  - `repairStaleReconciledLogDates`（v4→v5 那個函式本身）刻意保留不動，只在註解補充「已知問題，下面 v5→v6 會修正」——它是已經對外發布過的一次性 migration 歷史記錄，改寫它的行為對已經跑過的裝置沒有意義，且會讓「這個版本的 App 到底做了什麼」的紀錄失真
+  - 新增測試：`src/__tests__/services/usageLogService.test.ts` 的 `revertOverAggressiveLogDateRepair`（4 項：有購買日期時改回購買日期、沒有購買日期時 fallback 建立日期、沒有符合條件的紀錄時不做任何事、SQL 條件正確鎖定矛盾訊號）
+  - 更新 feature_list.json 的 ranking-001 evidence／notes，完整記錄這輪排查與修法，並補上「如果之後還有第三種方向異常，這套回推歷史日期的做法可能已到極限」的提醒
+  - 重新本機建置 Android release APK（sparkwear-v2.0.0-20260824-1752.apk）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（24 suites、362 tests 全過，含新增 4 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過自動化檢查與建置成功，**尚未經過使用者實機驗證這次的修正是否真的讓那些被誤判成「最近使用」的單品變回合理天數**，也還沒驗證會不會有第三種方向的異常；「用資料庫既有欄位回推歷史使用日期」這整套做法本質上是啟發式猜測，不是精確資料，如果之後還持續出現方向不同的異常，代表可能要考慮換成更根本的做法（例如對「只用手動改次數、沒有明確日期依據」的舊資料，畫面上明確標示「未知」而不是猜一個數字）而不是繼續加更多修正 migration
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260824-1752.apk）實機確認：(1) 先前回報「明明沒改過、沒穿過卻只有 8-9 天」的那件單品，現在天數是否變回合理的大數字 (2) 先前回報「前幾天才改過使用次數」的單品，天數是否仍然正確反映最近編輯的時間 (3) 連同工作階段 029/030 的「未使用天數」指標與分類篩選是否都正常；確認全部正常再把 ranking-001 補齊 evidence 並改成 passing
 
 ### 工作階段 031
 

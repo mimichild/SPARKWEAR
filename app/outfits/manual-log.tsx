@@ -65,7 +65,7 @@ export default function ManualLogScreen() {
     try {
       const ids = Array.from(selectedItemIds);
       for (const id of ids) await incrementUsageCount(db, id);
-      await logItemUsages(db, ids, date, 'manual');
+      await logItemUsages(db, ids, date, 'manual-log');
       router.back();
     } catch (e) {
       Alert.alert('儲存失敗', e instanceof Error ? e.message : '請稍後再試');

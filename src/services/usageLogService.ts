@@ -18,7 +18,7 @@ export async function logItemUsages(
   db: SQLiteDatabase,
   itemIds: string[],
   date: string,
-  source: 'outfit' | 'manual' = 'outfit'
+  source: 'outfit' | 'manual-log' = 'outfit'
 ): Promise<void> {
   const now = new Date().toISOString();
   for (const itemId of itemIds) {
@@ -34,7 +34,7 @@ export async function removeItemUsages(
   db: SQLiteDatabase,
   itemIds: string[],
   date: string,
-  source: 'outfit' | 'manual' = 'outfit'
+  source: 'outfit' | 'manual-log' = 'outfit'
 ): Promise<void> {
   for (const itemId of itemIds) {
     await db.runAsync(
@@ -59,11 +59,22 @@ export async function getAllUsageCounts(
   return result;
 }
 
+// 用於排行頁「未使用天數」指標，只信任有真實日期依據的來源：
+// 'outfit'（新增穿搭）與 'manual-log'（手動登錄穿搭紀錄，使用者自己選的日期）。
+// 刻意排除 'manual'／'count-sync'／'migration'：這些是「手動改使用次數」欄位背後
+// reconcileUsageLogs 為了讓筆數對齊而補插的紀錄，從來就沒有真實日期依據（欄位本身
+// 沒有日期輸入 UI）；先前試過用「單品最後編輯時間」／「補插日期是否晚於自身建立
+// 時間」這類啟發式去猜測，結果證實不可靠、且已經在使用者裝置上造成資料被反覆誤改
+// （日期忽早忽晚、彼此矛盾）。與其繼續猜，不如老實承認「這幾種來源沒有真實日期」，
+// 從查詢端直接排除，讓沒有真實日期依據的單品乾脆地 fallback 回 calcDaysUnused 的
+// 購買日期／建立日期（見 useRanking.ts）——保守但不會誤導。
 export async function getLastUsedDates(
   db: SQLiteDatabase
 ): Promise<Record<string, string>> {
   const rows = await db.getAllAsync<{ item_id: string; last_used: string }>(
-    `SELECT item_id, MAX(logged_at) as last_used FROM item_usage_logs GROUP BY item_id`
+    `SELECT item_id, MAX(logged_at) as last_used FROM item_usage_logs
+     WHERE source IN ('outfit', 'manual-log')
+     GROUP BY item_id`
   );
   const result: Record<string, string> = {};
   rows.forEach(r => { result[r.item_id] = r.last_used; });
@@ -86,16 +97,21 @@ export async function getUsageCountsByPeriod(
   return result;
 }
 
+// 【歷史紀錄，已不再影響「未使用天數」——見下方說明，不要再依賴它】
 // 一次性修復（db v4→v5）：舊版 reconcileUsageLogs／v3→v4 migration 補插
 // item_usage_logs 時用「購買日期（沒有就用建立日期）」當日期，導致「未使用天數」
 // （見 useRanking.ts calcDaysUnused）對只靠手動改使用次數追蹤穿搭的單品失真。只鎖定
 // 日期剛好等於那個 filler 值、且單品後來又被編輯過（updated_at 更新）的紀錄，改用
 // 單品最後編輯時間當更貼近真實的估計值。
-// 【已知問題，下面 v5→v6 的 revertOverAggressiveLogDateRepair 會修正】：這個假設
-// 太寬鬆——updated_at 只要編輯單品任何欄位（不只是使用次數）就會更新，導致完全沒有
-// 最近使用、也沒有手動改次數的單品被誤判成「最近使用」。函式本身保留不動（歷史紀錄，
-// 且新裝置一路 migrate 上來時 v5→v6 會馬上修正它造成的誤判），之後不要再依賴它的
-// 「用 updated_at 當最後使用時間」這個做法。
+// 【已知問題，下面 v5→v6 的 revertOverAggressiveLogDateRepair 試圖修正，但也不可靠】：
+// 這個假設太寬鬆——updated_at 只要編輯單品任何欄位（不只是使用次數）就會更新，導致
+// 完全沒有最近使用、也沒有手動改次數的單品被誤判成「最近使用」；v5→v6 的補救訊號
+// （logged_at 是否晚於自身 created_at）在裝置一次跑完多個 migration（例如全新安裝、
+// created_at 跟 logged_at 出自同一個時間點）時會失效，兩個修復疊加後讓資料變得更混亂
+// （忽早忽晚、彼此矛盾）。函式本身保留不動（已對外發布過的歷史 migration，不能回頭
+// 改寫它的行為），但 getLastUsedDates() 現在已經改成直接排除 'manual'／'migration'
+// 這兩種來源，不會再讀到這兩個函式動過的資料，所以它們的錯誤已經不會再影響「未使用
+// 天數」——不需要再用第四個 migration 去追著修，繼續猜只會製造更多矛盾。
 export async function repairStaleReconciledLogDates(db: SQLiteDatabase): Promise<number> {
   const rows = await db.getAllAsync<{ log_id: string; updated_at: string }>(
     `SELECT l.id as log_id, i.updated_at as updated_at
@@ -114,16 +130,13 @@ export async function repairStaleReconciledLogDates(db: SQLiteDatabase): Promise
   return rows.length;
 }
 
-// 修正上面 repairStaleReconciledLogDates（db v4→v5）的錯誤假設：它把「單品最後
-// 編輯時間」(items.updated_at) 當成「最後使用時間」的估計值，但 updated_at 只要
-// 編輯單品的任何欄位（不只是使用次數，例如改價格/備註/照片）就會更新，導致完全
-// 沒有最近使用、也沒有手動改次數的單品，被誤判成「最近使用」而未使用天數失真。
-// 用「logged_at 是否晚於同一筆紀錄自己的 created_at」這個矛盾訊號找出真正被
-// repairStaleReconciledLogDates 誤改過的紀錄：正常寫入的紀錄，logged_at（事件
-// 發生日）不可能晚於 created_at（這筆紀錄被寫進資料庫的時間）；只有被那次修復
-// 回溯改成未來日期的紀錄才會出現 logged_at > created_at 這種不可能的狀態。
-// 找到後改回原本的購買日期／建立日期（保守、不會誤判成最近使用，跟這次修復之前
-// 的行為一致）。
+// 【歷史紀錄，已不再影響「未使用天數」——理由同上，不要再依賴它】
+// 曾經試圖修正 repairStaleReconciledLogDates（db v4→v5）的錯誤假設，用「logged_at
+// 是否晚於同一筆紀錄自己的 created_at」這個矛盾訊號找出被誤改的紀錄改回保守值；
+// 但這個訊號在裝置一次跑完多個 migration 時會失效（created_at 跟被改過的 logged_at
+// 出自同一個時間點，訊號消失），並未能完全解決問題。函式本身保留不動（已對外發布過
+// 的歷史 migration），但已不影響「未使用天數」——getLastUsedDates() 現在直接排除
+// 'manual'／'migration' 來源，這兩個函式動過的資料不會再被讀到。
 export async function revertOverAggressiveLogDateRepair(db: SQLiteDatabase): Promise<number> {
   const rows = await db.getAllAsync<{
     log_id: string; purchase_date: string | null; created_at_date: string;
@@ -148,7 +161,11 @@ export async function revertOverAggressiveLogDateRepair(db: SQLiteDatabase): Pro
 
 // 排行榜的 usage/cp 指標完全依 item_usage_logs 計算（見 useRanking.ts），
 // 手動修改 items.usage_count（單品表單）不會自動反映在排行上，
-// 需要在這裡補/刪 log 讓兩邊筆數對齊
+// 需要在這裡補/刪 log 讓兩邊筆數對齊。
+// 補插的紀錄一律標成 'count-sync'（而不是沿用舊版的 'manual'）：這個欄位本身沒有
+// 日期輸入 UI，referenceDate 只是「編輯當下」的日期，不是真正的使用日期，跟
+// 'manual-log'（手動登錄穿搭紀錄，使用者自己選的真實日期）要區分清楚，這樣
+// getLastUsedDates() 才能明確排除它、不會被誤當成「最後使用時間」的真實依據。
 export async function reconcileUsageLogs(
   db: SQLiteDatabase,
   itemId: string,
@@ -167,17 +184,23 @@ export async function reconcileUsageLogs(
       const id = `log-manual-${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${i}`;
       await db.runAsync(
         'INSERT INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
-        [id, itemId, referenceDate, 'manual', now]
+        [id, itemId, referenceDate, 'count-sync', now]
       );
     }
   } else if (diff < 0) {
-    // 優先刪除非穿搭來源的 log（manual/migration），保留與實際穿搭紀錄對應的 log
+    // 優先刪除沒有真實日期依據的 log（count-sync/migration/舊版留下的 manual），
+    // 保留 outfit／manual-log 這兩種有真實日期的 log
     await db.runAsync(
       `DELETE FROM item_usage_logs WHERE id IN (
          SELECT id FROM item_usage_logs
          WHERE item_id = ?
          ORDER BY
-           CASE source WHEN 'manual' THEN 0 WHEN 'migration' THEN 1 ELSE 2 END,
+           CASE source
+             WHEN 'count-sync' THEN 0
+             WHEN 'migration' THEN 1
+             WHEN 'manual' THEN 2
+             ELSE 3
+           END,
            created_at DESC
          LIMIT ?
        )`,

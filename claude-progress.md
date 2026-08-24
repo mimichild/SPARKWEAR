@@ -9,7 +9,7 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1752.apk），等待使用者實機互動確認後才能改成 passing。這個指標的資料修復經過三輪：工作階段 030 修好「手動改使用次數」欄位往後新產生的補插紀錄日期（改成用編輯當下日期）；工作階段 031 加 db v4→v5 migration 一次性修復舊資料，但用「單品最後編輯時間」當「最後使用時間」的假設太寬鬆；工作階段 032 加 db v5→v6 migration 修正這個過度誤判，用「logged_at 晚於自己 created_at」這個矛盾訊號精準找出被誤改的紀錄並改回保守值。都已接到既有的 db migration 機制，使用者安裝新版後下次啟動會自動依序套用，不需要手動操作。**如果之後還有第三種方向的異常（真的最近用過的單品被顯示成很久沒穿），代表這套「用既有欄位回推歷史日期」的做法可能已經到極限，要考慮改成畫面上明確標示「未知」而不是猜測日期**（詳見 feature_list.json ranking-001 notes 結尾）
+- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1806.apk），等待使用者實機互動確認後才能改成 passing。這個指標的資料修復走過四輪：工作階段 030 修好「手動改使用次數」欄位往後新產生的補插紀錄日期（改成用編輯當下日期）；工作階段 031/032 用兩個 db migration（v4→v5／v5→v6）嘗試修復舊資料，但用「單品最後編輯時間」猜「最後使用時間」的啟發式方法在裝置一次跑完多個 migration 時會失效，兩次修復疊加後讓資料變得忽早忽晚、彼此矛盾；工作階段 033 放棄啟發式猜測，改用架構性修正——把 reconcileUsageLogs() 補插紀錄的來源標籤從語意混用的 'manual' 拆成新的 'count-sync'（沒有日期依據）跟 'manual-log'（手動登錄穿搭紀錄，有真實日期），getLastUsedDates() 只信任 'outfit'／'manual-log' 這兩種有真實日期依據的來源，不再嘗試從沒有日期依據的補插紀錄猜測日期，也不再新增第四個 migration 去修舊資料（新查詢邏輯已經不會讀到那些被搞亂的資料，問題從源頭被繞開）。**殘留限制**：只靠「編輯單品→手動改使用次數」（沒有日期欄位）累積的使用紀錄，未使用天數只能保守地從購買日期／加入衣櫃日期起算，不是使用者記憶中真正最後一次穿的日期；要精確請優先用「新增穿搭」或「手動登錄穿搭紀錄」（詳見 feature_list.json ranking-001 notes）
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
 - 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
 - 2026-08-10 補上一個已知缺口：備份/還原（backupService.ts）現在會把 item_usage_logs 表一併納入匯出/匯入，還原備份後排行頁的期間統計（本月/本季/本年最常穿）不再是空的；細節見工作階段 028。**這塊只做過自動化檢查，尚未經過使用者實機「匯出→還原」完整驗證**，且匯入覆蓋模式本身就是會清空現有資料再寫入的動作，使用者實測前務必先自行確認裝置上沒有還沒備份過的重要資料
@@ -17,6 +17,24 @@
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 033
+
+- 日期：2026-08-24
+- 本輪目標：使用者安裝工作階段 032 的 APK 後回報比之前更混亂的狀況——完全沒使用過的單品顯示「10天前使用過」，30天前才用過的單品卻顯示「69天未使用」
+- 已完成：
+  - 排查確認這證實了前兩輪（031/032）的路線已經走到極限：v5→v6 賴以判斷「哪些紀錄被 v4→v5 誤改」的訊號（logged_at 是否晚於自身 created_at），在裝置一次跑完 v4→v5＋v5→v6（例如全新安裝、或這幾輪測試中曾經整批一起跑）時會失效——因為 v3→v4 建立紀錄的 created_at、跟 v4→v5 緊接著改寫的 logged_at，出自同一次 migration run 的同一個時間點，兩者日期相同，訊號消失，v5→v6 因此漏抓，兩個修復疊加後讓資料變得更混亂
+  - 決定不再繼續用第四個 migration 追著猜歷史日期，改採架構性修正，從根本解決「同一個來源標籤代表兩種不同語意」這個問題：
+    - `src/services/usageLogService.ts` 的 `reconcileUsageLogs()` 補插紀錄的來源標籤從沿用已久的 `'manual'` 改成全新的 `'count-sync'`——這個標籤本身沒有日期輸入 UI、referenceDate 只是編輯當下的日期，不是真正的使用日期
+    - `app/outfits/manual-log.tsx`（手動登錄穿搭紀錄畫面，使用者自己選日期）改用新的 `'manual-log'` 標籤，跟上面的 `'count-sync'` 明確區分開——這是這整個系列 bug 的根本原因：原本 `'manual'` 同時代表「沒有日期依據的次數同步」跟「使用者自己選的真實日期」兩種完全不同的東西
+    - `getLastUsedDates()` 改成 `WHERE source IN ('outfit', 'manual-log')`，只信任這兩種有真實日期依據的來源；`'manual'`（舊資料殘留）／`'count-sync'`／`'migration'` 一律不讀，沒有真實日期依據的單品乾脆 fallback 回 `calcDaysUnused` 的購買日期／建立日期——刻意選擇「老實承認不知道」而不是「繼續猜一個可能錯的數字」
+    - 刻意不再新增 migration 去修資料庫裡已經被 v4→v5/v5→v6 搞亂的 `logged_at` 值：新的查詢邏輯已經不會再讀到 `'manual'`／`'migration'` 來源的資料，那些被搞亂的舊值已經完全不影響「未使用天數」的計算結果，繼續修反而有再次弄巧成拙的風險；`repairStaleReconciledLogDates`／`revertOverAggressiveLogDateRepair` 兩個函式保留不動（已對外發布過的歷史 migration），只在註解補充「已不影響未使用天數」
+  - 更新 `src/types/index.ts` 的 `UsageLog.source` 型別；更新測試：`usageLogService.test.ts` 的 `getLastUsedDates` 補查詢條件測試、`reconcileUsageLogs` 兩項測試斷言改成 `'count-sync'`／新的 CASE 優先順序；`itemService.test.ts` 同步更新斷言
+  - 更新 feature_list.json 的 ranking-001 evidence／notes，完整記錄這輪排查、架構修正、以及一個使用者需要知道的殘留限制
+  - 重新本機建置 Android release APK（sparkwear-v2.0.0-20260824-1806.apk）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（24 suites、363 tests 全過）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過自動化檢查與建置成功，**尚未經過使用者實機驗證這次的架構修正是否真的讓天數不再忽早忽晚**；**有一個使用者需要知道的殘留限制**：只靠「編輯單品→手動改使用次數」（沒有日期欄位）累積的使用紀錄，未使用天數只能保守地從購買日期／加入衣櫃日期起算，不是使用者記憶中真正最後一次穿的日期——這不是 bug，是資料本身沒有記錄那個日期；要精確，之後穿搭時建議優先用「新增穿搭」或「手動登錄穿搭紀錄」（兩者都有日期選擇），「手動改使用次數」適合用來做總數校正，不適合當成日期依據
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260824-1806.apk）實機確認：(1) 先前回報的兩個矛盾案例（沒用過卻顯示 10 天前、30 天前用過卻顯示 69 天）這次是否變得合理 (2) 有真實新增穿搭／手動登錄穿搭紀錄的單品天數是否正確 (3) 連同前幾輪的分類篩選是否都正常；如果使用者理解並接受上述殘留限制、且三項都確認正常，再把 ranking-001 補齊 evidence 並改成 passing；如果還有第三種方向的異常，代表要認真考慮改成「未知」顯示而不是繼續猜測日期
 
 ### 工作階段 032
 

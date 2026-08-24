@@ -37,6 +37,8 @@ describe('usageLogService — getAllUsageLogs', () => {
 
 // ── getLastUsedDates ──────────────────────────────────────────────
 // 用於排行頁「未使用天數」指標：取每件單品最近一次使用日期，沒有紀錄的單品不會出現在結果中。
+// 只信任 'outfit'／'manual-log' 這兩種有真實日期依據的來源，'manual'／'count-sync'／
+// 'migration' 這些沒有真實日期依據的補插紀錄一律排除，不然會被誤判成「最近使用」。
 
 describe('usageLogService — getLastUsedDates', () => {
   it('maps item_id to its most recent logged_at date', async () => {
@@ -55,6 +57,14 @@ describe('usageLogService — getLastUsedDates', () => {
   it('returns an empty object when there are no logs', async () => {
     const db = makeDb();
     expect(await getLastUsedDates(db)).toEqual({});
+  });
+
+  it('only queries outfit/manual-log sources, excluding count-sync/migration/legacy-manual filler rows', async () => {
+    const getAllAsync = jest.fn().mockResolvedValue([]);
+    const db = makeDb({ getAllAsync });
+    await getLastUsedDates(db);
+    const [sql] = getAllAsync.mock.calls[0];
+    expect(sql).toContain("WHERE source IN ('outfit', 'manual-log')");
   });
 });
 
@@ -171,7 +181,7 @@ describe('usageLogService — reconcileUsageLogs', () => {
     expect(db.runAsync).not.toHaveBeenCalled();
   });
 
-  it('inserts manual-source logs to make up the gap when target is higher', async () => {
+  it('inserts count-sync-source logs to make up the gap when target is higher', async () => {
     const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 2 }) });
     await reconcileUsageLogs(db, 'item-1', 5, '2024-03-01');
 
@@ -180,7 +190,7 @@ describe('usageLogService — reconcileUsageLogs', () => {
     );
     expect(inserts).toHaveLength(3);
     inserts.forEach(([, args]) => {
-      expect(args).toEqual(expect.arrayContaining(['item-1', '2024-03-01', 'manual']));
+      expect(args).toEqual(expect.arrayContaining(['item-1', '2024-03-01', 'count-sync']));
     });
   });
 
@@ -194,14 +204,16 @@ describe('usageLogService — reconcileUsageLogs', () => {
     expect(inserts).toHaveLength(2);
   });
 
-  it('deletes the excess logs, preferring manual/migration sources, when target is lower', async () => {
+  it('deletes the excess logs, preferring sources with no real date evidence, when target is lower', async () => {
     const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }) });
     await reconcileUsageLogs(db, 'item-1', 2, '2024-03-01');
 
     expect(db.runAsync).toHaveBeenCalledTimes(1);
     const [sql, args] = (db.runAsync as jest.Mock).mock.calls[0];
     expect(sql).toContain('DELETE FROM item_usage_logs');
-    expect(sql).toContain("CASE source WHEN 'manual' THEN 0 WHEN 'migration' THEN 1 ELSE 2 END");
+    expect(sql).toContain("WHEN 'count-sync' THEN 0");
+    expect(sql).toContain("WHEN 'migration' THEN 1");
+    expect(sql).toContain("WHEN 'manual' THEN 2");
     expect(args).toEqual(['item-1', 3]);
   });
 

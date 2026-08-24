@@ -98,7 +98,7 @@ export interface UsageLog {
   id: string;
   itemId: string;
   loggedAt: string;
-  source: 'outfit' | 'manual' | 'migration';
+  source: 'outfit' | 'manual' | 'manual-log' | 'migration' | 'count-sync';
   createdAt: string;
 }
 

@@ -59,21 +59,24 @@ export async function getAllUsageCounts(
   return result;
 }
 
-// 用於排行頁「未使用天數」指標，信任三種來源：
-// 'outfit'（新增穿搭，有真實日期）、'manual-log'（手動登錄穿搭紀錄，使用者自己選
-// 的真實日期）、'count-sync'（手動改使用次數，日期是編輯當下——沒有精確到哪天真的
-// 穿過，但使用者明確表示「這是最近的操作」，經確認後視為「當下使用」）。刻意排除
-// 'manual'（舊版遺留、語意混用，無法分辨是真實日期還是舊邏輯的購買日期 filler）與
-// 'migration'（v3→v4 一次性補填，用購買日期湊數，從來不是真實日期）：這兩種沒有
-// 任何日期依據，讓沒有真實日期依據的單品 fallback 回 calcDaysUnused 的購買日期／
-// 建立日期（見 useRanking.ts），且畫面上會用「尚未使用」跟有真實依據的日期明確
-// 區分開，不會讓兩者看起來一樣。
+// 用於排行頁「未使用天數」指標。信任所有來源，只排除 'migration'：
+// 'outfit'（新增穿搭，真實日期）、'manual-log'（手動登錄穿搭紀錄，使用者自己選的
+// 真實日期）、'count-sync'（手動改使用次數，日期是編輯當下）、'manual'（舊版遺留
+// 標籤——這個 App 從 2026-08-10 就有「手動改使用次數」功能，在這次會話把 'manual'
+// 拆成 'count-sync'／'manual-log' 之前，兩種情境全部沿用同一個 'manual' 標籤；
+// 排除它會讓這段期間所有靠手動改次數追蹤的真實使用歷史整批消失、大量單品被誤判成
+// 「尚未使用」，實測下來這個誤判的範圍遠比理論上的『日期可能不準』風險更嚴重——
+// 曾經試過排除它，但造成大量真的有使用紀錄的單品被標成尚未使用，已改回信任）。
+// 只有 'migration'（v3→v4 一次性補填，用購買日期／建立日期湊數，寫入當下就已經是
+// 「不知道真正日期、隨便填一個」，不像 'manual' 至少有機會是真實的編輯日期）是唯一
+// 從來不可能是真實日期依據的來源，維持排除；沒有任何來源可查的單品，畫面上會用
+// 「尚未使用」跟有依據的日期明確區分開（見 useRanking.ts calcDaysUnused）。
 export async function getLastUsedDates(
   db: SQLiteDatabase
 ): Promise<Record<string, string>> {
   const rows = await db.getAllAsync<{ item_id: string; last_used: string }>(
     `SELECT item_id, MAX(logged_at) as last_used FROM item_usage_logs
-     WHERE source IN ('outfit', 'manual-log', 'count-sync')
+     WHERE source IN ('outfit', 'manual-log', 'count-sync', 'manual')
      GROUP BY item_id`
   );
   const result: Record<string, string> = {};

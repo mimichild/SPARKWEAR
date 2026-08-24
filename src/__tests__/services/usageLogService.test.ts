@@ -39,8 +39,10 @@ describe('usageLogService — getAllUsageLogs', () => {
 // ── getLastUsedDates ──────────────────────────────────────────────
 // 用於排行頁「未使用天數」指標：取每件單品最近一次使用日期，沒有紀錄的單品不會出現在結果中。
 // 信任 'outfit'（新增穿搭）／'manual-log'（手動登錄穿搭紀錄）／'count-sync'（手動
-// 改使用次數，日期是編輯當下，經確認視為「當下使用」）；排除 'manual'（舊版遺留、
-// 語意混用）／'migration'（購買日期湊數，從來不是真實日期）。
+// 改使用次數，日期是編輯當下）／'manual'（舊版遺留標籤，2026-08-10～這次會話拆分
+// 標籤之前的手動改次數紀錄都用這個標籤——排除它會讓這段期間所有靠手動改次數追蹤
+// 的真實使用歷史整批消失、大量單品被誤判成「尚未使用」，實測後改回信任）；
+// 只排除 'migration'（v3→v4 一次性補填，用購買日期湊數，從來不可能是真實日期）。
 
 describe('usageLogService — getLastUsedDates', () => {
   it('maps item_id to its most recent logged_at date', async () => {
@@ -61,12 +63,12 @@ describe('usageLogService — getLastUsedDates', () => {
     expect(await getLastUsedDates(db)).toEqual({});
   });
 
-  it('only queries outfit/manual-log/count-sync sources, excluding migration/legacy-manual filler rows', async () => {
+  it('queries outfit/manual-log/count-sync/manual sources, excluding only migration filler rows', async () => {
     const getAllAsync = jest.fn().mockResolvedValue([]);
     const db = makeDb({ getAllAsync });
     await getLastUsedDates(db);
     const [sql] = getAllAsync.mock.calls[0];
-    expect(sql).toContain("WHERE source IN ('outfit', 'manual-log', 'count-sync')");
+    expect(sql).toContain("WHERE source IN ('outfit', 'manual-log', 'count-sync', 'manual')");
   });
 });
 

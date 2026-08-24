@@ -134,7 +134,7 @@ export async function saveItem(
   );
 
   if (data.usageCount > 0) {
-    await reconcileUsageLogs(db, id, data.usageCount, data.purchaseDate ?? now.slice(0, 10));
+    await reconcileUsageLogs(db, id, data.usageCount, now.slice(0, 10));
   }
 
   return { ...data, id, createdAt: now, updatedAt: now };
@@ -173,7 +173,7 @@ export async function updateItem(
   );
 
   if (data.usageCount !== undefined && data.usageCount !== existing.usageCount) {
-    await reconcileUsageLogs(db, id, data.usageCount, merged.purchaseDate ?? now.slice(0, 10));
+    await reconcileUsageLogs(db, id, data.usageCount, now.slice(0, 10));
   }
 }
 

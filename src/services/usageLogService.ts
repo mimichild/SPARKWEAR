@@ -59,21 +59,21 @@ export async function getAllUsageCounts(
   return result;
 }
 
-// 用於排行頁「未使用天數」指標，只信任有真實日期依據的來源：
-// 'outfit'（新增穿搭）與 'manual-log'（手動登錄穿搭紀錄，使用者自己選的日期）。
-// 刻意排除 'manual'／'count-sync'／'migration'：這些是「手動改使用次數」欄位背後
-// reconcileUsageLogs 為了讓筆數對齊而補插的紀錄，從來就沒有真實日期依據（欄位本身
-// 沒有日期輸入 UI）；先前試過用「單品最後編輯時間」／「補插日期是否晚於自身建立
-// 時間」這類啟發式去猜測，結果證實不可靠、且已經在使用者裝置上造成資料被反覆誤改
-// （日期忽早忽晚、彼此矛盾）。與其繼續猜，不如老實承認「這幾種來源沒有真實日期」，
-// 從查詢端直接排除，讓沒有真實日期依據的單品乾脆地 fallback 回 calcDaysUnused 的
-// 購買日期／建立日期（見 useRanking.ts）——保守但不會誤導。
+// 用於排行頁「未使用天數」指標，信任三種來源：
+// 'outfit'（新增穿搭，有真實日期）、'manual-log'（手動登錄穿搭紀錄，使用者自己選
+// 的真實日期）、'count-sync'（手動改使用次數，日期是編輯當下——沒有精確到哪天真的
+// 穿過，但使用者明確表示「這是最近的操作」，經確認後視為「當下使用」）。刻意排除
+// 'manual'（舊版遺留、語意混用，無法分辨是真實日期還是舊邏輯的購買日期 filler）與
+// 'migration'（v3→v4 一次性補填，用購買日期湊數，從來不是真實日期）：這兩種沒有
+// 任何日期依據，讓沒有真實日期依據的單品 fallback 回 calcDaysUnused 的購買日期／
+// 建立日期（見 useRanking.ts），且畫面上會用「尚未使用」跟有真實依據的日期明確
+// 區分開，不會讓兩者看起來一樣。
 export async function getLastUsedDates(
   db: SQLiteDatabase
 ): Promise<Record<string, string>> {
   const rows = await db.getAllAsync<{ item_id: string; last_used: string }>(
     `SELECT item_id, MAX(logged_at) as last_used FROM item_usage_logs
-     WHERE source IN ('outfit', 'manual-log')
+     WHERE source IN ('outfit', 'manual-log', 'count-sync')
      GROUP BY item_id`
   );
   const result: Record<string, string> = {};

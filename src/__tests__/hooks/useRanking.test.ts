@@ -1,4 +1,4 @@
-import { filterByPeriod, filterByCategory, sortByMetric, calcCP, calcDaysUnused } from '../../hooks/useRanking';
+import { filterByPeriod, filterByCategory, sortByMetric, calcCP, calcDaysUnused, formatDaysUnusedText } from '../../hooks/useRanking';
 import type { Item } from '../../types';
 
 const base: Omit<Item, 'id' | 'name' | 'purchaseDate'> = {
@@ -140,6 +140,18 @@ describe('calcDaysUnused', () => {
   it('不會回傳負數（未來日期防呆）', () => {
     const item = makeItem({ id: '1', name: 'A', purchaseDate: '2026-06-01' });
     expect(calcDaysUnused(item, undefined, now)).toBe(0);
+  });
+});
+
+// ─── formatDaysUnusedText ──────────────────────────────────────────────────
+
+describe('formatDaysUnusedText', () => {
+  it('有真實使用紀錄依據：只顯示天數', () => {
+    expect(formatDaysUnusedText(10, true)).toBe('10 天');
+  });
+
+  it('完全沒有使用紀錄依據（估算值）：標示「尚未使用」，跟真實紀錄明確區分', () => {
+    expect(formatDaysUnusedText(10, false)).toBe('尚未使用（10 天）');
   });
 });
 

@@ -26,6 +26,13 @@ export function calcDaysUnused(
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
+// hasEvidence=false 代表完全沒有 outfit/manual-log/count-sync 任何一種使用紀錄，
+// 顯示的天數是從購買日期／建立日期估算的，不是真的查得到的「最後使用日」，
+// 用「尚未使用」跟有真實紀錄可查的單品明確區分開，避免使用者誤以為那天真的穿過
+export function formatDaysUnusedText(days: number, hasEvidence: boolean): string {
+  return hasEvidence ? `${days} 天` : `尚未使用（${days} 天）`;
+}
+
 export function filterByCategory(items: Item[], categoryIds: string[]): Item[] {
   if (categoryIds.length === 0) return items;
   return items.filter(item => item.categoryId != null && categoryIds.includes(item.categoryId));
@@ -195,8 +202,9 @@ function itemToEntry(
   let scoreText = '';
   switch (metric) {
     case 'days_unused': {
+      const hasEvidence = lastUsedDates[item.id] !== undefined;
       const days = calcDaysUnused(item, lastUsedDates[item.id]);
-      scoreText = `${days} 天`;
+      scoreText = formatDaysUnusedText(days, hasEvidence);
       break;
     }
     case 'usage': {

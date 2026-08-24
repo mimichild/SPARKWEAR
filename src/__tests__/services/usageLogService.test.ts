@@ -1,6 +1,6 @@
 import {
   reconcileUsageLogs, getAllUsageLogs, getLastUsedDates,
-  repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair,
+  repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair, reseedMissingOutfitLogs,
 } from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
@@ -170,6 +170,54 @@ describe('usageLogService — revertOverAggressiveLogDateRepair', () => {
   });
 });
 
+// ── reseedMissingOutfitLogs ────────────────────────────────────────
+// 一次性修復（db v6→v7 migration）：舊版 reconcileUsageLogs 的刪除邏輯可能誤刪
+// 真正對應「新增穿搭」的 outfit 來源紀錄；用 outfits 表（真實穿搭紀錄，唯一可信
+// 的真相來源）補回缺漏，已存在的（不管是原本就有還是先前 migration 建立的）跳過，
+// 不會造成重複計數。
+
+describe('usageLogService — reseedMissingOutfitLogs', () => {
+  it('inserts a missing outfit log for each item in an outfit and returns the count', async () => {
+    const getAllAsync = jest.fn().mockResolvedValue([
+      { id: 'outfit-1', date: '2026-07-26', item_ids: '["item-1","item-2"]' },
+    ]);
+    const getFirstAsync = jest.fn().mockResolvedValue(null); // 都不存在，都要補插
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({ getAllAsync, getFirstAsync, runAsync });
+
+    const count = await reseedMissingOutfitLogs(db);
+
+    expect(count).toBe(2);
+    expect(runAsync).toHaveBeenCalledWith(
+      'INSERT INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
+      expect.arrayContaining(['log-reseed-outfit-1-item-1', 'item-1', '2026-07-26', 'outfit'])
+    );
+    expect(runAsync).toHaveBeenCalledWith(
+      'INSERT INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
+      expect.arrayContaining(['log-reseed-outfit-1-item-2', 'item-2', '2026-07-26', 'outfit'])
+    );
+  });
+
+  it('skips items that already have an outfit log for that date (no duplicate counting)', async () => {
+    const getAllAsync = jest.fn().mockResolvedValue([
+      { id: 'outfit-1', date: '2026-07-26', item_ids: '["item-1"]' },
+    ]);
+    const getFirstAsync = jest.fn().mockResolvedValue({ id: 'log-existing' }); // 已存在
+    const runAsync = jest.fn();
+    const db = makeDb({ getAllAsync, getFirstAsync, runAsync });
+
+    const count = await reseedMissingOutfitLogs(db);
+
+    expect(count).toBe(0);
+    expect(runAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns 0 when there are no outfits', async () => {
+    const db = makeDb({ getAllAsync: jest.fn().mockResolvedValue([]) });
+    expect(await reseedMissingOutfitLogs(db)).toBe(0);
+  });
+});
+
 // ── reconcileUsageLogs ───────────────────────────────────────────
 // 手動編輯 items.usage_count 時，item_usage_logs 的筆數要跟著補齊/刪減，
 // 這樣排行頁（完全依 item_usage_logs 計算 usage/cp 指標）才會反映手動修改的次數。
@@ -213,8 +261,19 @@ describe('usageLogService — reconcileUsageLogs', () => {
     expect(sql).toContain('DELETE FROM item_usage_logs');
     expect(sql).toContain("WHEN 'count-sync' THEN 0");
     expect(sql).toContain("WHEN 'migration' THEN 1");
-    expect(sql).toContain("WHEN 'manual' THEN 2");
     expect(args).toEqual(['item-1', 3]);
+  });
+
+  it('never deletes outfit/manual-log rows even when there are not enough deletable rows to hit the target', async () => {
+    // 這是這輪回報 bug 的根因：舊版沒有限制刪除來源，導致沒有足夠 count-sync/migration
+    // 可刪時會刪到真正的 outfit 紀錄，讓那件單品的「未使用天數」錯誤地 fallback 回購買日期
+    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }) });
+    await reconcileUsageLogs(db, 'item-1', 2, '2024-03-01');
+
+    const [sql] = (db.runAsync as jest.Mock).mock.calls[0];
+    expect(sql).toContain("source IN ('count-sync', 'migration', 'manual')");
+    expect(sql).not.toContain('outfit');
+    expect(sql).not.toContain('manual-log');
   });
 
   it('treats missing log rows as zero', async () => {

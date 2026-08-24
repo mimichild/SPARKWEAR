@@ -159,6 +159,39 @@ export async function revertOverAggressiveLogDateRepair(db: SQLiteDatabase): Pro
   return rows.length;
 }
 
+// 一次性修復（db v6→v7）：舊版 reconcileUsageLogs 的刪除邏輯沒有限制只刪
+// count-sync/migration/manual 來源，導致「手動改使用次數改成比目前紀錄數低」時，
+// 一旦沒有足夠的無日期依據紀錄可刪，會刪到真正對應「新增穿搭」的 outfit 來源紀錄，
+// 讓那件單品之後看起來像沒穿過（未使用天數 fallback 回購買日期）。這個函式用
+// outfits 表（每筆真實穿搭紀錄都有 item_ids 與 date，是唯一可信的真相來源）重新
+// 補回缺漏的 outfit 來源紀錄：對每筆 outfit 的每個關聯單品，只在「這件單品在那個
+// 日期還沒有 outfit 來源的紀錄」時才補插一筆，已存在（不管是原本就有、還是先前
+// v2→v3 seed migration 建立的）一律跳過，不會造成重複計數。
+export async function reseedMissingOutfitLogs(db: SQLiteDatabase): Promise<number> {
+  const outfits = await db.getAllAsync<{ id: string; date: string; item_ids: string }>(
+    'SELECT id, date, item_ids FROM outfits'
+  );
+  const now = new Date().toISOString();
+  let inserted = 0;
+  for (const outfit of outfits) {
+    const itemIds: string[] = JSON.parse(outfit.item_ids || '[]');
+    for (const itemId of itemIds) {
+      const existing = await db.getFirstAsync<{ id: string }>(
+        `SELECT id FROM item_usage_logs WHERE item_id = ? AND logged_at = ? AND source = 'outfit'`,
+        [itemId, outfit.date]
+      );
+      if (existing) continue;
+      const id = `log-reseed-${outfit.id}-${itemId}`;
+      await db.runAsync(
+        'INSERT INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
+        [id, itemId, outfit.date, 'outfit', now]
+      );
+      inserted++;
+    }
+  }
+  return inserted;
+}
+
 // 排行榜的 usage/cp 指標完全依 item_usage_logs 計算（見 useRanking.ts），
 // 手動修改 items.usage_count（單品表單）不會自動反映在排行上，
 // 需要在這裡補/刪 log 讓兩邊筆數對齊。
@@ -188,18 +221,22 @@ export async function reconcileUsageLogs(
       );
     }
   } else if (diff < 0) {
-    // 優先刪除沒有真實日期依據的 log（count-sync/migration/舊版留下的 manual），
-    // 保留 outfit／manual-log 這兩種有真實日期的 log
+    // 只刪除沒有真實日期依據的 log（count-sync/migration/舊版留下的 manual）；
+    // WHERE 子句本身就排除 outfit／manual-log，這兩種有真實日期的紀錄完全不會被
+    // 這個函式刪到——即使可刪除的數量不夠補滿 -diff 也一樣，寧可讓 log 筆數跟
+    // usage_count 對不齊，也不能為了湊數字而毀掉真實的穿搭歷史紀錄。
+    // （這裡曾經只用 ORDER BY 排優先權、沒有限制 WHERE 的來源，導致「沒有足夠的
+    // count-sync/migration 可刪」時會刪到真正對應穿搭紀錄的 outfit log，讓那件
+    // 單品的「未使用天數」錯誤地 fallback 回購買日期，是這輪回報的 bug 根因）
     await db.runAsync(
       `DELETE FROM item_usage_logs WHERE id IN (
          SELECT id FROM item_usage_logs
-         WHERE item_id = ?
+         WHERE item_id = ? AND source IN ('count-sync', 'migration', 'manual')
          ORDER BY
            CASE source
              WHEN 'count-sync' THEN 0
              WHEN 'migration' THEN 1
-             WHEN 'manual' THEN 2
-             ELSE 3
+             ELSE 2
            END,
            created_at DESC
          LIMIT ?

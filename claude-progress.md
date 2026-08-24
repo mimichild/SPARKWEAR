@@ -9,7 +9,7 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列，多選/單選＋自訂新增刪除分類）——程式碼完成、自動化驗證通過、APK 已建置上傳，等待使用者實機互動確認後才能改成 passing
+- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1707.apk），等待使用者實機互動確認後才能改成 passing
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
 - 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
 - 2026-08-10 補上一個已知缺口：備份/還原（backupService.ts）現在會把 item_usage_logs 表一併納入匯出/匯入，還原備份後排行頁的期間統計（本月/本季/本年最常穿）不再是空的；細節見工作階段 028。**這塊只做過自動化檢查，尚未經過使用者實機「匯出→還原」完整驗證**，且匯入覆蓋模式本身就是會清空現有資料再寫入的動作，使用者實測前務必先自行確認裝置上沒有還沒備份過的重要資料
@@ -17,6 +17,23 @@
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 029
+
+- 日期：2026-08-24
+- 本輪目標：使用者要求在排行頁「使用次數」右邊新增一個「未使用天數」篩選/排序，預設最久沒穿的單品排最上面
+- 已完成：
+  - ranking-001（分類篩選）目前仍是 in_progress、還在等使用者實機確認，依鐵律同時只能有一個 in_progress 功能；這個新指標是同一個排行頁的相關功能，比照先前 items-002 擴大範圍的做法，直接併入 ranking-001，沒有另開新 feature
+  - `src/services/usageLogService.ts` 新增 `getLastUsedDates(db)`，用 `SELECT item_id, MAX(logged_at) ... GROUP BY item_id` 取得每件單品最近一次使用日期
+  - `src/hooks/useRanking.ts` 新增 `calcDaysUnused(item, lastUsedDate, now)` 純函式：有最近使用日期就用它算天數，完全沒使用過（沒有對應的 item_usage_logs）就 fallback 用 `item.purchaseDate`、再沒有就用 `item.createdAt`，這樣「買了從沒穿過」的單品天數通常會是清單裡最大的，自然排最上面，符合「最久沒穿的單品放最上面」的需求，不需要另外用 Infinity 特殊處理
+  - `RankingMetric` 型別新增 `'days_unused'`；`sortByMetric()`／`itemToEntry()` 都新增對應 case，排序方向沿用既有「desc=數值高排前」的通用邏輯（跟 cp 指標不同，不需要反轉方向），「再點一下切換方向」的既有互動可以直接沿用
+  - useRanking hook 的 Promise.all 加入 `getLastUsedDates(db)`，跟既有 items/voteCounts/colors 一起抓；因為這個指標沒有 usage/cp 那種「依區間統計次數」的特殊資料來源，直接落入 hook 既有處理『金額』指標的最後一個 else 分支（filterByPeriod → sortByMetric → itemToEntry），連帶會像『金額』一樣受『期間』選單影響（依購買日期篩選），這是沿用既有架構的自然結果，使用者沒特別要求排除期間篩選，先不特別處理
+  - 畫面端只在 `app/closet/(tabs)/ranking.tsx` 的 `METRICS` 陣列裡『使用次數』後面插入『未使用天數』、`DEFAULT_DIRS` 補一個預設方向 `desc`，沒有動任何既有的分類篩選／期間篩選程式碼
+  - 新增測試：`useRanking.test.ts` 的 `calcDaysUnused`（4 項：有使用紀錄、從沒使用過 fallback 購買日期、連購買日期都沒有 fallback 建立日期、防呆不回傳負數）與 `sortByMetric` 的 `days_unused` case（2 項：desc 最久沒穿排前、asc 最近穿過排前）；`usageLogService.test.ts` 的 `getLastUsedDates`（2 項）
+  - 本機建置 Android release APK（sparkwear-v2.0.0-20260824-1707.apk）並上傳 Google Drive 供使用者實機測試
+- 執行過的驗證：`pnpm test`（24 suites、355 tests 全過，含新增 8 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過自動化檢查與建置成功，**尚未經過使用者實機互動驗證**——需要使用者用新 APK 點選「未使用天數」指標，確認清單依天數正確排序（預設最久沒穿在最上面，再點一次切換成最近穿過的在最上面）；同時仍待回報的還有 ranking-001 原本的分類篩選部分（工作階段 025）
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260824-1707.apk）實機測試「未使用天數」指標與分類篩選皆正常後回報，確認正常再把 ranking-001 補齊 evidence 並改成 passing
 
 ### 工作階段 028
 

@@ -1,6 +1,6 @@
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E';
 export type Season = '春季' | '夏季' | '秋季' | '冬季';
-export type RankingMetric = 'usage' | 'price' | 'cp' | 'brand_count' | 'color_count';
+export type RankingMetric = 'usage' | 'price' | 'cp' | 'brand_count' | 'color_count' | 'days_unused';
 export type SortDir = 'asc' | 'desc';
 export type RankingPeriod = 'month' | 'quarter' | 'year' | 'rolling' | 'all';
 export type SortOrder = 'asc' | 'desc';

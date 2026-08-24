@@ -19,6 +19,7 @@ import type { RankingMetric, RankingPeriod, SortDir, RankEntry } from '../../../
 
 const METRICS: { key: RankingMetric; label: string }[] = [
   { key: 'usage',       label: '使用次數' },
+  { key: 'days_unused', label: '未使用天數' },
   { key: 'cp',          label: 'C/P值' },
   { key: 'price',       label: '金額' },
   { key: 'brand_count', label: '品牌數量' },
@@ -26,7 +27,7 @@ const METRICS: { key: RankingMetric; label: string }[] = [
 ];
 
 const DEFAULT_DIRS: Record<RankingMetric, SortDir> = {
-  usage: 'desc', cp: 'desc', price: 'desc', brand_count: 'desc', color_count: 'desc',
+  usage: 'desc', days_unused: 'desc', cp: 'desc', price: 'desc', brand_count: 'desc', color_count: 'desc',
 };
 
 const PERIODS: { key: RankingPeriod; label: string }[] = [

@@ -59,6 +59,17 @@ export async function getAllUsageCounts(
   return result;
 }
 
+export async function getLastUsedDates(
+  db: SQLiteDatabase
+): Promise<Record<string, string>> {
+  const rows = await db.getAllAsync<{ item_id: string; last_used: string }>(
+    `SELECT item_id, MAX(logged_at) as last_used FROM item_usage_logs GROUP BY item_id`
+  );
+  const result: Record<string, string> = {};
+  rows.forEach(r => { result[r.item_id] = r.last_used; });
+  return result;
+}
+
 export async function getUsageCountsByPeriod(
   db: SQLiteDatabase,
   startDate: string,

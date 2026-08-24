@@ -1,4 +1,4 @@
-import { filterByPeriod, filterByCategory, sortByMetric, calcCP } from '../../hooks/useRanking';
+import { filterByPeriod, filterByCategory, sortByMetric, calcCP, calcDaysUnused } from '../../hooks/useRanking';
 import type { Item } from '../../types';
 
 const base: Omit<Item, 'id' | 'name' | 'purchaseDate'> = {
@@ -115,6 +115,34 @@ describe('calcCP', () => {
   });
 });
 
+// ─── calcDaysUnused ────────────────────────────────────────────────────────────
+
+describe('calcDaysUnused', () => {
+  const now = new Date('2026-05-13T00:00:00.000Z');
+
+  it('有最近使用日期：從該日期算到現在', () => {
+    const item = makeItem({ id: '1', name: 'A', purchaseDate: '2026-01-01' });
+    expect(calcDaysUnused(item, '2026-05-03', now)).toBe(10);
+  });
+
+  it('從未使用：fallback 用購買日期', () => {
+    const item = makeItem({ id: '1', name: 'A', purchaseDate: '2026-04-13' });
+    expect(calcDaysUnused(item, undefined, now)).toBe(30);
+  });
+
+  it('從未使用且無購買日期：fallback 用建立日期', () => {
+    const item = makeItem({
+      id: '1', name: 'A', purchaseDate: undefined, createdAt: '2026-05-08T00:00:00.000Z',
+    });
+    expect(calcDaysUnused(item, undefined, now)).toBe(5);
+  });
+
+  it('不會回傳負數（未來日期防呆）', () => {
+    const item = makeItem({ id: '1', name: 'A', purchaseDate: '2026-06-01' });
+    expect(calcDaysUnused(item, undefined, now)).toBe(0);
+  });
+});
+
 // ─── sortByMetric ─────────────────────────────────────────────────────────────
 
 describe('sortByMetric', () => {
@@ -195,5 +223,28 @@ describe('sortByMetric', () => {
     const r = sortByMetric(items3, 'color_count', {}, 'desc');
     expect(r[0].id).toBe('1');
     expect(r[1].id).toBe('2');
+  });
+
+  it('days_unused desc（預設）：最久沒穿的在最上面', () => {
+    // 相對天數：1 最近使用（3天前）、2 從沒使用過（購買日最早，天數最多）、3 使用日較早（12天前）
+    const items4 = [
+      makeItem({ id: '1', name: 'A', purchaseDate: '2026-05-01' }),
+      makeItem({ id: '2', name: 'B', purchaseDate: '2026-01-01' }),
+      makeItem({ id: '3', name: 'C', purchaseDate: '2026-05-01' }),
+    ];
+    const lastUsedDates = { '1': '2026-05-10', '3': '2026-05-01' };
+    const sorted = sortByMetric(items4, 'days_unused', {}, 'desc', lastUsedDates);
+    expect(sorted.map(i => i.id)).toEqual(['2', '3', '1']);
+  });
+
+  it('days_unused asc：最近穿過的在最上面', () => {
+    const items4 = [
+      makeItem({ id: '1', name: 'A', purchaseDate: '2026-05-01' }),
+      makeItem({ id: '2', name: 'B', purchaseDate: '2026-01-01' }),
+      makeItem({ id: '3', name: 'C', purchaseDate: '2026-05-01' }),
+    ];
+    const lastUsedDates = { '1': '2026-05-10', '3': '2026-05-01' };
+    const sorted = sortByMetric(items4, 'days_unused', {}, 'asc', lastUsedDates);
+    expect(sorted.map(i => i.id)).toEqual(['1', '3', '2']);
   });
 });

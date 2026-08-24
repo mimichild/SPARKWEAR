@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSQLiteContext } from '../db/context';
 import { getItems, getAllVoteCounts } from '../services/itemService';
 import { getColors } from '../services/categoryService';
-import { getUsageCountsByPeriod, getAllUsageCounts } from '../services/usageLogService';
+import { getUsageCountsByPeriod, getAllUsageCounts, getLastUsedDates } from '../services/usageLogService';
 import type { Item, RankEntry, RankingMetric, RankingPeriod, SortDir } from '../types';
 
 // ─── Pure computation helpers (exported for testing) ─────────────────────────
@@ -11,6 +11,19 @@ export function calcCP(item: Item): number {
   const price = item.discountPrice ?? item.specialPrice ?? item.originalPrice;
   if (price == null || item.usageCount === 0) return Infinity;
   return price / item.usageCount;
+}
+
+// 未使用天數：有使用紀錄就用最近一次 logged_at，從沒使用過就用購買日期
+// （沒有購買日期則用建立日期）當基準，天數越多代表越久沒穿
+export function calcDaysUnused(
+  item: Item,
+  lastUsedDate: string | undefined,
+  now: Date = new Date()
+): number {
+  const baseline = lastUsedDate ?? item.purchaseDate ?? item.createdAt;
+  const base = new Date(baseline);
+  const diffMs = now.getTime() - base.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
 export function filterByCategory(items: Item[], categoryIds: string[]): Item[] {
@@ -46,12 +59,22 @@ export function sortByMetric(
   items: Item[],
   metric: RankingMetric,
   voteCounts: Record<string, number>,
-  dir: SortDir = 'desc'
+  dir: SortDir = 'desc',
+  lastUsedDates: Record<string, string> = {}
 ): Item[] {
   const sorted = [...items];
   const mul = dir === 'desc' ? 1 : -1;
+  const now = new Date();
 
   switch (metric) {
+    case 'days_unused':
+      // desc（預設）＝天數多排前＝最久沒穿的在最上面
+      return sorted.sort((a, b) => {
+        const aDays = calcDaysUnused(a, lastUsedDates[a.id], now);
+        const bDays = calcDaysUnused(b, lastUsedDates[b.id], now);
+        return mul * (bDays - aDays);
+      });
+
     case 'usage':
       return sorted.sort((a, b) => {
         const aScore = a.usageCount + (voteCounts[a.id] ?? 0);
@@ -166,10 +189,16 @@ export function buildColorRanking(
 function itemToEntry(
   item: Item,
   metric: RankingMetric,
-  voteCounts: Record<string, number>
+  voteCounts: Record<string, number>,
+  lastUsedDates: Record<string, string> = {}
 ): RankEntry {
   let scoreText = '';
   switch (metric) {
+    case 'days_unused': {
+      const days = calcDaysUnused(item, lastUsedDates[item.id]);
+      scoreText = `${days} 天`;
+      break;
+    }
     case 'usage': {
       const total = Math.max(0, item.usageCount + (voteCounts[item.id] ?? 0));
       scoreText = `${total} 次`;
@@ -242,10 +271,11 @@ export function useRanking(
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [rawItems, voteCounts, colors] = await Promise.all([
+      const [rawItems, voteCounts, colors, lastUsedDates] = await Promise.all([
         getItems(db),
         getAllVoteCounts(db),
         getColors(db),
+        getLastUsedDates(db),
       ]);
       const items = filterByCategory(rawItems, categoryIds);
       const colorMap: Record<string, string> = {};
@@ -345,10 +375,10 @@ export function useRanking(
           ? buildBrandRanking(filtered, voteCounts, dir)
           : buildColorRanking(filtered, voteCounts, colorMap, dir);
       } else {
-        // 金額或其他指標
+        // 金額、未使用天數或其他指標
         const filtered = filterByPeriod(items, period, new Date());
-        const sorted = sortByMetric(filtered, metric, voteCounts, dir);
-        entries = sorted.map(item => itemToEntry(item, metric, voteCounts));
+        const sorted = sortByMetric(filtered, metric, voteCounts, dir, lastUsedDates);
+        entries = sorted.map(item => itemToEntry(item, metric, voteCounts, lastUsedDates));
       }
 
       setRanked(entries);

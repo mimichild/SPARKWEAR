@@ -1,4 +1,4 @@
-import { reconcileUsageLogs, getAllUsageLogs } from '../../services/usageLogService';
+import { reconcileUsageLogs, getAllUsageLogs, getLastUsedDates } from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
   return {
@@ -29,6 +29,29 @@ describe('usageLogService — getAllUsageLogs', () => {
   it('returns an empty array when there are no logs', async () => {
     const db = makeDb();
     expect(await getAllUsageLogs(db)).toEqual([]);
+  });
+});
+
+// ── getLastUsedDates ──────────────────────────────────────────────
+// 用於排行頁「未使用天數」指標：取每件單品最近一次使用日期，沒有紀錄的單品不會出現在結果中。
+
+describe('usageLogService — getLastUsedDates', () => {
+  it('maps item_id to its most recent logged_at date', async () => {
+    const db = makeDb({
+      getAllAsync: jest.fn().mockResolvedValue([
+        { item_id: 'item-1', last_used: '2026-05-10' },
+        { item_id: 'item-2', last_used: '2026-01-01' },
+      ]),
+    });
+    expect(await getLastUsedDates(db)).toEqual({
+      'item-1': '2026-05-10',
+      'item-2': '2026-01-01',
+    });
+  });
+
+  it('returns an empty object when there are no logs', async () => {
+    const db = makeDb();
+    expect(await getLastUsedDates(db)).toEqual({});
   });
 });
 

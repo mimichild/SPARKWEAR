@@ -7,7 +7,10 @@ import {
   DEFAULT_COLORS,
 } from '../constants/defaults';
 import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY } from '../constants/theme';
-import { repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair, reseedMissingOutfitLogs } from '../services/usageLogService';
+import {
+  repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair,
+  reseedMissingOutfitLogs, syncUsageCountToLogCount,
+} from '../services/usageLogService';
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(CREATE_TABLES_SQL);
@@ -100,6 +103,14 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
     // 見 usageLogService.ts reseedMissingOutfitLogs 的說明
     await reseedMissingOutfitLogs(db);
     await db.runAsync('PRAGMA user_version = 7');
+  }
+  if (current < 8) {
+    // v7 → v8：reseedMissingOutfitLogs（v6→v7）補回 log 但沒有同步調高
+    // items.usage_count，導致兩者出現落差，讓之後手動增加使用次數時
+    // reconcileUsageLogs() 誤判成不需要新增紀錄，見 usageLogService.ts
+    // syncUsageCountToLogCount 的說明
+    await syncUsageCountToLogCount(db);
+    await db.runAsync('PRAGMA user_version = 8');
   }
 }
 

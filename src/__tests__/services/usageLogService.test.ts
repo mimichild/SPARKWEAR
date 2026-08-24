@@ -1,6 +1,7 @@
 import {
   reconcileUsageLogs, getAllUsageLogs, getLastUsedDates,
   repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair, reseedMissingOutfitLogs,
+  syncUsageCountToLogCount,
 } from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
@@ -216,6 +217,46 @@ describe('usageLogService — reseedMissingOutfitLogs', () => {
   it('returns 0 when there are no outfits', async () => {
     const db = makeDb({ getAllAsync: jest.fn().mockResolvedValue([]) });
     expect(await reseedMissingOutfitLogs(db)).toBe(0);
+  });
+});
+
+// ── syncUsageCountToLogCount ──────────────────────────────────────
+// 一次性修復（db v7→v8 migration）：reseedMissingOutfitLogs（v6→v7）補回 log 但
+// 沒有同步調高 items.usage_count，導致「手動增加使用次數」時 reconcileUsageLogs()
+// 算出來的差值還是負的、完全不會新增今天的紀錄，看起來像「明明加了次數卻還是
+// 顯示尚未使用」。這個函式把 usage_count 補回去對齊真實筆數。
+
+describe('usageLogService — syncUsageCountToLogCount', () => {
+  it('bumps usage_count up to the real log count and returns the affected count', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getAllAsync: jest.fn().mockResolvedValue([
+        { id: 'item-1', log_count: 8 },
+      ]),
+    });
+    const count = await syncUsageCountToLogCount(db);
+    expect(count).toBe(1);
+    expect(runAsync).toHaveBeenCalledWith(
+      'UPDATE items SET usage_count = ? WHERE id = ?',
+      [8, 'item-1']
+    );
+  });
+
+  it('does nothing when usage_count already matches or exceeds the log count', async () => {
+    const runAsync = jest.fn();
+    const db = makeDb({ runAsync, getAllAsync: jest.fn().mockResolvedValue([]) });
+    const count = await syncUsageCountToLogCount(db);
+    expect(count).toBe(0);
+    expect(runAsync).not.toHaveBeenCalled();
+  });
+
+  it('only selects items where the real log count exceeds usage_count', async () => {
+    const getAllAsync = jest.fn().mockResolvedValue([]);
+    const db = makeDb({ getAllAsync });
+    await syncUsageCountToLogCount(db);
+    const [sql] = getAllAsync.mock.calls[0];
+    expect(sql).toContain('HAVING COUNT(l.id) > i.usage_count');
   });
 });
 

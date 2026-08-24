@@ -192,6 +192,31 @@ export async function reseedMissingOutfitLogs(db: SQLiteDatabase): Promise<numbe
   return inserted;
 }
 
+// 一次性修復（db v7→v8）：reseedMissingOutfitLogs（v6→v7）補回過去被誤刪的 outfit
+// 紀錄時，只補 item_usage_logs 表，沒有同步調高 items.usage_count——這讓兩者出現
+// 落差（log 表的真實筆數 > usage_count 欄位）。reconcileUsageLogs() 是靠比較
+// 「usage_count 目標值」跟「item_usage_logs 目前筆數」的差來決定要補插還是刪除；
+// 一旦真實筆數已經因為 reseed 而超過 usage_count，使用者手動把 usage_count 往上調
+// （例如今天又穿了一次，+1）算出來的差可能還是負的，完全不會新增今天的 count-sync
+// 紀錄，看起來就像「明明手動加了次數，卻還是顯示尚未使用」。這個函式把 usage_count
+// 補回去對齊真實筆數（只在真實筆數較高時才調整，不會把使用者刻意調低的數字往下拉），
+// 讓 reconcileUsageLogs 的差值計算恢復正確、也讓「使用次數」排行（本來就是依
+// item_usage_logs 真實筆數計算，見 useRanking.ts）跟單品表單上顯示的數字一致。
+export async function syncUsageCountToLogCount(db: SQLiteDatabase): Promise<number> {
+  const rows = await db.getAllAsync<{ id: string; log_count: number }>(
+    `SELECT i.id, COUNT(l.id) as log_count
+     FROM items i
+     LEFT JOIN item_usage_logs l ON l.item_id = i.id
+     WHERE i.deleted_at IS NULL
+     GROUP BY i.id
+     HAVING COUNT(l.id) > i.usage_count`
+  );
+  for (const row of rows) {
+    await db.runAsync('UPDATE items SET usage_count = ? WHERE id = ?', [row.log_count, row.id]);
+  }
+  return rows.length;
+}
+
 // 排行榜的 usage/cp 指標完全依 item_usage_logs 計算（見 useRanking.ts），
 // 手動修改 items.usage_count（單品表單）不會自動反映在排行上，
 // 需要在這裡補/刪 log 讓兩邊筆數對齊。

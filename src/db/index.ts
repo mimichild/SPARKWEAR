@@ -7,6 +7,7 @@ import {
   DEFAULT_COLORS,
 } from '../constants/defaults';
 import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY } from '../constants/theme';
+import { repairStaleReconciledLogDates } from '../services/usageLogService';
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(CREATE_TABLES_SQL);
@@ -79,6 +80,13 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
       }
     }
     await db.runAsync('PRAGMA user_version = 4');
+  }
+  if (current < 5) {
+    // v4 → v5：修正舊版 reconcileUsageLogs／v3→v4 migration 用購買日期／建立日期
+    // 補插 item_usage_logs 造成「未使用天數」失真的問題，見 usageLogService.ts
+    // repairStaleReconciledLogDates 的說明
+    await repairStaleReconciledLogDates(db);
+    await db.runAsync('PRAGMA user_version = 5');
   }
 }
 

@@ -1,4 +1,4 @@
-import { reconcileUsageLogs, getAllUsageLogs, getLastUsedDates } from '../../services/usageLogService';
+import { reconcileUsageLogs, getAllUsageLogs, getLastUsedDates, repairStaleReconciledLogDates } from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
   return {
@@ -52,6 +52,51 @@ describe('usageLogService — getLastUsedDates', () => {
   it('returns an empty object when there are no logs', async () => {
     const db = makeDb();
     expect(await getLastUsedDates(db)).toEqual({});
+  });
+});
+
+// ── repairStaleReconciledLogDates ─────────────────────────────────
+// 一次性修復（db v4→v5 migration）：舊版 reconcileUsageLogs 補插的紀錄用購買日期
+// 當日期，讓「未使用天數」失真；找出日期剛好等於 filler 值、且單品後來又被編輯過
+// 的紀錄，改用單品最後編輯時間。
+
+describe('usageLogService — repairStaleReconciledLogDates', () => {
+  it('updates matched rows to the item’s updated_at date and returns the count', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getAllAsync: jest.fn().mockResolvedValue([
+        { log_id: 'log-1', updated_at: '2026-08-20T10:00:00.000Z' },
+        { log_id: 'log-2', updated_at: '2026-08-22T09:30:00.000Z' },
+      ]),
+    });
+    const count = await repairStaleReconciledLogDates(db);
+    expect(count).toBe(2);
+    expect(runAsync).toHaveBeenCalledWith(
+      'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
+      ['2026-08-20', 'log-1']
+    );
+    expect(runAsync).toHaveBeenCalledWith(
+      'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
+      ['2026-08-22', 'log-2']
+    );
+  });
+
+  it('does nothing when there are no stale rows to fix', async () => {
+    const runAsync = jest.fn();
+    const db = makeDb({ runAsync, getAllAsync: jest.fn().mockResolvedValue([]) });
+    const count = await repairStaleReconciledLogDates(db);
+    expect(count).toBe(0);
+    expect(runAsync).not.toHaveBeenCalled();
+  });
+
+  it('queries only manual/migration source rows whose date matches the purchase/created fallback and the item was edited since', async () => {
+    const getAllAsync = jest.fn().mockResolvedValue([]);
+    const db = makeDb({ getAllAsync });
+    await repairStaleReconciledLogDates(db);
+    const [sql] = getAllAsync.mock.calls[0];
+    expect(sql).toContain("source IN ('manual', 'migration')");
+    expect(sql).toContain('COALESCE(i.purchase_date, substr(i.created_at, 1, 10))');
   });
 });
 

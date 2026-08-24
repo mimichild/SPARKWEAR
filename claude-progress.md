@@ -9,7 +9,7 @@
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
 - 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
-- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1726.apk），等待使用者實機互動確認後才能改成 passing。工作階段 030 修好使用者實機測試時發現的問題：「手動改使用次數」欄位補插的 item_usage_logs 日期原本用購買日期，導致只靠這個欄位追蹤穿搭的單品未使用天數失真（動輒上千天），已改成用「編輯當下」日期；**這個修法只影響往後新產生的補插紀錄，使用者裝置上既有的舊資料（次數對但日期是舊購買日期）不會自動回填修正**，之後如果使用者發現「改了還是有些單品天數不對」，要往這個方向排查（詳見 feature_list.json ranking-001 notes）
+- 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1737.apk），等待使用者實機互動確認後才能改成 passing。工作階段 030 修好「手動改使用次數」欄位補插紀錄日期用購買日期（改成用編輯當下日期）；工作階段 031 接續補上 db v4→v5 migration（repairStaleReconciledLogDates），一次性修復使用者裝置上已經存在、被舊邏輯記錯日期的舊紀錄，使用者安裝新版後下次啟動會自動套用，不需要逐件手動重新編輯
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
 - 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
 - 2026-08-10 補上一個已知缺口：備份/還原（backupService.ts）現在會把 item_usage_logs 表一併納入匯出/匯入，還原備份後排行頁的期間統計（本月/本季/本年最常穿）不再是空的；細節見工作階段 028。**這塊只做過自動化檢查，尚未經過使用者實機「匯出→還原」完整驗證**，且匯入覆蓋模式本身就是會清空現有資料再寫入的動作，使用者實測前務必先自行確認裝置上沒有還沒備份過的重要資料
@@ -17,6 +17,23 @@
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 031
+
+- 日期：2026-08-24
+- 本輪目標：使用者安裝工作階段 030 的 APK 後回報：前幾天才在編輯單品改過使用次數的單品，未使用天數還是一千多天
+- 已完成：
+  - 確認這不是新 bug，是時間點問題：那次編輯發生在工作階段 030 的修復之前，補插的紀錄用的還是舊邏輯（購買日期），工作階段 030 的收尾其實已經預告過這個限制（「這個修法只影響往後新產生的補插紀錄，不會回填修正既有舊資料」），使用者這次剛好踩到
+  - 用 AskUserQuestion 詢問使用者要「寫一次性資料修復」還是「自己逐件重新改一次使用次數」，使用者選擇一次性修復
+  - `src/services/usageLogService.ts` 新增 `repairStaleReconciledLogDates(db)`：SQL 找出 `item_usage_logs` 裡 `source IN ('manual','migration')` 且 `logged_at` 剛好等於 `COALESCE(items.purchase_date, substr(items.created_at,1,10))`（舊邏輯會用的 filler 值）、且該單品 `updated_at` 比這筆紀錄日期更新的紀錄，把 `logged_at` 改成該單品最後編輯時間的日期部分；只鎖定日期剛好等於 filler 值的紀錄，不會動到『新增穿搭』／『手動登錄穿搭紀錄』這些日期是使用者自己選的真實紀錄
+  - `src/db/index.ts` 的 `runMigrations()` 新增 `current < 5` 區塊，呼叫 `repairStaleReconciledLogDates()` 後把 `PRAGMA user_version` 設成 5；接到既有的 v2→v3／v3→v4 同一套 migration 機制，使用者安裝新版 App 下次啟動時 `initDatabase()` 會自動套用，不需要使用者手動觸發或逐件重新編輯
+  - 這是啟發式修正（用單品最後編輯時間當最佳估計值），不保證 100% 精確——例如使用者改完使用次數後又去改同一件單品的備註等其他欄位，`updated_at` 會反映到那次無關的編輯而不是真正改次數的那一刻，但兩者時間點通常很接近，這個取捨已經在詢問使用者時說明過並取得同意
+  - 新增測試：`src/__tests__/services/usageLogService.test.ts` 的 `repairStaleReconciledLogDates`（3 項：正確更新符合條件的紀錄並回傳筆數、沒有符合條件的紀錄時不做任何事、SQL 條件正確鎖定 manual/migration 來源與 filler 日期比對）
+  - 更新 feature_list.json 的 ranking-001 evidence／notes，記錄這次的排查與修法
+  - 重新本機建置 Android release APK（sparkwear-v2.0.0-20260824-1737.apk）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（24 suites、358 tests 全過，含新增 3 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 outfits/form.tsx 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過自動化檢查與建置成功，**尚未經過使用者實機驗證這個一次性修復是否真的讓那些卡在舊日期的單品變準**——需要使用者安裝新版 App、確認先前回報「前幾天改過但天數還是不對」的那件單品，這次未使用天數是否變成合理的小數字
+- 下一步最佳動作：等使用者用新 APK（sparkwear-v2.0.0-20260824-1737.apk）實機確認舊資料修復生效、且連同工作階段 029/030 的「未使用天數」指標與分類篩選都正常後回報，確認全部正常再把 ranking-001 補齊 evidence 並改成 passing
 
 ### 工作階段 030
 

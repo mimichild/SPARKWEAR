@@ -86,6 +86,30 @@ export async function getUsageCountsByPeriod(
   return result;
 }
 
+// 一次性修復：舊版 reconcileUsageLogs／v3→v4 migration 補插 item_usage_logs 時
+// 用「購買日期（沒有就用建立日期）」當日期，導致「未使用天數」（見 useRanking.ts
+// calcDaysUnused）對只靠手動改使用次數追蹤穿搭的單品失真。只鎖定日期剛好等於那個
+// filler 值、且單品後來又被編輯過（updated_at 更新）的紀錄，改用單品最後編輯時間
+// 當更貼近真實的估計值；不會動到「新增穿搭」／「手動登錄穿搭紀錄」等有真實日期的紀錄，
+// 因為那些紀錄的日期幾乎不會剛好等於購買日期／建立日期這個 filler 值。
+export async function repairStaleReconciledLogDates(db: SQLiteDatabase): Promise<number> {
+  const rows = await db.getAllAsync<{ log_id: string; updated_at: string }>(
+    `SELECT l.id as log_id, i.updated_at as updated_at
+     FROM item_usage_logs l
+     JOIN items i ON i.id = l.item_id
+     WHERE l.source IN ('manual', 'migration')
+       AND l.logged_at = COALESCE(i.purchase_date, substr(i.created_at, 1, 10))
+       AND substr(i.updated_at, 1, 10) > l.logged_at`
+  );
+  for (const row of rows) {
+    await db.runAsync(
+      'UPDATE item_usage_logs SET logged_at = ? WHERE id = ?',
+      [row.updated_at.slice(0, 10), row.log_id]
+    );
+  }
+  return rows.length;
+}
+
 // 排行榜的 usage/cp 指標完全依 item_usage_logs 計算（見 useRanking.ts），
 // 手動修改 items.usage_count（單品表單）不會自動反映在排行上，
 // 需要在這裡補/刪 log 讓兩邊筆數對齊

@@ -1,7 +1,7 @@
 import {
-  reconcileUsageLogs, getAllUsageLogs, getLastUsedDates,
+  getAllUsageLogs, getLastUsedDates,
   repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair, reseedMissingOutfitLogs,
-  syncUsageCountToLogCount,
+  syncUsageCountToLogCount, removeManualLogUsages, removeManualUsageCountFeatureData,
 } from '../../services/usageLogService';
 
 function makeDb(overrides: Record<string, jest.Mock> = {}) {
@@ -38,11 +38,8 @@ describe('usageLogService — getAllUsageLogs', () => {
 
 // ── getLastUsedDates ──────────────────────────────────────────────
 // 用於排行頁「未使用天數」指標：取每件單品最近一次使用日期，沒有紀錄的單品不會出現在結果中。
-// 信任 'outfit'（新增穿搭）／'manual-log'（手動登錄穿搭紀錄）／'count-sync'（手動
-// 改使用次數，日期是編輯當下）／'manual'（舊版遺留標籤，2026-08-10～這次會話拆分
-// 標籤之前的手動改次數紀錄都用這個標籤——排除它會讓這段期間所有靠手動改次數追蹤
-// 的真實使用歷史整批消失、大量單品被誤判成「尚未使用」，實測後改回信任）；
-// 只排除 'migration'（v3→v4 一次性補填，用購買日期湊數，從來不可能是真實日期）。
+// 只信任 'outfit'（新增穿搭）／'manual-log'（手動登錄穿搭紀錄）這兩種有真實日期依據
+// 的來源；排除 'migration'（v3→v4 一次性補填，用購買日期湊數，從來不可能是真實日期）。
 
 describe('usageLogService — getLastUsedDates', () => {
   it('maps item_id to its most recent logged_at date', async () => {
@@ -63,12 +60,12 @@ describe('usageLogService — getLastUsedDates', () => {
     expect(await getLastUsedDates(db)).toEqual({});
   });
 
-  it('queries outfit/manual-log/count-sync/manual sources, excluding only migration filler rows', async () => {
+  it('queries outfit/manual-log sources, excluding migration filler rows', async () => {
     const getAllAsync = jest.fn().mockResolvedValue([]);
     const db = makeDb({ getAllAsync });
     await getLastUsedDates(db);
     const [sql] = getAllAsync.mock.calls[0];
-    expect(sql).toContain("WHERE source IN ('outfit', 'manual-log', 'count-sync', 'manual')");
+    expect(sql).toContain("WHERE source IN ('outfit', 'manual-log')");
   });
 });
 
@@ -262,71 +259,116 @@ describe('usageLogService — syncUsageCountToLogCount', () => {
   });
 });
 
-// ── reconcileUsageLogs ───────────────────────────────────────────
-// 手動編輯 items.usage_count 時，item_usage_logs 的筆數要跟著補齊/刪減，
-// 這樣排行頁（完全依 item_usage_logs 計算 usage/cp 指標）才會反映手動修改的次數。
+// ── removeManualUsageCountFeatureData ──────────────────────────────
+// 一次性清除（db v8→v9 migration）：單品表單「使用次數」手動輸入框功能已移除，
+// 這裡把它過去留下的 item_usage_logs 紀錄（'manual'／'count-sync' 來源）整批刪除，
+// 並把每個單品的 usage_count 重新對齊成清除後剩下的真實紀錄筆數。
 
-describe('usageLogService — reconcileUsageLogs', () => {
-  it('does nothing when target count already matches log count', async () => {
-    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }) });
-    await reconcileUsageLogs(db, 'item-1', 5, '2024-03-01');
-    expect(db.runAsync).not.toHaveBeenCalled();
+describe('usageLogService — removeManualUsageCountFeatureData', () => {
+  it('deletes manual and count-sync sourced logs', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({ runAsync, getAllAsync: jest.fn().mockResolvedValue([]) });
+    await removeManualUsageCountFeatureData(db);
+    expect(runAsync).toHaveBeenCalledWith(
+      `DELETE FROM item_usage_logs WHERE source IN ('manual', 'count-sync')`
+    );
   });
 
-  it('inserts count-sync-source logs to make up the gap when target is higher', async () => {
-    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 2 }) });
-    await reconcileUsageLogs(db, 'item-1', 5, '2024-03-01');
-
-    const inserts = (db.runAsync as jest.Mock).mock.calls.filter(
-      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO item_usage_logs')
-    );
-    expect(inserts).toHaveLength(3);
-    inserts.forEach(([, args]) => {
-      expect(args).toEqual(expect.arrayContaining(['item-1', '2024-03-01', 'count-sync']));
+  it('realigns every item usage_count to its remaining real log count', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getAllAsync: jest.fn().mockResolvedValue([
+        { id: 'item-1', log_count: 2 },
+        { id: 'item-2', log_count: 0 },
+      ]),
     });
+    const affected = await removeManualUsageCountFeatureData(db);
+    expect(affected).toBe(2);
+    expect(runAsync).toHaveBeenCalledWith('UPDATE items SET usage_count = ? WHERE id = ?', [2, 'item-1']);
+    expect(runAsync).toHaveBeenCalledWith('UPDATE items SET usage_count = ? WHERE id = ?', [0, 'item-2']);
   });
 
-  it('inserts logs dated at the reference date when starting from zero', async () => {
-    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 0 } ) });
-    await reconcileUsageLogs(db, 'item-1', 2, '2024-06-15');
-
-    const inserts = (db.runAsync as jest.Mock).mock.calls.filter(
-      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO item_usage_logs')
-    );
-    expect(inserts).toHaveLength(2);
+  it('does not touch manual-log or outfit sourced logs', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({ runAsync, getAllAsync: jest.fn().mockResolvedValue([]) });
+    await removeManualUsageCountFeatureData(db);
+    const deleteCall = runAsync.mock.calls.find(([sql]) => typeof sql === 'string' && sql.includes('DELETE'));
+    expect(deleteCall?.[0]).not.toContain('manual-log');
+    expect(deleteCall?.[0]).not.toContain("'outfit'");
   });
+});
 
-  it('deletes the excess logs, preferring sources with no real date evidence, when target is lower', async () => {
-    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }) });
-    await reconcileUsageLogs(db, 'item-1', 2, '2024-03-01');
+// ── removeManualLogUsages ─────────────────────────────────────────
+// 「手動登錄穿搭次數」畫面批次扣除次數時使用：只刪這個單品自己的 'manual-log'
+// 來源紀錄（新到舊優先刪），不看日期、也絕不動 outfit/count-sync/migration 的紀錄。
+// 要扣的數量若超過現有的 manual-log 筆數，只刪到 0 筆為止，回傳實際刪除筆數，
+// 讓呼叫端知道要不要提示使用者「只扣了 N 次」。
 
-    expect(db.runAsync).toHaveBeenCalledTimes(1);
-    const [sql, args] = (db.runAsync as jest.Mock).mock.calls[0];
+describe('usageLogService — removeManualLogUsages', () => {
+  it('deletes up to `count` manual-log rows and returns the count when enough exist', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }),
+    });
+
+    const removed = await removeManualLogUsages(db, 'item-1', 3);
+
+    expect(removed).toBe(3);
+    expect(runAsync).toHaveBeenCalledTimes(1);
+    const [sql, args] = runAsync.mock.calls[0];
     expect(sql).toContain('DELETE FROM item_usage_logs');
-    expect(sql).toContain("WHEN 'count-sync' THEN 0");
-    expect(sql).toContain("WHEN 'migration' THEN 1");
+    expect(sql).toContain("source = 'manual-log'");
+    expect(sql).toContain('ORDER BY created_at DESC');
     expect(args).toEqual(['item-1', 3]);
   });
 
-  it('never deletes outfit/manual-log rows even when there are not enough deletable rows to hit the target', async () => {
-    // 這是這輪回報 bug 的根因：舊版沒有限制刪除來源，導致沒有足夠 count-sync/migration
-    // 可刪時會刪到真正的 outfit 紀錄，讓那件單品的「未使用天數」錯誤地 fallback 回購買日期
-    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }) });
-    await reconcileUsageLogs(db, 'item-1', 2, '2024-03-01');
+  it('caps deletion to the available manual-log rows and returns the actual deleted count', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({
+      runAsync,
+      getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }),
+    });
 
-    const [sql] = (db.runAsync as jest.Mock).mock.calls[0];
-    expect(sql).toContain("source IN ('count-sync', 'migration', 'manual')");
-    expect(sql).not.toContain('outfit');
-    expect(sql).not.toContain('manual-log');
+    const removed = await removeManualLogUsages(db, 'item-1', 8);
+
+    expect(removed).toBe(5);
+    const [, args] = runAsync.mock.calls[0];
+    expect(args).toEqual(['item-1', 5]);
   });
 
-  it('treats missing log rows as zero', async () => {
-    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue(null) });
-    await reconcileUsageLogs(db, 'item-1', 1, '2024-03-01');
+  it('does nothing and returns 0 when there are no manual-log rows for the item', async () => {
+    const runAsync = jest.fn();
+    const db = makeDb({ runAsync, getFirstAsync: jest.fn().mockResolvedValue({ count: 0 }) });
 
-    const inserts = (db.runAsync as jest.Mock).mock.calls.filter(
-      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO item_usage_logs')
-    );
-    expect(inserts).toHaveLength(1);
+    const removed = await removeManualLogUsages(db, 'item-1', 3);
+
+    expect(removed).toBe(0);
+    expect(runAsync).not.toHaveBeenCalled();
+  });
+
+  it('does nothing and returns 0 when count is zero or negative', async () => {
+    const runAsync = jest.fn();
+    const db = makeDb({ runAsync, getFirstAsync: jest.fn().mockResolvedValue({ count: 5 }) });
+
+    expect(await removeManualLogUsages(db, 'item-1', 0)).toBe(0);
+    expect(await removeManualLogUsages(db, 'item-1', -2)).toBe(0);
+    expect(runAsync).not.toHaveBeenCalled();
+  });
+
+  it('only counts and deletes this item’s manual-log source rows, never other sources', async () => {
+    const getFirstAsync = jest.fn().mockResolvedValue({ count: 2 });
+    const runAsync = jest.fn().mockResolvedValue({ lastInsertRowId: 1, changes: 1 });
+    const db = makeDb({ getFirstAsync, runAsync });
+
+    await removeManualLogUsages(db, 'item-1', 2);
+
+    const [countSql] = getFirstAsync.mock.calls[0];
+    expect(countSql).toContain("source = 'manual-log'");
+    const [deleteSql] = runAsync.mock.calls[0];
+    expect(deleteSql).not.toContain('outfit');
+    expect(deleteSql).not.toContain('count-sync');
+    expect(deleteSql).not.toContain('migration');
   });
 });

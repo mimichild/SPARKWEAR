@@ -59,24 +59,18 @@ export async function getAllUsageCounts(
   return result;
 }
 
-// 用於排行頁「未使用天數」指標。信任所有來源，只排除 'migration'：
-// 'outfit'（新增穿搭，真實日期）、'manual-log'（手動登錄穿搭紀錄，使用者自己選的
-// 真實日期）、'count-sync'（手動改使用次數，日期是編輯當下）、'manual'（舊版遺留
-// 標籤——這個 App 從 2026-08-10 就有「手動改使用次數」功能，在這次會話把 'manual'
-// 拆成 'count-sync'／'manual-log' 之前，兩種情境全部沿用同一個 'manual' 標籤；
-// 排除它會讓這段期間所有靠手動改次數追蹤的真實使用歷史整批消失、大量單品被誤判成
-// 「尚未使用」，實測下來這個誤判的範圍遠比理論上的『日期可能不準』風險更嚴重——
-// 曾經試過排除它，但造成大量真的有使用紀錄的單品被標成尚未使用，已改回信任）。
-// 只有 'migration'（v3→v4 一次性補填，用購買日期／建立日期湊數，寫入當下就已經是
-// 「不知道真正日期、隨便填一個」，不像 'manual' 至少有機會是真實的編輯日期）是唯一
-// 從來不可能是真實日期依據的來源，維持排除；沒有任何來源可查的單品，畫面上會用
-// 「尚未使用」跟有依據的日期明確區分開（見 useRanking.ts calcDaysUnused）。
+// 用於排行頁「未使用天數」指標，只信任有真實日期依據的來源：'outfit'（新增穿搭）、
+// 'manual-log'（手動登錄穿搭紀錄，使用者自己選的真實日期）。排除 'migration'
+// （v3→v4 一次性補填，用購買日期／建立日期湊數，從來不是真實日期）。手動編輯使用
+// 次數的功能（曾用 'manual'／'count-sync' 標籤）已移除，這兩種來源不會再產生新資料，
+// 舊資料也已透過 db migration 清除；沒有任何來源可查的單品，畫面上會用「尚未使用」
+// 跟有依據的日期明確區分開（見 useRanking.ts calcDaysUnused）。
 export async function getLastUsedDates(
   db: SQLiteDatabase
 ): Promise<Record<string, string>> {
   const rows = await db.getAllAsync<{ item_id: string; last_used: string }>(
     `SELECT item_id, MAX(logged_at) as last_used FROM item_usage_logs
-     WHERE source IN ('outfit', 'manual-log', 'count-sync', 'manual')
+     WHERE source IN ('outfit', 'manual-log')
      GROUP BY item_id`
   );
   const result: Record<string, string> = {};
@@ -220,56 +214,52 @@ export async function syncUsageCountToLogCount(db: SQLiteDatabase): Promise<numb
   return rows.length;
 }
 
-// 排行榜的 usage/cp 指標完全依 item_usage_logs 計算（見 useRanking.ts），
-// 手動修改 items.usage_count（單品表單）不會自動反映在排行上，
-// 需要在這裡補/刪 log 讓兩邊筆數對齊。
-// 補插的紀錄一律標成 'count-sync'（而不是沿用舊版的 'manual'）：這個欄位本身沒有
-// 日期輸入 UI，referenceDate 只是「編輯當下」的日期，不是真正的使用日期，跟
-// 'manual-log'（手動登錄穿搭紀錄，使用者自己選的真實日期）要區分清楚，這樣
-// getLastUsedDates() 才能明確排除它、不會被誤當成「最後使用時間」的真實依據。
-export async function reconcileUsageLogs(
+// 一次性清除（db v8→v9）：新增/編輯單品表單的「使用次數」手動輸入框功能已移除
+// （多輪 bug 顯示手動覆寫次數跟「未使用天數」真實日期依據長期衝突，見上面幾個
+// migration 的說明），這裡把該功能過去留下的痕跡整批清除：
+// (1) 刪除 item_usage_logs 裡 source 為 'manual'（舊版標籤）／'count-sync'（拆分後
+//     的標籤）的紀錄——這兩種來源都沒有真實日期依據，一律視為這個已移除功能的產物；
+// (2) 把每個單品的 items.usage_count 重新對齊成清除後剩下的真實紀錄筆數（新增穿搭、
+//     手動登錄穿搭紀錄、舊版購買日期估算），不再信任可能被手動蓋過的舊數字。
+// 'manual-log'（手動登錄穿搭紀錄，使用者自己選日期的另一個功能）不受影響。
+export async function removeManualUsageCountFeatureData(db: SQLiteDatabase): Promise<number> {
+  await db.runAsync(`DELETE FROM item_usage_logs WHERE source IN ('manual', 'count-sync')`);
+  const rows = await db.getAllAsync<{ id: string; log_count: number }>(
+    `SELECT i.id, COUNT(l.id) as log_count
+     FROM items i
+     LEFT JOIN item_usage_logs l ON l.item_id = i.id
+     GROUP BY i.id`
+  );
+  for (const row of rows) {
+    await db.runAsync('UPDATE items SET usage_count = ? WHERE id = ?', [row.log_count, row.id]);
+  }
+  return rows.length;
+}
+
+// 「手動登錄穿搭次數」畫面批次扣除次數時使用：只刪這個單品自己的 'manual-log'
+// 來源紀錄（新到舊優先刪），不看日期、也不動其他來源的紀錄——這樣扣除操作永遠
+// 不會誤刪「新增穿搭」的真實紀錄。要扣的數量若超過現有的 manual-log 筆數，只刪到
+// 0 筆為止，回傳實際刪除筆數，讓呼叫端可以提示使用者「只扣了 N 次」。
+export async function removeManualLogUsages(
   db: SQLiteDatabase,
   itemId: string,
-  targetCount: number,
-  referenceDate: string
-): Promise<void> {
+  count: number
+): Promise<number> {
+  if (count <= 0) return 0;
   const row = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM item_usage_logs WHERE item_id = ?',
+    `SELECT COUNT(*) as count FROM item_usage_logs WHERE item_id = ? AND source = 'manual-log'`,
     [itemId]
   );
-  const current = row?.count ?? 0;
-  const diff = targetCount - current;
-  if (diff > 0) {
-    const now = new Date().toISOString();
-    for (let i = 0; i < diff; i++) {
-      const id = `log-manual-${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${i}`;
-      await db.runAsync(
-        'INSERT INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
-        [id, itemId, referenceDate, 'count-sync', now]
-      );
-    }
-  } else if (diff < 0) {
-    // 只刪除沒有真實日期依據的 log（count-sync/migration/舊版留下的 manual）；
-    // WHERE 子句本身就排除 outfit／manual-log，這兩種有真實日期的紀錄完全不會被
-    // 這個函式刪到——即使可刪除的數量不夠補滿 -diff 也一樣，寧可讓 log 筆數跟
-    // usage_count 對不齊，也不能為了湊數字而毀掉真實的穿搭歷史紀錄。
-    // （這裡曾經只用 ORDER BY 排優先權、沒有限制 WHERE 的來源，導致「沒有足夠的
-    // count-sync/migration 可刪」時會刪到真正對應穿搭紀錄的 outfit log，讓那件
-    // 單品的「未使用天數」錯誤地 fallback 回購買日期，是這輪回報的 bug 根因）
-    await db.runAsync(
-      `DELETE FROM item_usage_logs WHERE id IN (
-         SELECT id FROM item_usage_logs
-         WHERE item_id = ? AND source IN ('count-sync', 'migration', 'manual')
-         ORDER BY
-           CASE source
-             WHEN 'count-sync' THEN 0
-             WHEN 'migration' THEN 1
-             ELSE 2
-           END,
-           created_at DESC
-         LIMIT ?
-       )`,
-      [itemId, -diff]
-    );
-  }
+  const toDelete = Math.min(count, row?.count ?? 0);
+  if (toDelete === 0) return 0;
+  await db.runAsync(
+    `DELETE FROM item_usage_logs WHERE id IN (
+       SELECT id FROM item_usage_logs
+       WHERE item_id = ? AND source = 'manual-log'
+       ORDER BY created_at DESC
+       LIMIT ?
+     )`,
+    [itemId, toDelete]
+  );
+  return toDelete;
 }

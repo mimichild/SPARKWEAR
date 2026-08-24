@@ -8,7 +8,8 @@
 
 - 儲存庫根目錄：/Users/mimi/Documents/SPARKWEAR
 - 標準啟動路徑：`RUN_START_COMMAND=1 ./init.sh`（pnpm start = expo start；Android 實機建置用 /build-apk skill）
-- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-10 為 334 tests passed；另有 pnpm typecheck、pnpm regression）
+- 標準驗證路徑：`./init.sh`（pnpm install + pnpm test；2026-08-24 為 372 tests passed；另有 pnpm typecheck、pnpm regression）
+- 2026-08-24（工作階段 038）：應使用者要求，單品「記錄新品」／「編輯單品」表單的「使用次數」手動輸入框已整個移除（items-001 功能反悔），過去用這個框改過的歷史次數紀錄（item_usage_logs source='manual'/'count-sync'）也已透過 db v8→v9 migration 清除、items.usage_count 重新對齊真實紀錄筆數；使用次數之後只能靠真實行為（新增穿搭、手動登錄穿搭紀錄）累積。已建置 APK（sparkwear-v2.0.0-20260824-1949.apk）等使用者實機確認，**已知可見副作用**：曾手動改高過次數的單品，安裝新版後數字可能變回較低的真實次數，是預期內修正。
 - 目前最高優先級未完成功能：ranking-001（排行頁新增分類篩選 chip 列＋新增「未使用天數」指標）——程式碼完成、自動化驗證通過、APK 已建置上傳（sparkwear-v2.0.0-20260824-1903.apk），等待使用者實機互動確認後才能改成 passing。工作階段 037 修好工作階段 033『架構性修正』矯枉過正的問題：當時整批排除 'manual' 來源，沒意識到這個 App 從 2026-08-10（items-001 上線）到工作階段 033 拆分標籤之前，兩週左右所有靠「手動改使用次數」追蹤的真實使用歷史全部沿用 'manual' 標籤，排除它讓大量單品被誤判成「尚未使用」；已改回信任 'manual'，現在只排除 'migration'（唯一設計上從一開始就不可能是真實日期的來源）。另一個回報的問題（今天用過卻顯示7天前）這輪沒找到確切根因，可能是工作階段 036 那類 usage_count/log 筆數落差的另一個變形，還在等使用者提供更多細節才能繼續排查。工作階段 036 修好工作階段 034 修復（reseedMissingOutfitLogs）本身的副作用：那次只補了 item_usage_logs 表，沒有同步調高 items.usage_count，導致部分單品『真實 log 筆數』高於 usage_count 欄位，讓之後手動增加使用次數時 reconcileUsageLogs() 算出來的差值失準、完全不會新增當天的紀錄；新增 syncUsageCountToLogCount() 接到 db v7→v8 migration 補回落差。**這次修復有可見副作用**：部分單品的『使用次數』欄位安裝新版後可能會變高（代表資料被修正變準，不是新異常），需要跟使用者說明。這個指標的資料修復走過六輪：工作階段 030 修好「手動改使用次數」欄位往後新產生的補插紀錄日期（改成用編輯當下日期）；工作階段 031/032 用兩個 db migration（v4→v5／v5→v6）嘗試修復舊資料，啟發式方法在裝置一次跑完多個 migration 時失效，兩次修復疊加後讓資料忽早忽晚、彼此矛盾；工作階段 033 放棄啟發式猜測，改用架構性修正——把 reconcileUsageLogs() 補插紀錄的來源標籤從語意混用的 'manual' 拆成新的 'count-sync'（沒有日期依據）跟 'manual-log'（手動登錄穿搭紀錄，有真實日期）；工作階段 034 找到真正的根本原因（跟前三輪完全不同層級）——reconcileUsageLogs() 的刪除邏輯沒有限制只能刪沒有真實日期依據的來源，導致手動把使用次數改低時可能刪到真正對應「新增穿搭」的 outfit 紀錄，修好並用 db v6→v7 migration（reseedMissingOutfitLogs，依據 outfits 表這個唯一真相來源）補回過去被誤刪的資料；工作階段 035 處理使用者對「保守估計」規則的回饋——原本刻意讓「手動改使用次數」不算進未使用天數（避免影響月/季統計），但使用者認為這樣不直覺，詢問後改成 count-sync 也算「當下使用」，並新增「尚未使用（N天）」文字標示，把「完全沒紀錄、靠購買日期猜的」跟「真的查得到紀錄」在畫面上明確區分開，避免使用者誤讀。**已知取捨**：一次補登很久以前的歷史次數會被當成「今天使用」（未使用天數變 0），這是使用者選擇的取捨，不是 bug；要精確請優先用「新增穿搭」或「手動登錄穿搭紀錄」（詳見 feature_list.json ranking-001 notes）
 - 其餘功能：monetization-001、ios-009、items-001、items-002（單品詳細頁／穿搭詳細頁左右滑動切換上一筆/下一筆項目）皆已 passing；items-002 已由使用者實機安裝 sparkwear-v2.0.0-20260810-1352.apk 測試「滑動測試沒問題」；AdMob／App Store 訂閱項目／RevenueCat 三塊監利化基礎設施全部完成並**已實機驗證通過**；`useProGate.ts` 修好一個真實 bug（鎖定功能跳出的升級提示，按「升級 Pro」改成直接觸發購買，不再導頁——導頁設計在使用者已身處設定頁時會看起來沒反應）；廣告目前還沒顯示（AdMob 帳號審核中，正常現象）；2026-08-10 修好「刪除穿搭紀錄後單品使用次數未跟著減少」的 bug（ios-009）；2026-08-10 新增單品新增/編輯表單的「使用次數」手動輸入欄並修好單品詳細頁沒同步更新的問題（items-001，使用者已實機驗證新增/編輯操作正常）；2026-08-10 再修好一個同源問題：手動改使用次數後「排行」頁的使用次數排行沒反映新數字（items-001 notes 補記，見下方工作階段 026），已建置新 APK 等使用者實機確認
 - 2026-08-10 純導頁調整：編輯單品儲存後改成停留在該單品詳細頁（原本會跳回衣櫃首頁），`app/closet/item/form.tsx` 用跟「取消」按鈕一樣的 `router.dismiss()` 邏輯；新增單品的導頁行為不變。已建置 APK 等使用者實機確認
@@ -17,6 +18,25 @@
 - 背景：Apple Developer Program 已生效（2026-07-20）；ios-001～ios-008 皆已 passing（含實機驗證相機拍照）；EAS 雲端建置成功產出 .ipa；已設定 EAS Update（OTA）支援，之後純 JS/TS 改動可以用 eas update 直接推送不用整套重 build；eas.json 加了 ascAppId，eas submit 可以完全非互動執行；SPARKWEAR 的匯入是走 SQL INSERT（非檔案覆蓋），確認沒有 SPARKPLATE 那種匯入唯讀 bug 的風險；行動計畫見 docs/IOS_READINESS_ROADMAP.md。2026-07-23 起開始做付費功能：安裝 react-native-google-mobile-ads + react-native-purchases，新增 src/constants/monetization.ts（目前用 Google 測試 ID + 空字串佔位 RevenueCat Key）、src/services/purchases.ts、src/hooks/useProGate.ts（未通過 Pro 鎖時跳升級提示）、src/hooks/useIsPro.ts（Android 因無付費入口一律視為 Pro，iOS 才看真實訂閱狀態）、src/components/AdBanner.tsx；VIP 兌換碼機制已依使用者指示完全移除，PRO 解鎖區塊改成「升級 Pro」／「恢復購買」按鈕。
 
 ## 工作階段日誌
+
+### 工作階段 038
+
+- 日期：2026-08-24
+- 本輪目標：使用者直接要求把「紀錄新品」「編輯單品」表單裡的「使用次數」手動輸入框整個刪除（不要保留這個功能），並把之前用這個框改過的歷史次數紀錄一併刪除。這是對 items-001（2026-08-10 上線的功能）的直接反悔，背景是 ranking-001 系列（工作階段 030～037）反覆修了六輪都圍繞著這個功能造成的資料衝突打轉
+- 已完成：
+  - `app/closet/item/form.tsx`：移除「使用次數」`Field`／`TextInput` 區塊與 `usageCountText` state，改用唯讀的 `existingUsageCount`（編輯模式從 `item.usageCount` 預填、之後不會被表單改動；新增模式固定 0）
+  - `src/services/itemService.ts`：`saveItem()`／`updateItem()` 移除呼叫 `reconcileUsageLogs()`（這個功能唯一的觸發點就是這個表單，移除表單後這兩處呼叫變成死碼，一併刪除）
+  - `src/services/usageLogService.ts`：`reconcileUsageLogs()` 函式本身刪除（唯一呼叫端已消失）；新增一次性清除函式 `removeManualUsageCountFeatureData(db)`：刪除 `item_usage_logs` 裡 `source IN ('manual', 'count-sync')` 的歷史紀錄，並把每個單品的 `items.usage_count` 重新對齊成清除後剩下的真實紀錄筆數（新增穿搭/手動登錄穿搭紀錄/舊版購買日期估算）
+  - `src/db/index.ts`：接上 db v8→v9 migration，呼叫 `removeManualUsageCountFeatureData()`，使用者安裝新版後下次啟動自動套用
+  - `getLastUsedDates()` 信任來源從 4 種（`outfit`/`manual-log`/`count-sync`/`manual`）縮減為只信任 `outfit`/`manual-log`——`manual`/`count-sync` 兩個標籤在功能移除、歷史資料清除後已無存在意義；`UsageLog.source` 型別同步縮減為 `'outfit' | 'manual-log' | 'migration'`
+  - 用 AskUserQuestion 向使用者確認刪除範圍與可見副作用（曾手動改高過的單品次數，安裝新版後會變回真實紀錄筆數，可能變低），使用者選擇「照做法執行（推薦）」後才動手寫 migration
+  - 更新測試：`itemService.test.ts` 的 saveItem/updateItem 測試改為驗證「不論 usageCount 是多少，都不會再觸碰 item_usage_logs」；`usageLogService.test.ts` 移除 `reconcileUsageLogs` 整組測試，新增 `removeManualUsageCountFeatureData` 3 項測試，`getLastUsedDates` 查詢條件斷言更新為只含 `outfit`/`manual-log`
+  - 確認專案裡已有一批未提交的 WIP（`app/outfits/manual-log.tsx` 的批次扣次數功能、`usageLogService.ts` 的 `removeManualLogUsages`，屬於「手動登錄穿搭紀錄」這個不同的畫面/功能）只用 `'manual-log'` 來源，跟本次刪除的 `'manual'`/`'count-sync'` 完全無重疊，未受影響、也未動它
+  - 更新 `feature_list.json` 的 `items-001`：標題/`user_visible_behavior` 改為反映「功能已移除」的現況，`verification`/`evidence`/`notes` 補上這輪的做法與待辦，原始 2026-08-10 notes 保留在最下面供歷史對照（不新開 id，因為就是同一個功能的反悔）
+  - 重新本機建置 Android release APK（`sparkwear-v2.0.0-20260824-1949.apk`）並上傳 Google Drive
+- 執行過的驗證：`pnpm test`（24 suites、372 tests 全過，含新增 3 項）；`npx tsc --noEmit -p .`（無新增型別錯誤，既有 `app/outfits/form.tsx` 錯誤與本次改動無關）；`./gradlew assembleRelease` 建置成功
+- 已知風險或未解決問題：本次改動只做過自動化檢查與建置成功，**尚未經過使用者實機驗證**——需要確認 (1) 新增/編輯單品表單真的不再顯示使用次數框 (2) 舊資料的使用次數數字變化符合預期說明（曾手動改高過的單品次數變回真實紀錄筆數是預期的資料修正，不是新 bug）；`ranking-001` 仍是 `in_progress`（本輪沒有直接處理它，但這次刪除從根本上排除了它反覆卡住的根因之一，之後如果 `ranking-001` 還有『未使用天數』相關回報，範圍會單純很多——不再需要考慮 manual/count-sync 這兩種來源的資料）
+- 下一步最佳動作：等使用者用新 APK（`sparkwear-v2.0.0-20260824-1949.apk`）實機安裝驗證這次的移除結果，確認無誤後把 `items-001` 的實機驗證這項補齊；同時等使用者對前一輪 `ranking-001`（`sparkwear-v2.0.0-20260824-1903.apk`）的確認回報，兩個 APK 目前都在等待使用者測試
 
 ### 工作階段 037
 

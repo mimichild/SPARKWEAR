@@ -138,25 +138,10 @@ describe('itemService — saveItem', () => {
     expect(item.usageCount).toBe(0);
   });
 
-  it('does not touch item_usage_logs when usageCount is 0', async () => {
+  it('never touches item_usage_logs regardless of usageCount', async () => {
     const db = makeDb();
-    await saveItem(db, { ...baseItem, usageCount: 0 });
-    expect(db.runAsync).toHaveBeenCalledTimes(1); // only the INSERT INTO items
-  });
-
-  it('seeds item_usage_logs so the ranking page reflects a manually entered starting usageCount', async () => {
-    const db = makeDb();
-    const today = new Date().toISOString().slice(0, 10);
     await saveItem(db, { ...baseItem, usageCount: 3 });
-    const logInserts = (db.runAsync as jest.Mock).mock.calls.filter(
-      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO item_usage_logs')
-    );
-    expect(logInserts).toHaveLength(3);
-    // 補插的紀錄用「編輯當下」的日期（而非購買日期），這樣「未使用天數」才能反映
-    // 使用者實際手動更新次數的時間，而不是很久以前的購買日期
-    logInserts.forEach(([, args]) => {
-      expect(args).toEqual(expect.arrayContaining([today, 'count-sync']));
-    });
+    expect(db.runAsync).toHaveBeenCalledTimes(1); // only the INSERT INTO items
   });
 });
 
@@ -184,31 +169,10 @@ describe('itemService — updateItem', () => {
     expect(db.runAsync).toHaveBeenCalledTimes(1); // only the UPDATE items
   });
 
-  it('inserts item_usage_logs to match a manually increased usageCount, so ranking reflects the edit', async () => {
-    const getFirstAsync = jest.fn()
-      .mockResolvedValueOnce(fullItemRow)      // getItemById inside updateItem
-      .mockResolvedValueOnce({ count: 2 });    // current log count inside reconcileUsageLogs
-    const db = makeDb({ getFirstAsync });
+  it('never touches item_usage_logs even when usageCount changes', async () => {
+    const db = makeDb({ getFirstAsync: jest.fn().mockResolvedValue(fullItemRow) });
     await updateItem(db, 'item-1', { usageCount: 6 }); // fullItemRow.usage_count is 3
-
-    const logInserts = (db.runAsync as jest.Mock).mock.calls.filter(
-      ([sql]) => typeof sql === 'string' && sql.includes('INSERT INTO item_usage_logs')
-    );
-    expect(logInserts).toHaveLength(4); // 6 target - 2 existing logs
-  });
-
-  it('deletes item_usage_logs to match a manually decreased usageCount', async () => {
-    const getFirstAsync = jest.fn()
-      .mockResolvedValueOnce(fullItemRow)      // getItemById inside updateItem
-      .mockResolvedValueOnce({ count: 5 });    // current log count inside reconcileUsageLogs
-    const db = makeDb({ getFirstAsync });
-    await updateItem(db, 'item-1', { usageCount: 1 }); // fullItemRow.usage_count is 3
-
-    const logDelete = (db.runAsync as jest.Mock).mock.calls.find(
-      ([sql]) => typeof sql === 'string' && sql.includes('DELETE FROM item_usage_logs')
-    );
-    expect(logDelete).toBeTruthy();
-    expect(logDelete?.[1]).toEqual(['item-1', 4]); // 5 existing logs - 1 target
+    expect(db.runAsync).toHaveBeenCalledTimes(1); // only the UPDATE items
   });
 });
 

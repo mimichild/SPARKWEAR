@@ -9,7 +9,7 @@ import {
 import { DEFAULT_THEME_COLOR, DEFAULT_FONT_KEY } from '../constants/theme';
 import {
   repairStaleReconciledLogDates, revertOverAggressiveLogDateRepair,
-  reseedMissingOutfitLogs, syncUsageCountToLogCount,
+  reseedMissingOutfitLogs, syncUsageCountToLogCount, removeManualUsageCountFeatureData,
 } from '../services/usageLogService';
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
@@ -111,6 +111,12 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
     // syncUsageCountToLogCount 的說明
     await syncUsageCountToLogCount(db);
     await db.runAsync('PRAGMA user_version = 8');
+  }
+  if (current < 9) {
+    // v8 → v9：移除單品表單「使用次數」手動輸入框功能，一併清除它過去留下的資料，
+    // 見 usageLogService.ts removeManualUsageCountFeatureData 的說明
+    await removeManualUsageCountFeatureData(db);
+    await db.runAsync('PRAGMA user_version = 9');
   }
 }
 

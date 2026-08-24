@@ -2,7 +2,6 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Item, Season, Grade, SortOrder } from '../types';
 import { deletePhotos } from './photoService';
 import type { Photo } from '../types';
-import { reconcileUsageLogs } from './usageLogService';
 
 // ── Serialization helpers ─────────────────────────────────────
 
@@ -133,10 +132,6 @@ export async function saveItem(
     ]
   );
 
-  if (data.usageCount > 0) {
-    await reconcileUsageLogs(db, id, data.usageCount, now.slice(0, 10));
-  }
-
   return { ...data, id, createdAt: now, updatedAt: now };
 }
 
@@ -171,10 +166,6 @@ export async function updateItem(
       id,
     ]
   );
-
-  if (data.usageCount !== undefined && data.usageCount !== existing.usageCount) {
-    await reconcileUsageLogs(db, id, data.usageCount, now.slice(0, 10));
-  }
 }
 
 export async function deleteItem(db: SQLiteDatabase, id: string): Promise<void> {

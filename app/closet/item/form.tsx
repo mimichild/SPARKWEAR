@@ -70,7 +70,7 @@ export default function ItemFormScreen() {
   const [weight, setWeight] = useState('');
   const [bodyType, setBodyType] = useState('');
   const [suggestedWeight, setSuggestedWeight] = useState('');
-  const [usageCountText, setUsageCountText] = useState('0');
+  const [existingUsageCount, setExistingUsageCount] = useState(0);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [miniNote, setMiniNote] = useState('');
   const [pros, setPros] = useState('');
@@ -126,7 +126,7 @@ export default function ItemFormScreen() {
       setWeight(item.weight ?? '');
       setBodyType(item.bodyType ?? '');
       setSuggestedWeight(item.suggestedWeight ?? '');
-      setUsageCountText(String(item.usageCount));
+      setExistingUsageCount(item.usageCount);
       setSeasons(item.seasons);
       setMiniNote(item.miniNote ?? '');
       setPros(item.pros ?? '');
@@ -205,8 +205,6 @@ export default function ItemFormScreen() {
     setSaving(true);
     try {
       const photoIds = existingPhotos.filter(p => !removedPhotoIds.has(p.id)).map(p => p.path);
-      const parsedUsageCount = parseInt(usageCountText, 10);
-      const usageCount = Number.isFinite(parsedUsageCount) ? Math.max(0, parsedUsageCount) : 0;
       const data: Omit<Item, 'id' | 'createdAt' | 'updatedAt'> = {
         name: name.trim(), brand: brand.trim() || undefined,
         purchaseDate: purchaseDate || undefined, purchaseTime: purchaseTime.trim() || undefined,
@@ -217,7 +215,7 @@ export default function ItemFormScreen() {
         discountPrice: discountPrice ? parseFloat(discountPrice) : undefined,
         size: size.trim() || undefined, weight: weight.trim() || undefined,
         bodyType: bodyType.trim() || undefined, suggestedWeight: suggestedWeight.trim() || undefined,
-        usageCount, seasons,
+        usageCount: existingUsageCount, seasons,
         miniNote: miniNote.trim() || undefined, pros: pros.trim() || undefined,
         cons: cons.trim() || undefined, remark: remark.trim() || undefined,
         photoIds,
@@ -240,7 +238,7 @@ export default function ItemFormScreen() {
   }, [
     name, brand, purchaseDate, purchaseTime, categoryId, originId,
     selectedColorIds, grade, originalPrice, specialPrice, discountPrice,
-    size, weight, bodyType, suggestedWeight, usageCountText, seasons,
+    size, weight, bodyType, suggestedWeight, existingUsageCount, seasons,
     miniNote, pros, cons, remark, existingPhotos, removedPhotoIds,
     isEdit, id, db, router,
   ]);
@@ -432,21 +430,6 @@ export default function ItemFormScreen() {
           <View style={styles.row}>
             <View style={styles.flex1}><Field label="身材"><TextInput style={styles.input} placeholderTextColor="#bbb" value={bodyType} onChangeText={setBodyType} placeholder="梨形" /></Field></View>
             <View style={styles.flex1}><Field label="建議體重範圍"><TextInput style={styles.input} placeholderTextColor="#bbb" value={suggestedWeight} onChangeText={setSuggestedWeight} placeholder="45-52" /></Field></View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.flex1}>
-              <Field label="使用次數">
-                <TextInput
-                  style={styles.input}
-                  placeholderTextColor="#bbb"
-                  value={usageCountText}
-                  onChangeText={t => setUsageCountText(t.replace(/[^0-9]/g, ''))}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                />
-              </Field>
-            </View>
-            <View style={styles.flex1} />
           </View>
         </View>
 

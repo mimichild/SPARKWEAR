@@ -26,7 +26,7 @@ export function calcDaysUnused(
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
-// hasEvidence=false 代表完全沒有 outfit/manual-log/count-sync 任何一種使用紀錄，
+// hasEvidence=false 代表完全沒有 outfit/manual-log 任何一種使用紀錄，
 // 顯示的天數是從購買日期／建立日期估算的，不是真的查得到的「最後使用日」，
 // 用「尚未使用」跟有真實紀錄可查的單品明確區分開，避免使用者誤以為那天真的穿過
 export function formatDaysUnusedText(days: number, hasEvidence: boolean): string {

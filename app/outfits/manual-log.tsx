@@ -6,10 +6,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from '../../src/db/context';
-import { getItems, filterItems, incrementUsageCount } from '../../src/services/itemService';
+import { getItems, filterItems, incrementUsageCount, decrementUsageCount } from '../../src/services/itemService';
 import { getCategories } from '../../src/services/categoryService';
 import { getPhotoUri } from '../../src/services/photoService';
-import { logItemUsages } from '../../src/services/usageLogService';
+import { logItemUsages, removeManualLogUsages } from '../../src/services/usageLogService';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import { SearchBar } from '../../src/components/shared/SearchBar';
 import type { Item, Category } from '../../src/types';
@@ -29,7 +29,8 @@ export default function ManualLogScreen() {
   const insets = useSafeAreaInsets();
 
   const [date, setDate] = useState(TODAY);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [itemDeltas, setItemDeltas] = useState<Record<string, number>>({});
+  const [draftText, setDraftText] = useState<Record<string, string>>({});
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [itemQuery, setItemQuery] = useState('');
@@ -51,28 +52,70 @@ export default function ManualLogScreen() {
   })();
 
   const toggleItem = useCallback((itemId: string) => {
-    setSelectedItemIds(prev => {
-      const next = new Set(prev);
-      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
-      return next;
+    setItemDeltas(prev => {
+      if (itemId in prev) {
+        const { [itemId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [itemId]: 1 };
+    });
+    setDraftText(prev => {
+      if (itemId in prev) {
+        const { [itemId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return prev;
     });
   }, []);
 
+  const setDelta = useCallback((itemId: string, delta: number) => {
+    setItemDeltas(prev => ({ ...prev, [itemId]: delta }));
+  }, []);
+
+  const handleDeltaText = useCallback((itemId: string, text: string) => {
+    setDraftText(prev => ({ ...prev, [itemId]: text }));
+    if (text === '' || text === '-') return;
+    const parsed = parseInt(text, 10);
+    if (Number.isFinite(parsed)) setDelta(itemId, parsed);
+  }, [setDelta]);
+
   const handleSave = useCallback(async () => {
-    if (!date) { Alert.alert('請選擇日期'); return; }
-    if (selectedItemIds.size === 0) { Alert.alert('請至少選擇一件單品'); return; }
+    const entries = Object.entries(itemDeltas).filter(([, delta]) => delta !== 0);
+    if (entries.length === 0) { Alert.alert('請至少選擇一件單品並填入次數'); return; }
+    const hasIncrease = entries.some(([, delta]) => delta > 0);
+    if (hasIncrease && !date) { Alert.alert('請選擇日期'); return; }
+
     setSaving(true);
     try {
-      const ids = Array.from(selectedItemIds);
-      for (const id of ids) await incrementUsageCount(db, id);
-      await logItemUsages(db, ids, date, 'manual-log');
-      router.back();
+      const cappedMessages: string[] = [];
+      for (const [itemId, delta] of entries) {
+        if (delta > 0) {
+          await logItemUsages(db, Array(delta).fill(itemId), date, 'manual-log');
+          for (let i = 0; i < delta; i++) await incrementUsageCount(db, itemId);
+        } else {
+          const wanted = -delta;
+          const removed = await removeManualLogUsages(db, itemId, wanted);
+          for (let i = 0; i < removed; i++) await decrementUsageCount(db, itemId);
+          if (removed < wanted) {
+            const item = allItems.find(i => i.id === itemId);
+            const label = item ? `${item.brand ? item.brand + ' ' : ''}${item.name}` : itemId;
+            cappedMessages.push(`${label} 只扣了 ${removed} 次，其餘為其他來源紀錄無法扣除`);
+          }
+        }
+      }
+      if (cappedMessages.length > 0) {
+        Alert.alert('部分次數無法扣除', cappedMessages.join('\n'), [
+          { text: '好', onPress: () => router.back() },
+        ]);
+      } else {
+        router.back();
+      }
     } catch (e) {
       Alert.alert('儲存失敗', e instanceof Error ? e.message : '請稍後再試');
     } finally {
       setSaving(false);
     }
-  }, [date, selectedItemIds, db, router]);
+  }, [date, itemDeltas, db, router, allItems]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
@@ -98,13 +141,13 @@ export default function ManualLogScreen() {
             onChangeText={setDate}
             placeholder="YYYY-MM-DD"
           />
-          <Text style={styles.hint}>格式：YYYY-MM-DD，例如 2026-07-01</Text>
+          <Text style={styles.hint}>格式：YYYY-MM-DD，例如 2026-07-01。日期僅用於新增次數，扣除次數不受日期影響</Text>
         </View>
 
         {/* 搭配單品 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            搭配單品{selectedItemIds.size > 0 ? `（已選 ${selectedItemIds.size} 件）` : ''}
+            搭配單品{Object.keys(itemDeltas).length > 0 ? `（已選 ${Object.keys(itemDeltas).length} 件）` : ''}
           </Text>
 
           <SearchBar value={itemQuery} onChangeText={setItemQuery} placeholder="搜尋品牌或名稱..." />
@@ -130,18 +173,29 @@ export default function ManualLogScreen() {
             ))}
           </ScrollView>
 
-          {/* 已選預覽列 */}
-          {selectedItemIds.size > 0 && (
+          {/* 已選預覽列：每件各自的次數 stepper */}
+          {Object.keys(itemDeltas).length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedRow}>
-              {allItems.filter(i => selectedItemIds.has(i.id)).map(item => {
+              {allItems.filter(i => i.id in itemDeltas).map(item => {
                 const uri = item.photoIds[0] ? getPhotoUri(item.photoIds[0]) : MISSING_URI;
+                const delta = itemDeltas[item.id];
                 return (
-                  <Pressable key={item.id} onPress={() => toggleItem(item.id)} style={styles.selectedThumbWrap}>
-                    <Image source={{ uri }} style={styles.selectedThumb} resizeMode="cover" />
-                    <View style={[styles.selectedThumbBadge, { backgroundColor: themeColor }]}>
-                      <Text style={styles.selectedThumbX}>✕</Text>
+                  <View key={item.id} style={styles.selectedThumbWrap}>
+                    <Pressable onPress={() => toggleItem(item.id)}>
+                      <Image source={{ uri }} style={styles.selectedThumb} resizeMode="cover" />
+                      <View style={[styles.selectedThumbBadge, { backgroundColor: themeColor }]}>
+                        <Text style={styles.selectedThumbX}>✕</Text>
+                      </View>
+                    </Pressable>
+                    <View style={styles.stepper}>
+                      <TextInput
+                        style={[styles.stepperInput, { borderColor: themeColor }]}
+                        value={draftText[item.id] ?? String(delta)}
+                        onChangeText={text => handleDeltaText(item.id, text)}
+                        keyboardType="numbers-and-punctuation"
+                      />
                     </View>
-                  </Pressable>
+                  </View>
                 );
               })}
             </ScrollView>
@@ -153,7 +207,7 @@ export default function ManualLogScreen() {
           ) : (
             <View style={styles.itemGrid}>
               {filteredItems.map(item => {
-                const checked = selectedItemIds.has(item.id);
+                const checked = item.id in itemDeltas;
                 const uri = item.photoIds[0] ? getPhotoUri(item.photoIds[0]) : MISSING_URI;
                 return (
                   <Pressable
@@ -164,7 +218,9 @@ export default function ManualLogScreen() {
                     <Image source={{ uri }} style={styles.itemCellPhoto} resizeMode="cover" />
                     {checked && (
                       <View style={[styles.itemCheckOverlay, { backgroundColor: themeColor }]}>
-                        <Text style={styles.itemCheckMark}>✓</Text>
+                        <Text style={styles.itemCheckMark}>
+                          {itemDeltas[item.id] > 0 ? `+${itemDeltas[item.id]}` : itemDeltas[item.id]}
+                        </Text>
                       </View>
                     )}
                     <Text style={styles.itemCellName} numberOfLines={1}>
@@ -220,6 +276,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   selectedThumbX: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  stepper: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginTop: 4,
+  },
+  stepperInput: {
+    width: 36, height: 22, fontSize: 12, color: '#333',
+    textAlign: 'center', paddingVertical: 0,
+    borderWidth: 1, borderRadius: 6,
+  },
   itemGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   itemCell: {
     width: ITEM_CELL_W, borderRadius: 8, overflow: 'hidden',
@@ -228,10 +293,10 @@ const styles = StyleSheet.create({
   itemCellPhoto: { width: ITEM_CELL_W, height: ITEM_CELL_H },
   itemCheckOverlay: {
     position: 'absolute', top: 5, right: 5,
-    width: 22, height: 22, borderRadius: 11,
+    minWidth: 22, height: 20, borderRadius: 10, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  itemCheckMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  itemCheckMark: { color: '#fff', fontSize: 11, fontWeight: '700' },
   itemCellName: {
     fontSize: 10, color: '#444', paddingHorizontal: 4, paddingVertical: 3, textAlign: 'center',
   },

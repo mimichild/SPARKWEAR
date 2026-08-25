@@ -55,3 +55,5 @@ yarn-error.*
 
 # Claude Code local settings
 .claude/settings.local.json
+.claude/hooks/
+.claude/.build-apk-lastdiff

@@ -39,8 +39,8 @@ export function PhotoCarousel({ photoPaths, accentColor = '#f1aba7' }: Props) {
   const startX     = useSharedValue(loop ? -SCREEN_W : 0);
 
   const pan = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-25, 25])
     .onStart(() => {
       'worklet';
       startX.value = translateX.value;
@@ -51,10 +51,10 @@ export function PhotoCarousel({ photoPaths, accentColor = '#f1aba7' }: Props) {
     })
     .onEnd(e => {
       'worklet';
-      const threshold = SCREEN_W * 0.3;
+      const threshold = SCREEN_W * 0.08;  // 只需滑一小段；快速輕掃也算
       let next = vIdx.value;
-      if (e.translationX < -threshold)      next = vIdx.value + 1;   // 左滑→下一張
-      else if (e.translationX > threshold)  next = vIdx.value - 1;   // 右滑→上一張
+      if (e.translationX < -threshold || e.velocityX < -400)      next = vIdx.value + 1;   // 左滑→下一張
+      else if (e.translationX > threshold || e.velocityX > 400)  next = vIdx.value - 1;   // 右滑→上一張
 
       // 超出 clone 邊界時限制到最近的 clone（0 或 total-1）
       next = Math.max(0, Math.min(total - 1, next));

@@ -283,7 +283,7 @@ export default function RankingTab() {
                 style={styles.row}
                 onPress={() => {
                   if (!entry.itemId) return;
-                  setItemNavIds([]);
+                  setItemNavIds([...new Set(ranked.map(r => r.itemId).filter((id): id is string => !!id))]);
                   router.push(`/closet/item/${entry.itemId}`);
                 }}
               >

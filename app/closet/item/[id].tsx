@@ -94,14 +94,14 @@ export default function ItemDetailScreen() {
   const { prevId, nextId } = getNeighborIds(itemNavIds, item.id);
   const goToItem = (targetId: string) => router.replace(`/closet/item/${targetId}`);
   const navPan = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-25, 25])
     .onEnd((e) => {
       'worklet';
-      const threshold = SCREEN_W * 0.25;
-      if (e.translationX < -threshold && nextId) {
+      const threshold = SCREEN_W * 0.08;  // 只需滑一小段；快速輕掃也算
+      if ((e.translationX < -threshold || e.velocityX < -400) && nextId) {
         runOnJS(goToItem)(nextId);
-      } else if (e.translationX > threshold && prevId) {
+      } else if ((e.translationX > threshold || e.velocityX > 400) && prevId) {
         runOnJS(goToItem)(prevId);
       }
     });

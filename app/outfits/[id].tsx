@@ -68,14 +68,14 @@ export default function OutfitDetailScreen() {
   const { prevId, nextId } = getNeighborIds(outfitNavIds, outfit.id);
   const goToOutfit = (targetId: string) => router.replace(`/outfits/${targetId}`);
   const navPan = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-25, 25])
     .onEnd((e) => {
       'worklet';
-      const threshold = SCREEN_W * 0.25;
-      if (e.translationX < -threshold && nextId) {
+      const threshold = SCREEN_W * 0.08;  // 只需滑一小段；快速輕掃也算
+      if ((e.translationX < -threshold || e.velocityX < -400) && nextId) {
         runOnJS(goToOutfit)(nextId);
-      } else if (e.translationX > threshold && prevId) {
+      } else if ((e.translationX > threshold || e.velocityX > 400) && prevId) {
         runOnJS(goToOutfit)(prevId);
       }
     });

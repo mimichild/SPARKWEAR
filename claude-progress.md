@@ -25,7 +25,7 @@
 - 本輪目標：iOS 2.1 版送審準備
 - 已完成：`app.json` version 2.0.0 → 2.1.0（9d0f230）；EAS production build ff16305e-3b39-48a2-9272-629416c58cc0 完成（2.1.0 build 9）；經使用者同意 `eas submit` 上傳 App Store Connect 成功（submission ed5e9bcf-38f8-48c5-ba8d-961f8241699d）
 - 執行過的驗證：`pnpm test`（24 suites、372 tests 全過）；`pnpm typecheck` 失敗於 `app/outfits/form.tsx:91`（Photo 缺 createdAt），為 b9675ac（2026-06-07）起的既有錯誤，不影響 Babel 建置，未處理
-- 待使用者在 ASC 完成：建立 2.1 版本、選 build 9、填更新說明、App 資訊名稱改為「SPARK WEAR 心動衣櫥」、提交審查
+- ASC：使用者回報已建立 2.1 版本（選 build 9、更新說明、名稱改為「SPARK WEAR 心動衣櫥」）並以「建立新提交項目」提交審查（避開 7/27 遺留的孤兒草稿）
 - 注意：runtimeVersion 採 appVersion 策略，2.1.0 為新 runtime，之後的 OTA 只會送達 2.1.0 使用者
 - 已知風險或未解決問題：上述既有型別錯誤待修
 

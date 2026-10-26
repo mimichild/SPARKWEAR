@@ -92,6 +92,7 @@ export default function OutfitFormScreen() {
         id: photoIdFromPath(path),
         path,
         mimeType: 'image/jpeg',
+        createdAt: outfit.createdAt,
       })));
     });
   }, [id, db]);

@@ -27,7 +27,8 @@
 - 執行過的驗證：`pnpm test`（24 suites、372 tests 全過）；`pnpm typecheck` 失敗於 `app/outfits/form.tsx:91`（Photo 缺 createdAt），為 b9675ac（2026-06-07）起的既有錯誤，不影響 Babel 建置，未處理
 - ASC：使用者回報已建立 2.1 版本（選 build 9、更新說明、名稱改為「SPARK WEAR 心動衣櫥」）並以「建立新提交項目」提交審查（避開 7/27 遺留的孤兒草稿）
 - 注意：runtimeVersion 採 appVersion 策略，2.1.0 為新 runtime，之後的 OTA 只會送達 2.1.0 使用者
-- 已知風險或未解決問題：上述既有型別錯誤待修
+- 追加：補 `createdAt: outfit.createdAt` 修正上述型別錯誤，`pnpm typecheck` 通過、`pnpm test` 372 passed；僅本機 commit，未建置、未發 OTA，不影響審核中的 2.1.0 (9)，待下次更新一併發布
+- 已知風險或未解決問題：ASC 上 7/27 遺留孤兒草稿，待 2.1 過審後移除
 
 ### 工作階段 039
 

@@ -28,7 +28,8 @@
 - 發布：Android APK `sparkwear-v2.0.0-20261026-1653.apk` 已上傳 Google Drive；使用者回報 iOS 注音輸入同樣問題（同一根因，打第一個注音符號即被重建），經使用者同意以 `eas update --channel production --platform ios` 推送 OTA（runtime 2.0.0，update group 0e3e0658-f266-4d4f-8aaf-59a9e7e97f5f），此次 OTA 同時帶上 da5ca14 的滑動手勢改動
 - 追加修正：使用者回報 iOS 可輸入但鍵盤遮住輸入框（Android 也有）；新增列從 FlatList footer 移到標題列下方固定位置（bec493d），不用 KeyboardAvoidingView 以避開 pageSheet／Android Modal 的位移計算問題。`pnpm test` 372 passed、tsc 無新增錯誤；APK `sparkwear-v2.0.0-20261026-1715.apk`；iOS OTA update group 3535d306-3fad-4565-8908-1bfc3725e128
 - 使用者實機回報：Android（1715 APK）新增輸入框已正常；iOS 可輸入但鍵盤收不起來、被遮住的清單項目捲不到（注音選字列為系統 UI 非 App 問題）。追加 94d85fe：FlatList 加 `keyboardDismissMode="on-drag"`、`automaticallyAdjustKeyboardInsets`，點標題列 `Keyboard.dismiss`；`pnpm test` 372 passed、tsc 無新增錯誤；iOS OTA update group b3231a8a-229f-4034-9984-74e83f518fdb（Android 未重新打包）
-- 已知風險或未解決問題：iOS 最新 OTA 尚未實機驗證
+- 使用者實機回報：iOS 收鍵盤已正常；新回報 iOS「刪除」無反應、分類/來源/顏色有時按了沒反應。根因：ConfirmDialog（Modal）放在編輯 pageSheet Modal 外層，iOS 已在呈現 pageSheet 時無法再彈出；兩個 pageSheet Modal 皆無 onRequestClose，下滑關閉後 state 仍為開啟，後續 Modal 呈現失敗（推測非今日改動造成，為既有問題）。修正 2a9e0d2：確認框移入編輯 Modal、補 onRequestClose、關閉時清除 deleteConfirmId；`pnpm test` 372 passed、tsc 無新增錯誤；APK `sparkwear-v2.0.0-20261026-1735.apk`；iOS OTA update group 86ef4600-1337-47e6-887e-46bcd01f6a10
+- 已知風險或未解決問題：iOS 最新 OTA 與 1735 APK 尚未實機驗證
 - 下一步最佳動作：使用者在 iOS（重開 App 兩次套用 OTA）用注音連續輸入、Android 安裝新 APK 確認；若 OTA 有問題可用 eas update:republish 回滾
 
 ### 工作階段 038

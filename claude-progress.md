@@ -27,7 +27,8 @@
 - 執行過的驗證：`pnpm test`（24 suites、372 tests 全過）；`npx tsc --noEmit -p .`（無新增型別錯誤）
 - 發布：Android APK `sparkwear-v2.0.0-20261026-1653.apk` 已上傳 Google Drive；使用者回報 iOS 注音輸入同樣問題（同一根因，打第一個注音符號即被重建），經使用者同意以 `eas update --channel production --platform ios` 推送 OTA（runtime 2.0.0，update group 0e3e0658-f266-4d4f-8aaf-59a9e7e97f5f），此次 OTA 同時帶上 da5ca14 的滑動手勢改動
 - 追加修正：使用者回報 iOS 可輸入但鍵盤遮住輸入框（Android 也有）；新增列從 FlatList footer 移到標題列下方固定位置（bec493d），不用 KeyboardAvoidingView 以避開 pageSheet／Android Modal 的位移計算問題。`pnpm test` 372 passed、tsc 無新增錯誤；APK `sparkwear-v2.0.0-20261026-1715.apk`；iOS OTA update group 3535d306-3fad-4565-8908-1bfc3725e128
-- 已知風險或未解決問題：Android 與 iOS 皆尚未實機驗證
+- 使用者實機回報：Android（1715 APK）新增輸入框已正常；iOS 可輸入但鍵盤收不起來、被遮住的清單項目捲不到（注音選字列為系統 UI 非 App 問題）。追加 94d85fe：FlatList 加 `keyboardDismissMode="on-drag"`、`automaticallyAdjustKeyboardInsets`，點標題列 `Keyboard.dismiss`；`pnpm test` 372 passed、tsc 無新增錯誤；iOS OTA update group b3231a8a-229f-4034-9984-74e83f518fdb（Android 未重新打包）
+- 已知風險或未解決問題：iOS 最新 OTA 尚未實機驗證
 - 下一步最佳動作：使用者在 iOS（重開 App 兩次套用 OTA）用注音連續輸入、Android 安裝新 APK 確認；若 OTA 有問題可用 eas update:republish 回滾
 
 ### 工作階段 038

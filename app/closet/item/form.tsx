@@ -565,6 +565,24 @@ export default function ItemFormScreen() {
               <Text style={[styles.modalCloseTxt, { color: themeColor }]}>完成</Text>
             </Pressable>
           </View>
+          {/* 新增列固定在清單上方：放在清單底部會被鍵盤遮住 */}
+          <View style={styles.addOptRow}>
+            <TextInput
+              style={styles.addOptInput}
+              value={editNewName}
+              onChangeText={setEditNewName}
+              placeholder="新增名稱"
+              returnKeyType="done"
+              onSubmitEditing={handleAddOption}
+            />
+            <Pressable
+              onPress={handleAddOption}
+              disabled={editAdding || !editNewName.trim()}
+              style={[styles.addOptBtn, { backgroundColor: themeColor }, (!editNewName.trim() || editAdding) && { opacity: 0.4 }]}
+            >
+              <Text style={styles.addOptBtnTxt}>新增</Text>
+            </Pressable>
+          </View>
           <FlatList
             data={editOptions}
             keyExtractor={item => item.id}
@@ -577,26 +595,6 @@ export default function ItemFormScreen() {
               </View>
             )}
             keyboardShouldPersistTaps="handled"
-            // 傳 element 而非函式：函式每次 render 都是新元件型別，打字時 TextInput 會被重建導致鍵盤收起
-            ListFooterComponent={
-              <View style={styles.addOptRow}>
-                <TextInput
-                  style={styles.addOptInput}
-                  value={editNewName}
-                  onChangeText={setEditNewName}
-                  placeholder="新增名稱"
-                  returnKeyType="done"
-                  onSubmitEditing={handleAddOption}
-                />
-                <Pressable
-                  onPress={handleAddOption}
-                  disabled={editAdding || !editNewName.trim()}
-                  style={[styles.addOptBtn, { backgroundColor: themeColor }, (!editNewName.trim() || editAdding) && { opacity: 0.4 }]}
-                >
-                  <Text style={styles.addOptBtnTxt}>新增</Text>
-                </Pressable>
-              </View>
-            }
           />
         </SafeAreaView>
       </Modal>
@@ -746,6 +744,7 @@ const styles = StyleSheet.create({
   deleteOptTxt: { fontSize: 13, color: '#e57373' },
   addOptRow: {
     flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#f0ede8',
   },
   addOptInput: {
     flex: 1, borderWidth: 1, borderColor: '#e6e6e6', borderRadius: 8,

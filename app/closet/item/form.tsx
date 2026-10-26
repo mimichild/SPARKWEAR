@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   StyleSheet, Alert, Modal, FlatList, Image,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -559,12 +559,12 @@ export default function ItemFormScreen() {
       {/* ── 編輯選項 Modal ── */}
       <Modal visible={editType !== null} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
+          <Pressable style={styles.modalHeader} onPress={Keyboard.dismiss}>
             <Text style={styles.modalTitle}>{editTitle}</Text>
             <Pressable onPress={() => setEditType(null)} style={styles.modalClose}>
               <Text style={[styles.modalCloseTxt, { color: themeColor }]}>完成</Text>
             </Pressable>
-          </View>
+          </Pressable>
           {/* 新增列固定在清單上方：放在清單底部會被鍵盤遮住 */}
           <View style={styles.addOptRow}>
             <TextInput
@@ -595,6 +595,9 @@ export default function ItemFormScreen() {
               </View>
             )}
             keyboardShouldPersistTaps="handled"
+            // 注音輸入時 iOS「完成」鍵只確認選字、不收鍵盤，提供下滑收鍵盤；並讓被鍵盤蓋住的項目仍可捲到
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
           />
         </SafeAreaView>
       </Modal>

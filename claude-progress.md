@@ -19,6 +19,15 @@
 
 ## 工作階段日誌
 
+### 工作階段 039
+
+- 日期：2026-10-26
+- 本輪目標：修正 Android 上「記錄新品」表單中分類／來源／顏色「編輯」Modal 的新增輸入框，打一個字鍵盤就收起的 bug
+- 已完成：`app/closet/item/form.tsx` 的 FlatList `ListFooterComponent` 原本傳入行內箭頭函式，每次 render 都是新的元件型別，打字觸發 state 更新後 TextInput 被卸載重建、失去焦點；改為直接傳 element，並加上 `keyboardShouldPersistTaps="handled"` 讓鍵盤開啟時按「新增」可一次生效。全專案搜尋確認沒有其他同樣寫法
+- 執行過的驗證：`pnpm test`（24 suites、372 tests 全過）；`npx tsc --noEmit -p .`（無新增型別錯誤）
+- 已知風險或未解決問題：尚未實機驗證（未建置 APK）
+- 下一步最佳動作：建置 APK 讓使用者在 Android 實機確認連續輸入不再收鍵盤
+
 ### 工作階段 038
 
 - 日期：2026-08-24

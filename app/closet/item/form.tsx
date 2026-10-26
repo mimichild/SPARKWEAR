@@ -576,7 +576,9 @@ export default function ItemFormScreen() {
                 </Pressable>
               </View>
             )}
-            ListFooterComponent={() => (
+            keyboardShouldPersistTaps="handled"
+            // 傳 element 而非函式：函式每次 render 都是新元件型別，打字時 TextInput 會被重建導致鍵盤收起
+            ListFooterComponent={
               <View style={styles.addOptRow}>
                 <TextInput
                   style={styles.addOptInput}
@@ -594,7 +596,7 @@ export default function ItemFormScreen() {
                   <Text style={styles.addOptBtnTxt}>新增</Text>
                 </Pressable>
               </View>
-            )}
+            }
           />
         </SafeAreaView>
       </Modal>

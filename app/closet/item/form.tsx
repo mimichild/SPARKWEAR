@@ -290,6 +290,10 @@ export default function ItemFormScreen() {
     : editType === 'origin' ? origins
     : editType === 'color' ? colors : [];
   const editTitle = editType === 'category' ? '編輯分類' : editType === 'origin' ? '編輯來源' : '編輯顏色';
+  const closeEditModal = () => {
+    setDeleteConfirmId(null);
+    setEditType(null);
+  };
   const deleteOptionName = editType === 'category'
     ? categories.find(c => c.id === deleteConfirmId)?.name
     : editType === 'origin'
@@ -517,7 +521,8 @@ export default function ItemFormScreen() {
       </KeyboardAvoidingView>
 
       {/* ── 選擇 Modal ── */}
-      <Modal visible={pickerType !== null} animationType="slide" presentationStyle="pageSheet">
+      {/* onRequestClose：iOS 下滑關閉 pageSheet 時同步 state，否則之後的 Modal 會開不起來 */}
+      <Modal visible={pickerType !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPickerType(null)}>
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
@@ -557,11 +562,11 @@ export default function ItemFormScreen() {
       </Modal>
 
       {/* ── 編輯選項 Modal ── */}
-      <Modal visible={editType !== null} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={editType !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeEditModal}>
         <SafeAreaView style={styles.modal}>
           <Pressable style={styles.modalHeader} onPress={Keyboard.dismiss}>
             <Text style={styles.modalTitle}>{editTitle}</Text>
-            <Pressable onPress={() => setEditType(null)} style={styles.modalClose}>
+            <Pressable onPress={closeEditModal} style={styles.modalClose}>
               <Text style={[styles.modalCloseTxt, { color: themeColor }]}>完成</Text>
             </Pressable>
           </Pressable>
@@ -600,6 +605,16 @@ export default function ItemFormScreen() {
             automaticallyAdjustKeyboardInsets
           />
         </SafeAreaView>
+        {/* iOS 已顯示 pageSheet 時無法再從外層彈出 Modal，確認框必須放在這個 Modal 裡面 */}
+        <ConfirmDialog
+          visible={!!deleteConfirmId}
+          title="刪除選項"
+          message={`確定刪除「${deleteOptionName ?? ''}」？`}
+          confirmLabel="刪除"
+          danger
+          onConfirm={() => deleteConfirmId && handleDeleteOption(deleteConfirmId)}
+          onCancel={() => setDeleteConfirmId(null)}
+        />
       </Modal>
 
       <PhotoEditorModal
@@ -608,16 +623,6 @@ export default function ItemFormScreen() {
         themeColor={themeColor}
         onComplete={handleEditorComplete}
         onCancel={() => setEditorVisible(false)}
-      />
-
-      <ConfirmDialog
-        visible={!!deleteConfirmId}
-        title="刪除選項"
-        message={`確定刪除「${deleteOptionName ?? ''}」？`}
-        confirmLabel="刪除"
-        danger
-        onConfirm={() => deleteConfirmId && handleDeleteOption(deleteConfirmId)}
-        onCancel={() => setDeleteConfirmId(null)}
       />
 
       <ProgressOverlay

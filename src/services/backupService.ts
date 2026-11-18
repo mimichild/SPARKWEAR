@@ -10,6 +10,7 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getItems } from './itemService';
+import { normalizeDateString } from '../utils/dateUtils';
 import { getOutfits } from './outfitService';
 import { getCategories, getOrigins, getColors } from './categoryService';
 import { getAllVoteCounts } from './itemService';
@@ -753,7 +754,7 @@ async function insertItems(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id, item.brand ?? null, item.name,
-        item.purchaseDate ?? null, item.purchaseTime ?? null,
+        item.purchaseDate ? normalizeDateString(item.purchaseDate) : null, item.purchaseTime ?? null,
         item.categoryId ?? null, item.originId ?? null,
         JSON.stringify(item.colorIds), item.grade ?? null,
         item.originalPrice ?? null, item.specialPrice ?? null, item.discountPrice ?? null,

@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Item, Season, Grade, SortOrder } from '../types';
 import { deletePhotos } from './photoService';
 import type { Photo } from '../types';
+import { normalizeDateString } from '../utils/dateUtils';
 
 // ── Serialization helpers ─────────────────────────────────────
 
@@ -10,7 +11,7 @@ function itemToRow(item: Omit<Item, 'id' | 'createdAt' | 'updatedAt'> & { id?: s
     id: item.id,
     brand: item.brand ?? null,
     name: item.name,
-    purchase_date: item.purchaseDate ?? null,
+    purchase_date: item.purchaseDate ? normalizeDateString(item.purchaseDate) : null,
     purchase_time: item.purchaseTime ?? null,
     category_id: item.categoryId ?? null,
     origin_id: item.originId ?? null,
@@ -51,7 +52,7 @@ function rowToItem(row: ItemRow): Item {
     id: row.id,
     brand: row.brand ?? undefined,
     name: row.name,
-    purchaseDate: row.purchase_date ?? undefined,
+    purchaseDate: row.purchase_date ? normalizeDateString(row.purchase_date) : undefined,
     purchaseTime: row.purchase_time ?? undefined,
     categoryId: row.category_id ?? undefined,
     originId: row.origin_id ?? undefined,
@@ -87,7 +88,24 @@ export async function getItems(
   const rows = await db.getAllAsync<ItemRow>(
     `SELECT * FROM items WHERE deleted_at IS NULL ORDER BY purchase_date ${order}, created_at ${order}`
   );
-  return rows.map(rowToItem);
+  // 舊資料可能存了未補零的日期（如 "2026-11-8"），SQL 文字排序會錯，
+  // 這裡用正規化後的日期再排一次（沒有購買日期的視為最舊，同日期依建立時間）。
+  const dir = sort === 'asc' ? 1 : -1;
+  const keyed = rows.map(r => ({
+    r,
+    date: r.purchase_date ? normalizeDateString(r.purchase_date) : null,
+  }));
+  keyed.sort((a, b) => {
+    if (a.date !== b.date) {
+      // 與 SQLite 一致：NULL 視為最小值（desc 排最後、asc 排最前）
+      if (a.date === null) return -dir;
+      if (b.date === null) return dir;
+      return a.date < b.date ? -dir : dir;
+    }
+    if (a.r.created_at === b.r.created_at) return 0;
+    return a.r.created_at < b.r.created_at ? -dir : dir;
+  });
+  return keyed.map(k => rowToItem(k.r));
 }
 
 export async function getItemById(

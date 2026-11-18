@@ -27,7 +27,7 @@
 - 已完成：新增 `src/utils/dateUtils.ts` `normalizeDateString`（補零、`/` `.` 轉 `-`，無法辨識的原樣保留）；`itemService` 寫入（itemToRow）與讀出（rowToItem）都正規化；`getItems` 以正規化日期在 JS 端重新排序（NULL 視為最小，與 SQLite 一致）；備份匯入 `insertItems` 也正規化。不修改資料庫既有內容
 - 執行過的驗證：新增 `itemService.dateSort.test.ts`（先 red 後 green）；`./init.sh` 384 tests passed；`pnpm typecheck` 通過；code-reviewer 審查後補上讀出正規化與備份匯入兩處
 - 追加（經使用者同意修改資料庫資料）：新增 db v9→v10 migration `normalizeStoredDates`（`src/services/dateNormalizationService.ts`），把 `items.purchase_date`、`outfits.date`、`item_usage_logs.logged_at` 中非 YYYY-MM-DD 的日期補零（只改格式）；穿搭日期（同為手動輸入）在 saveOutfit/updateOutfit/讀出、`logItemUsages`/`removeItemUsages`、備份匯入 outfits/usage logs 也一律正規化。新增 `dateNormalization.test.ts`（先 red 後 green）；`./init.sh` 391 tests passed；`pnpm typecheck` 通過；用 sqlite3 實跑 GLOB 篩選條件確認正確
-- 尚未建置 APK／發 OTA，待使用者實機確認
+- 已建置 APK `sparkwear-v2.1.0-20261118-1429.apk`（解開確認 bundle 含 v10 migration）；2026-11-18 使用者實機測試回報「測完了，沒問題」（排序、日期顯示、排行頁皆正常），實機驗證通過。尚未發 OTA／iOS build，待下次更新一併發布
 
 ### 工作階段 040
 

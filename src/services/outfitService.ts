@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Outfit, SortOrder } from '../types';
 import { decrementUsageCount } from './itemService';
 import { removeItemUsages } from './usageLogService';
+import { normalizeDateString } from '../utils/dateUtils';
 
 // ── Serialization ─────────────────────────────────────────────
 
@@ -16,7 +17,7 @@ type OutfitRow = {
 function rowToOutfit(row: OutfitRow): Outfit {
   return {
     id: row.id,
-    date: row.date,
+    date: normalizeDateString(row.date),
     time: row.time ?? undefined,
     weather: row.weather ?? undefined,
     temperature: row.temperature ?? undefined,
@@ -73,6 +74,7 @@ export async function saveOutfit(
 ): Promise<Outfit> {
   const id = `outfit-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const now = new Date().toISOString();
+  const date = normalizeDateString(data.date);
 
   await db.runAsync(
     `INSERT INTO outfits (
@@ -81,7 +83,7 @@ export async function saveOutfit(
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
-      data.date,
+      date,
       data.time ?? null,
       data.weather ?? null,
       data.temperature ?? null,
@@ -94,7 +96,7 @@ export async function saveOutfit(
     ]
   );
 
-  return { ...data, id, createdAt: now, updatedAt: now };
+  return { ...data, date, id, createdAt: now, updatedAt: now };
 }
 
 export async function updateOutfit(
@@ -115,7 +117,7 @@ export async function updateOutfit(
       photo_ids = ?, item_ids = ?, updated_at = ?
     WHERE id = ?`,
     [
-      merged.date,
+      normalizeDateString(merged.date),
       merged.time ?? null,
       merged.weather ?? null,
       merged.temperature ?? null,

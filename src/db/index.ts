@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { CREATE_TABLES_SQL } from './schema';
+import { normalizeStoredDates } from '../services/dateNormalizationService';
 export { DB_NAME } from './schema';
 import {
   DEFAULT_CATEGORIES,
@@ -117,6 +118,12 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
     // 見 usageLogService.ts removeManualUsageCountFeatureData 的說明
     await removeManualUsageCountFeatureData(db);
     await db.runAsync('PRAGMA user_version = 9');
+  }
+  if (current < 10) {
+    // v9 → v10：手動輸入的日期可能未補零（如 "2026-11-8"），文字排序／期間比對會錯，
+    // 見 dateNormalizationService.ts normalizeStoredDates 的說明
+    await normalizeStoredDates(db);
+    await db.runAsync('PRAGMA user_version = 10');
   }
 }
 

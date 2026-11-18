@@ -794,7 +794,7 @@ async function insertOutfits(
         (id, date, time, weather, temperature, county, place, note, photo_ids, item_ids, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        outfit.id, outfit.date, outfit.time ?? null,
+        outfit.id, normalizeDateString(outfit.date), outfit.time ?? null,
         outfit.weather ?? null, outfit.temperature ?? null,
         outfit.county ?? null, outfit.place ?? null, outfit.note ?? null,
         JSON.stringify(outfit.photoIds), JSON.stringify(outfit.itemIds),
@@ -823,7 +823,7 @@ async function insertUsageLogs(
     if (!validIds.has(log.itemId)) continue;
     await db.runAsync(
       'INSERT OR IGNORE INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
-      [log.id, log.itemId, log.loggedAt, log.source, log.createdAt]
+      [log.id, log.itemId, normalizeDateString(log.loggedAt), log.source, log.createdAt]
     );
   }
 }

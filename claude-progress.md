@@ -26,7 +26,7 @@
 - 根因：購買日期為手動輸入的 TEXT 欄位，存成未補零的 `2026-11-8`；SQL `ORDER BY purchase_date` 文字比較時 '8' > '1'，因此排在 `2026-11-19` 之前
 - 已完成：新增 `src/utils/dateUtils.ts` `normalizeDateString`（補零、`/` `.` 轉 `-`，無法辨識的原樣保留）；`itemService` 寫入（itemToRow）與讀出（rowToItem）都正規化；`getItems` 以正規化日期在 JS 端重新排序（NULL 視為最小，與 SQLite 一致）；備份匯入 `insertItems` 也正規化。不修改資料庫既有內容
 - 執行過的驗證：新增 `itemService.dateSort.test.ts`（先 red 後 green）；`./init.sh` 384 tests passed；`pnpm typecheck` 通過；code-reviewer 審查後補上讀出正規化與備份匯入兩處
-- 未處理（需使用者決定，涉及資料庫資料修改）：`item_usage_logs.logged_at` 中 v3→v4 migration（source='migration'）可能留有未補零日期，`getUsageCountsByPeriod` 以文字比對區間，這類紀錄的期間統計可能失準
+- 追加（經使用者同意修改資料庫資料）：新增 db v9→v10 migration `normalizeStoredDates`（`src/services/dateNormalizationService.ts`），把 `items.purchase_date`、`outfits.date`、`item_usage_logs.logged_at` 中非 YYYY-MM-DD 的日期補零（只改格式）；穿搭日期（同為手動輸入）在 saveOutfit/updateOutfit/讀出、`logItemUsages`/`removeItemUsages`、備份匯入 outfits/usage logs 也一律正規化。新增 `dateNormalization.test.ts`（先 red 後 green）；`./init.sh` 391 tests passed；`pnpm typecheck` 通過；用 sqlite3 實跑 GLOB 篩選條件確認正確
 - 尚未建置 APK／發 OTA，待使用者實機確認
 
 ### 工作階段 040

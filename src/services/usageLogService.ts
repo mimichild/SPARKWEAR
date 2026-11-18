@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { UsageLog } from '../types';
+import { normalizeDateString } from '../utils/dateUtils';
 
 export async function getAllUsageLogs(db: SQLiteDatabase): Promise<UsageLog[]> {
   const rows = await db.getAllAsync<{
@@ -25,7 +26,7 @@ export async function logItemUsages(
     const id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     await db.runAsync(
       'INSERT INTO item_usage_logs (id, item_id, logged_at, source, created_at) VALUES (?, ?, ?, ?, ?)',
-      [id, itemId, date, source, now]
+      [id, itemId, normalizeDateString(date), source, now]
     );
   }
 }
@@ -43,7 +44,7 @@ export async function removeItemUsages(
          WHERE item_id = ? AND logged_at = ? AND source = ?
          LIMIT 1
        )`,
-      [itemId, date, source]
+      [itemId, normalizeDateString(date), source]
     );
   }
 }
